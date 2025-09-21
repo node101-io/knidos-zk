@@ -1,0 +1,26 @@
+{
+  "name": "proof-submission",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "nargo test --show-output",
+    "execute": "nargo execute",
+    "prove": "bb prove -s ultra_honk -b ./target/hello_world.json -w ./target/hello_world.gz -o ./target --oracle_hash keccak --zk",
+    "vk": "bb write_vk -s ultra_honk -b ./target/hello_world.json -o ./target --oracle_hash keccak",
+    "convert": "{ printf \"0x\"; xxd -p -c 256 \"./target/proof\" | tr -d '\\n'; echo; } > \"./target/zkv_proof.hex\" && { printf \"0x\"; xxd -p -c 256 \"./target/vk\" | tr -d '\\n'; echo; } > \"./target/zkv_vk.hex\" && { printf \"0x\"; xxd -p -c 256 \"./target/public_inputs\" | tr -d '\\n'; echo; } > \"./target/zkv_pubs.hex\"",
+    "all": "npm run test && npm run execute && npm run prove && npm run vk && npm run convert",
+    "submit": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "type": "module",
+  "dependencies": {
+    "@aztec/bb.js": "^2.0.3",
+    "@zk-kit/lean-imt": "^2.2.4",
+    "dotenv": "^17.2.2",
+    "poseidon-lite": "^0.3.0",
+    "zkverifyjs": "^1.0.0"
+  }
+}
