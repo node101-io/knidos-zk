@@ -78,7 +78,7 @@ async function main() {
               eventData.data.aggregationId.replace(/,/g, "")
             ),
           };
-          fs.writeFileSync("aggregation.json", JSON.stringify(statementproof));
+          fs.writeFileSync("./aggregation.json", JSON.stringify(statementproof));
         }
       },
       options: { domainId: 0 },
