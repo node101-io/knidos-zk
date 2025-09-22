@@ -56,8 +56,11 @@ async function main() {
     const left = keccak256Buf(
       concatBytes(toBytes32BE(data.chain_id), toBytes32BE(data.sender))
     );
-    const right = keccak256Buf(
+    const right1 = keccak256Buf(
       concatBytes(toBytes32BE(data.time), toBytes32BE(data.amount))
+    );
+    const right = keccak256Buf(
+      concatBytes(right1, toBytes32BE(data.token_id))
     );
     const finalHash = keccak256Buf(concatBytes(left, right));
     return bytesToFieldBE(finalHash);
@@ -69,7 +72,10 @@ async function main() {
     sender: BigInt(11 + i),
     time: BigInt(1000 + i),
     amount: BigInt(i),
+    token_id: 100n,
   }));
+
+  const allowedTokens = [100n, 200n, 300n];
 
   const leaves = txDatas.map(hashTxData);
 
@@ -102,6 +108,11 @@ async function main() {
   let toml = "";
   toml += `# public inputs\n`;
   toml += `merkle_root = "${toDec(root)}"\n\n`;
+  toml += `allowed_tokens = [\n`;
+  toml += `  "${toDec(allowedTokens[0])}",\n`;
+  toml += `  "${toDec(allowedTokens[1])}",\n`;
+  toml += `  "${toDec(allowedTokens[2])}",\n`;
+  toml += `]\n\n`;
   toml += `# private inputs\n`;
   for (let i = 0; i < 8; i++) {
     const d = txDatas[i];
@@ -113,6 +124,7 @@ async function main() {
     toml += `sender = "${toDec(d.sender)}"\n`;
     toml += `time = "${toDec(d.time)}"\n`;
     toml += `amount = "${toDec(d.amount)}"\n`;
+    toml += `token_id = "${toDec(d.token_id)}"\n`;
     toml += `[txs.merkle_witness]\n`;
     toml += `leaf = "${toDec(leaf)}"\n`;
     toml += `index = "${i}"\n`;

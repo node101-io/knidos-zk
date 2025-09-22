@@ -13,6 +13,7 @@ pub struct TxData {
     sender: Field,
     time: Field,
     amount: Field,
+    token_id: Field,
 }
 
 struct MerkleWitness {
@@ -21,12 +22,20 @@ struct MerkleWitness {
     siblings: [Field; 3],
 }
 
-fn main(merkle_root: pub Field, txs: [Tx; 8]) -> pub Field {
+fn main(merkle_root: pub Field, allowed_tokens: pub [Field; 3], txs: [Tx; 8]) -> pub Field {
     let mut merkle_tree = MerkleTree::from(merkle_root, hasher);
 
     let mut sum = 0;
     for tx in txs {
         assert(tx.merkle_witness.leaf == hash_tx_data(tx.tx_data));
+
+        let mut is_allowed = false;
+        for token in allowed_tokens {
+            if token == tx.tx_data.token_id {
+                is_allowed = true;
+            }
+        }
+        assert(is_allowed);
 
         merkle_tree.membership(
             tx.merkle_witness.leaf,
@@ -44,14 +53,14 @@ fn main(merkle_root: pub Field, txs: [Tx; 8]) -> pub Field {
 fn test_main() {
     // Define 8 transactions with incremental amounts 0..7
     let tx_datas: [TxData; 8] = [
-        TxData { chain_id: 1, sender: 11, time: 1000, amount: 0 },
-        TxData { chain_id: 1, sender: 12, time: 1001, amount: 1 },
-        TxData { chain_id: 1, sender: 13, time: 1002, amount: 2 },
-        TxData { chain_id: 1, sender: 14, time: 1003, amount: 3 },
-        TxData { chain_id: 1, sender: 15, time: 1004, amount: 4 },
-        TxData { chain_id: 1, sender: 16, time: 1005, amount: 5 },
-        TxData { chain_id: 1, sender: 17, time: 1006, amount: 6 },
-        TxData { chain_id: 1, sender: 18, time: 1007, amount: 7 },
+        TxData { chain_id: 1, sender: 11, time: 1000, amount: 0, token_id: 100 },
+        TxData { chain_id: 1, sender: 12, time: 1001, amount: 1, token_id: 100 },
+        TxData { chain_id: 1, sender: 13, time: 1002, amount: 2, token_id: 100 },
+        TxData { chain_id: 1, sender: 14, time: 1003, amount: 3, token_id: 100 },
+        TxData { chain_id: 1, sender: 15, time: 1004, amount: 4, token_id: 100 },
+        TxData { chain_id: 1, sender: 16, time: 1005, amount: 5, token_id: 100 },
+        TxData { chain_id: 1, sender: 17, time: 1006, amount: 6, token_id: 100 },
+        TxData { chain_id: 1, sender: 18, time: 1007, amount: 7, token_id: 100 },
     ];
 
     // Compute leaf hashes for each transaction
@@ -102,5 +111,7 @@ fn test_main() {
         Tx { tx_data: tx_datas[7], merkle_witness: witnesses[7] },
     ];
 
-    assert(main(root, txs) == 28);
+    let allowed_tokens: [Field; 3] = [100, 200, 300];
+
+    assert(main(root, allowed_tokens, txs) == 28);
 }
