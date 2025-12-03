@@ -50,7 +50,8 @@ function parsePublicSignalsFile(content) {
 async function main() {
   const session = await zkVerifySession
     .start()
-    .Volta()
+    // .Volta() // Testnet
+    .zkVerify()  // Mainnet
     .withAccount(process.env.SEED_PHRASE);
 
   let statement, aggregationId;
