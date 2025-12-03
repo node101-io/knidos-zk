@@ -18,11 +18,11 @@
   "description": "",
   "type": "module",
   "dependencies": {
-    "@aztec/bb.js": "^2.0.3",
+    "@aztec/bb.js": "^2.1.8",
     "@zk-kit/lean-imt": "^2.2.4",
-    "dotenv": "^17.2.2",
+    "dotenv": "^17.2.3",
     "js-sha3": "^0.9.3",
     "poseidon-lite": "^0.3.0",
-    "zkverifyjs": "^1.0.0"
+    "zkverifyjs": "^2.1.0"
   }
 }

@@ -5,6 +5,5 @@ authors = [""]
 
 [dependencies]
 poseidon = { tag = "v0.1.1", git = "https://github.com/noir-lang/poseidon" }
-trees = { git = "https://github.com/privacy-scaling-explorations/zk-kit.noir", tag = "merkle-trees-v0.0.1", directory = "packages/merkle-trees" }
-sha256 = { tag = "v0.2.1", git = "https://github.com/noir-lang/sha256" }
+trees = { git = "https://github.com/zk-kit/zk-kit.noir", tag = "merkle-trees-v0.0.1", directory = "packages/merkle-trees" }
 keccak256 = { tag = "v0.1.1", git = "https://github.com/noir-lang/keccak256" }

@@ -1,6 +1,6 @@
 import "dotenv/config";
 import fs from "fs";
-import { zkVerifySession, ZkVerifyEvents } from "zkverifyjs";
+import { zkVerifySession, ZkVerifyEvents, UltrahonkVariant } from "zkverifyjs";
 
 const proof = fs.readFileSync("./target/zkv_proof.hex", "utf-8");
 const publicInputs = fs.readFileSync("./target/zkv_pubs.hex", "utf-8");
@@ -87,7 +87,9 @@ async function main() {
 
   const { events } = await session
     .verify()
-    .ultrahonk()
+    .ultrahonk({
+      variant: UltrahonkVariant.ZK
+    })
     .execute({
       proofData: {
         vk: vk.split("\n")[0],
@@ -101,6 +103,7 @@ async function main() {
     console.log("Included in block", eventData);
     statement = eventData.statement;
     aggregationId = eventData.aggregationId;
+    process.exit(0);
   })
 }
 
