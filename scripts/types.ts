@@ -1,5 +1,4 @@
-
-type UserFill = {
+export interface UserFill {
   coin: string;
   px: string;
   sz: string;
@@ -17,7 +16,7 @@ type UserFill = {
   twapId?: number | null;
 };
 
-type NormalizedFill = {
+export interface NormalizedFill  {
   coin: string;
   px: string;   //  Executed price
   sz: string;   //  Executed size/amount

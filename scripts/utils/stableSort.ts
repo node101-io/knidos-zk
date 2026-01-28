@@ -1,8 +1,9 @@
-import type { NormalizedFills } from "../types"
+import type { NormalizedFill } from "../types"
 
-export function stableSort(fills:NormalizedFills[]): NormalizedFills {
+export function stableSort(fills:NormalizedFill[]): NormalizedFill[] {
   if (fills.length === 0)
     return [];
+
   return fills
       .map((fill, index) => ({ fill, index }))
       .sort((a, b) => {
