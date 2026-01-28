@@ -1,4 +1,4 @@
-import type { NormalizedFill } from "../types"
+import type { NormalizedFill } from "../types.ts"
 
 export function stableSort(fills:NormalizedFill[]): NormalizedFill[] {
   if (fills.length === 0)

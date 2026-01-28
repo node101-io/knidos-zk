@@ -3,10 +3,10 @@ import axios from "axios";
 import type {
   UserFill,
   NormalizedFill
-} from "../types";
+} from "../types.ts";
 
-import { normalizeFill } from "../utils/normalizeFills";
-import { stableSort } from "../utils/stableSort";
+import { normalizeFill } from "../utils/normalizeFills.ts";
+import { stableSort } from "../utils/stableSort.ts";
 
 const TIMEOUT = 30_000;
 

@@ -33,4 +33,4 @@ export interface NormalizedFill  {
 
 export interface CallbackFills {
   (err: string | null, fills?: NormalizedFill[]): void;
-}
+};

@@ -1,7 +1,7 @@
 import type {
   UserFill,
   NormalizedFill
-} from "../types";
+} from "../types.ts";
 
 export function normalizeFill(fill: UserFill): NormalizedFill {
   if (fill.coin === undefined || fill.px === undefined || fill.sz === undefined || fill.side === undefined || fill.time === undefined || fill.hash === undefined || fill.oid === undefined ||fill.tid === undefined)

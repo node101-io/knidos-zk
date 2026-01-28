@@ -1,8 +1,8 @@
-import { fetchAndNormalizeFills } from "../core/fetchAndNormalizeFills";
-import {
+import { fetchAndNormalizeFills } from "../core/fetchAndNormalizeFills.ts";
+import type {
   NormalizedFill,
   CallbackFills
-} from "../types";
+} from "../types.ts";
 
 export function fetchHyperliquidFills (apiUrl: string, userAddress: string, callback?: CallbackFills) : Promise<NormalizedFill[]> | void {
   if(!callback)
