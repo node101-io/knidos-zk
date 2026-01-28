@@ -30,3 +30,7 @@ export interface NormalizedFill  {
   dir: string;  //  Direction / action type
   closedPnl: string;  //  Realized profit/loss from closing part of a position on this fill.
 };
+
+export interface CallbackFills {
+  (err: string | null, fills?: NormalizedFill[]): void;
+}
