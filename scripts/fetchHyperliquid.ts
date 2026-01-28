@@ -7,7 +7,7 @@ type UserFill = {
   coin: string;
   px: string;
   sz: string;
-  side: string; // "A" | "B" (but keep string to be safe)
+  side: string; // "A" | "B"
   time: number;
   startPosition?: string;
   dir?: string;
