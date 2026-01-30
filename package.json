@@ -4,6 +4,7 @@
     "fetch:hyperliquid": "ts-node scripts/main.ts"
   },
   "dependencies": {
+    "@primuslabs/network-core-sdk": "^0.1.6",
     "axios": "^1.13.2",
     "dotenv": "^17.2.3"
   },
