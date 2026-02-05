@@ -1,5 +1,7 @@
 import axios from "axios";
-// import "dotenv/config";
+import "dotenv/config";
+import { writeFile } from "fs/promises";
+
 import type {
   UserFill,
   NormalizedFill
@@ -7,7 +9,7 @@ import type {
 
 import { normalizeFill } from "../utils/normalizeFills.ts";
 import { stableSort } from "../utils/stableSort.ts";
-// import { sha256Raw } from "../utils/hashRawResponse.ts";
+import { sha256Raw } from "../utils/hashRawResponse.ts";
 const TIMEOUT = 30_000;
 
 export async function fetchAndNormalizeFills (apiUrl: string, userAddress: string) : Promise<NormalizedFill[]> {
@@ -22,13 +24,7 @@ export async function fetchAndNormalizeFills (apiUrl: string, userAddress: strin
         "Accept": "application/json",
     },
     timeout:TIMEOUT,
-    // responseType: "arraybuffer",
   })
-  // const rawBuffer = Buffer.from(response.data);
-
-  // // --- Primus-compatible hash ---
-  // const rawHash = sha256Raw(rawBuffer);
-  // console.log(rawHash);
 
   if (!Array.isArray(response.data)) {
     throw new Error("bad_request");

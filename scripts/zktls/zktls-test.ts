@@ -5,9 +5,8 @@ async function main() {
   console.log("Starting zkTLS attestation");
 
   const result = await attestHyperliquidUserFills();
+  console.log(result)
 
-  console.log("Attestation finished");
-  console.log(JSON.stringify(result, null, 2));
 }
 
 main().catch((err) => {

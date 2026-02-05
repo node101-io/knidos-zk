@@ -7,7 +7,7 @@ import { requireEnv } from "./utils/requireEnv.ts";
 
 async function main(): Promise<void> {
   const apiUrl = requireEnv("HYPERLIQUID_API_URL");
-  const userAddress = requireEnv("USER_ADDRESS");
+  const userAddress = requireEnv("HYPERLIQUID_USER_ADDRESS");
   const outputDir = requireEnv("OUTPUT_DIR");
 
   const fills = await fetchHyperliquidFills(apiUrl, userAddress);

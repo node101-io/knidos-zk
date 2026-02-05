@@ -3,16 +3,19 @@ import { ethers } from "ethers";
 
 import { requireEnv } from "../utils/requireEnv.ts";
 
-export async function attestHyperliquidUserFills(): Promise<unknown> {
-  const PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
-  const USER_ADDRESS = requireEnv("USER_ADDRESS");
+import type { VerifiedHyperliquidAttestation } from "../types.ts"
+
+export async function attestHyperliquidUserFills(): Promise<VerifiedHyperliquidAttestation> {
+  const PRIMUS_PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
+  const PRIMUS_USER_ADDRESS = requireEnv("PRIMUS_USER_ADDRESS");
+  const HYPERLIQUID_USER_ADDRESS = requireEnv("HYPERLIQUID_USER_ADDRESS");
   const HYPERLIQUID_API_URL = requireEnv("HYPERLIQUID_API_URL");
 
   const CHAIN_ID = Number(process.env.CHAIN_ID ?? "84532");
   const RPC_URL = process.env.RPC_URL ?? "https://sepolia.base.org";
 
   const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
-  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+  const wallet = new ethers.Wallet(PRIMUS_PRIVATE_KEY, provider);
 
   const primus = new PrimusNetwork();
   await primus.init(wallet, CHAIN_ID);
@@ -24,10 +27,10 @@ export async function attestHyperliquidUserFills(): Promise<unknown> {
       header: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
+      body: {
         type: "userFills",
-        user: USER_ADDRESS,
-      }),
+        user: HYPERLIQUID_USER_ADDRESS,
+      },
     },
   ];
 
@@ -39,47 +42,66 @@ export async function attestHyperliquidUserFills(): Promise<unknown> {
         parsePath: "$",
         op: "SHA256",
       },
+      {
+        keyName: "user_commitment",
+        parseType: "json",
+        parsePath: "^.user",
+        op: "SHA256_WITH_SALT",
+      },
     ],
   ];
 
   const submitTaskResult = await primus.submitTask({
-    address: USER_ADDRESS,
+    address: PRIMUS_USER_ADDRESS,
   });
-  console.log("Submit task result:", submitTaskResult);
 
   const {
     taskId,
     taskTxHash,
     taskAttestors,
-    reportTxHash,
   } = submitTaskResult as {
     taskId: string;
     taskTxHash: string;
     taskAttestors: string[];
-    reportTxHash: string;
   }
   const attestResult = await primus.attest({
-    address: USER_ADDRESS,
+    address: PRIMUS_USER_ADDRESS,
     taskId,
     taskTxHash,
     taskAttestors,
     requests,
     responseResolves,
+    extendedParams: JSON.stringify({ attUrlOptimization: true }),
+    getAllJsonResponse: "true",
     attMode: {
       algorithmType: "proxytls",
       resultType: "plain",
     },
   });
-  const fullResponse = await primus.getAllJsonResponse(taskId);
-  console.log(fullResponse);
 
-  console.log("Attest result:", attestResult);
-  return attestResult;
-  // const verifiedResult = await primus.verifyAndPollTaskResult({
-  //   taskId,
-  //   reportTxHash,
-  // });
-  // console.log("Task result:", verifiedResult);
+  const reportTxHash = attestResult[0].reportTxHash;
 
-  // return verifiedResult;
+  const verifiedResultraw = await primus.verifyAndPollTaskResult({
+    taskId,
+    reportTxHash,
+  });
+
+  const verified = verifiedResultraw[0];
+  const attestation = verified.attestation;
+  const attData = JSON.parse(attestation.data);
+
+  const verifiedHyperliquidAttestationResult = {
+    taskId,
+    reportTxHash,
+    attestor: verified.attestor,
+    recipient: attestation.recipient,
+    chainId: CHAIN_ID,
+
+    addressCommitment: attData["user_commitment"],
+    fillsCommitment: attData["SHA256($)"],
+
+    verifiedResult: JSON.stringify(verifiedResultraw, null),
+  }
+
+  return verifiedHyperliquidAttestationResult;
 }
