@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   const addressCommitment = getAddressCommitment(zktlsVerifiedResult);
   const fillsCommitment = getFillsCommitment(zktlsVerifiedResult);
 
-  const hyperliquidWitness = await getHyperliquidWitness(primus, zktlsVerifiedResult.taskId, HYPERLIQUID_USER_ADDRESS);
+  const hyperliquidWitness = getHyperliquidWitness(primus, zktlsVerifiedResult.taskId, HYPERLIQUID_USER_ADDRESS);
 
   const _salt = hyperliquidWitness.salt;
 
