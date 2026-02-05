@@ -5,20 +5,19 @@ import { requireEnv } from "../scripts/utils/requireEnv.ts";
 
 import type { VerifiedHyperliquidAttestation } from "../scripts/types.ts"
 
-export async function attestHyperliquidUserFills(): Promise<VerifiedHyperliquidAttestation> {
-  const PRIMUS_PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
+export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID: number): Promise<VerifiedHyperliquidAttestation> {
+  // const PRIMUS_PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
   const PRIMUS_USER_ADDRESS = requireEnv("PRIMUS_USER_ADDRESS");
   const HYPERLIQUID_USER_ADDRESS = requireEnv("HYPERLIQUID_USER_ADDRESS");
   const HYPERLIQUID_API_URL = requireEnv("HYPERLIQUID_API_URL");
 
-  const CHAIN_ID = Number(process.env.CHAIN_ID ?? "84532");
   const RPC_URL = process.env.RPC_URL ?? "https://sepolia.base.org";
 
   const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
-  const wallet = new ethers.Wallet(PRIMUS_PRIVATE_KEY, provider);
+  // const wallet = new ethers.Wallet(PRIMUS_PRIVATE_KEY, provider);
 
-  const primus = new PrimusNetwork();
-  await primus.init(wallet, CHAIN_ID);
+  // const primus = new PrimusNetwork();
+  // await primus.init(wallet, CHAIN_ID);
 
   const requests = [
     {

@@ -1,3 +1,6 @@
+//TODO: We no longer need normalization
+//you might delete this file entirely.
+//check it at the end
 import type { NormalizedFill } from "../types.ts"
 
 export function stableSort(fills:NormalizedFill[]): NormalizedFill[] {

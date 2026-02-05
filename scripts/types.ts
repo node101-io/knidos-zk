@@ -1,20 +1,5 @@
 export type RawFills =  Uint8Array;
 
-export interface VerifiedHyperliquidAttestation {
-  taskId: string;
-  reportTxHash: string;
-  attestor: string;
-  recipient: string;
-  chainId: number;
-
-  addressCommitment: string; // user_commitment
-  fillsCommitment: string;   // SHA256($)
-
-  // Raw verified result, right now it is optional
-  // TODO: Check this is usefull or not
-  verifiedResult: unknown;
-}
-
 export interface UserFill {
   coin: string;
   px: string;
@@ -51,3 +36,22 @@ export interface NormalizedFill  {
 export interface CallbackFills {
   (err: string | null, fills?: RawFills): void;
 };
+export interface VerifiedHyperliquidAttestation {
+  taskId: string;
+  reportTxHash: string;
+  attestor: string;
+  recipient: string;
+  chainId: number;
+
+  addressCommitment: string; // user_commitment
+  fillsCommitment: string;   // SHA256($)
+
+  // Raw verified result, right now it is optional
+  // TODO: Check this is usefull or not
+  verifiedResult: unknown;
+}
+
+export interface HyperliquidWitness {
+  userAddress: string;
+  salt: string;
+}
