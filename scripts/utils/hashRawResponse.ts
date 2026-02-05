@@ -1,7 +1,8 @@
 import { createHash } from "crypto";
+import type { RawFills } from "../types.ts";
 
-export function sha256Raw(buffer: Buffer | Uint8Array): string {
+export function sha256Raw(rawResponse: RawFills): string {
   return createHash("sha256")
-    .update(buffer)
+    .update(rawResponse)
     .digest("hex");
 }

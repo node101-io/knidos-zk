@@ -1,29 +1,20 @@
-import * as fs from "fs";
-import * as path from "path";
 import "dotenv/config";
 
 import { fetchHyperliquidFills } from "./api/fetchHyperliquidFills.ts";
 import { requireEnv } from "./utils/requireEnv.ts";
+import { attestHyperliquidUserFills } from "../zktls/attestHyperliquid.ts";
+import { sha256Raw } from "./utils/hashRawResponse.ts";
 
 async function main(): Promise<void> {
   const apiUrl = requireEnv("HYPERLIQUID_API_URL");
   const userAddress = requireEnv("HYPERLIQUID_USER_ADDRESS");
-  const outputDir = requireEnv("OUTPUT_DIR");
 
-  const fills = await fetchHyperliquidFills(apiUrl, userAddress);
+  const RawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress);
 
-  fs.mkdirSync(outputDir, { recursive: true });
+  const fillsHash = sha256Raw(RawfillsResponse!); // TODO: Ask Necip
+  const zktlsVerifiedResult = await attestHyperliquidUserFills(); // Public input
 
-  const outPath = path.join(
-    outputDir,
-    "hyperliquid_userfills_normalized.json"
-  );
 
-  fs.writeFileSync(
-    outPath,
-    JSON.stringify(fills, null, 2),
-    "utf-8"
-  );
 
 }
 

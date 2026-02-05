@@ -1,4 +1,4 @@
-import { attestHyperliquidUserFills } from "./attestHyperliquid.ts";
+import { attestHyperliquidUserFills } from "../zktls/attestHyperliquid.ts";
 import "dotenv/config";
 
 async function main() {

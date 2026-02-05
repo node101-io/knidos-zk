@@ -1,15 +1,17 @@
-import { fetchAndNormalizeFills } from "../core/fetchAndNormalizeFills.ts";
+import { fetchRawFills } from "../core/fetchRawFills.ts";
 
 import type {
   NormalizedFill,
-  CallbackFills
+  CallbackFills,
+  RawFills
 } from "../types.ts";
 
-export function fetchHyperliquidFills (apiUrl: string, userAddress: string, callback?: CallbackFills) : Promise<NormalizedFill[]> | void {
+export function fetchHyperliquidFills (apiUrl: string, userAddress: string, callback?: CallbackFills) : Promise<RawFills> | void{
   if(!callback)
-  //   return fetchAndNormalizeFills(apiUrl, userAddress);
+    return fetchRawFills(apiUrl, userAddress);
 
-  // fetchAndNormalizeFills(apiUrl, userAddress)
-  //   .then(fills => callback(null, fills))
-  //   .catch(err => callback(err));
+  fetchRawFills(apiUrl, userAddress)
+    .then(fills => callback(null, fills))
+    .catch(err => callback(err));
+  return;
 }

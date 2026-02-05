@@ -1,9 +1,9 @@
 import { PrimusNetwork } from "@primuslabs/network-core-sdk";
 import { ethers } from "ethers";
 
-import { requireEnv } from "../utils/requireEnv.ts";
+import { requireEnv } from "../scripts/utils/requireEnv.ts";
 
-import type { VerifiedHyperliquidAttestation } from "../types.ts"
+import type { VerifiedHyperliquidAttestation } from "../scripts/types.ts"
 
 export async function attestHyperliquidUserFills(): Promise<VerifiedHyperliquidAttestation> {
   const PRIMUS_PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");

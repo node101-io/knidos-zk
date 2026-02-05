@@ -1,6 +1,4 @@
-export type RawFills = {
-  rawBuffer: Buffer;
-};
+export type RawFills =  Uint8Array;
 
 export interface VerifiedHyperliquidAttestation {
   taskId: string;
@@ -51,5 +49,5 @@ export interface NormalizedFill  {
 };
 
 export interface CallbackFills {
-  (err: string | null, fills?: NormalizedFill[]): void;
+  (err: string | null, fills?: RawFills): void;
 };

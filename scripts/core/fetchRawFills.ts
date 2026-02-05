@@ -2,6 +2,7 @@ import axios from "axios"
 import "dotenv/config";
 
 import type { RawFills } from "../types.ts"
+// import { sha256Raw } from "../utils/hashRawResponse.ts";
 
 const TIMEOUT = 30_000;
 
@@ -21,7 +22,6 @@ export async function fetchRawFills (apiUrl: string, userAddress:string) : Promi
     transformResponse: r => r,
   });
 
-  const rawBuffer = Buffer.from(response.data);
-
-  return rawBuffer;
+  const rawBuffer = new Uint8Array(response.data);
+  return rawBuffer; //TODO: you can also return the metada like timestamp etc.
 }
