@@ -2,3 +2,5 @@ node_modules
 dist
 .env
 proofs/*.json
+circuit/Prover.toml
+circuit/target
