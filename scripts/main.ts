@@ -80,6 +80,7 @@ async function main(): Promise<void> {
     fillsCommitment   = ${JSON.stringify(Array.from(fillsCommitmentBytes))}
     rawFills = ${JSON.stringify(Array.from(rawFillsBytes))}
     rawFillsLength = ${rawFillsLength}
+    addressAndSaltLength = 58
     `
   );
 }

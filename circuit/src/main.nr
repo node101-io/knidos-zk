@@ -34,7 +34,7 @@ fn enforceZeroPadding(
 }
 
 
-fn main(addressCommitment: pub [u8; 32], fillsCommitment: pub [u8; 32], address: [u8; 42], salt: [u8; 16], rawFills: [u8; 4096], rawFillsLength: u32,){
+fn main(addressCommitment: pub [u8; 32], fillsCommitment: pub [u8; 32], address: [u8; 42], salt: [u8; 16], rawFills: [u8; 4096], rawFillsLength: u32, addressAndSaltLength: u32) -> pub ([u8; 32]) {
     assert(rawFillsLength <= 4096 as u32);
 
     // padding constraint
@@ -45,7 +45,8 @@ fn main(addressCommitment: pub [u8; 32], fillsCommitment: pub [u8; 32], address:
     assertEqual32(fillsHash, fillsCommitment);
     // address commitment
     let concatedAddressAndSalt = concatAddressAndSalt(address, salt);
-    let lenghtAddressAndSalt = concatedAddressAndSalt.len(); // TODO: Check Noir examples for this problem
-    let concatedAddressAndSaltHash = sha256_var(concatedAddressAndSalt, lenghtAddressAndSalt);
+    // // let lenghtAddressAndSalt = concatedAddressAndSalt.len(); // TODO: Check Noir examples for this problem
+    let concatedAddressAndSaltHash = sha256_var(concatedAddressAndSalt, addressAndSaltLength);
     assertEqual32(concatedAddressAndSaltHash, addressCommitment);
+    concatedAddressAndSaltHash
 }
