@@ -1,18 +1,18 @@
 use sha256::sha256_var;
 
-// fn concatAddressAndSalt(address: [u8; 42],salt: [u8; 16],) -> [u8; 36] {
-//     let mut out: [u8; 36] = [0; 36];
+fn concatAddressAndSalt(address: [u8; 42],salt: [u8; 16],) -> [u8; 58] {
+    let mut out: [u8; 58] = [0; 58];
 
-//     for i in 0..20 {
-//         out[i] = address[i];
-//     }
+    for i in 0..42 {
+        out[i] = address[i];
+    }
 
-//     for j in 0..16 {
-//         out[20 + j] = salt[j];
-//     }
+    for j in 0..16 {
+        out[42 + j] = salt[j];
+    }
 
-//     out
-// }
+    out
+}
 
 fn assertEqual32(a: [u8; 32], b: [u8; 32]) {
     for i in 0..32 {
@@ -34,13 +34,8 @@ fn enforceZeroPadding(
 }
 
 
-fn main(addressCommitment: pub [u8; 32], fillsCommitment: pub [u8; 32], address: [u8; 42], salt: [u8; 16], rawFills: [u8; 4096], rawFillsLength: u32,) {
+fn main(addressCommitment: pub [u8; 32], fillsCommitment: pub [u8; 32], address: [u8; 42], salt: [u8; 16], rawFills: [u8; 4096], rawFillsLength: u32,){
     assert(rawFillsLength <= 4096 as u32);
-
-    // address commitment
-    // let concatedAddressAndSalt = concatAddressAndSalt(address, salt);
-    // let concatedAddressAndSaltHash = sha256_var(concatedAddressAndSalt, 58);
-    // assertEqual32(concatedAddressAndSaltHash, addressCommitment);
 
     // padding constraint
     enforceZeroPadding(rawFills, rawFillsLength);
@@ -48,4 +43,9 @@ fn main(addressCommitment: pub [u8; 32], fillsCommitment: pub [u8; 32], address:
     // fills commitment
     let fillsHash = sha256_var(rawFills, rawFillsLength);
     assertEqual32(fillsHash, fillsCommitment);
+    // address commitment
+    let concatedAddressAndSalt = concatAddressAndSalt(address, salt);
+    let lenghtAddressAndSalt = concatedAddressAndSalt.len(); // TODO: Check Noir examples for this problem
+    let concatedAddressAndSaltHash = sha256_var(concatedAddressAndSalt, lenghtAddressAndSalt);
+    assertEqual32(concatedAddressAndSaltHash, addressCommitment);
 }
