@@ -9,7 +9,7 @@ import { fetchHyperliquidFills } from "./api/fetchHyperliquidFills.ts";
 import { requireEnv } from "./utils/requireEnv.ts";
 import { attestHyperliquidUserFills } from "../zktls/attestHyperliquid.ts";
 import { sha256Raw } from "./utils/hashRawResponse.ts";
-// import { sha256WithSalt } from "./utils/hashAddressAndSalt.ts";
+import { sha256WithSalt } from "./utils/hashAddressAndSalt.ts";
 import { getAddressCommitment } from "../zktls/commitments/addressCommitment.ts"
 import { getFillsCommitment } from "../zktls/commitments/fillsCommitment.ts";
 import { getHyperliquidWitness } from "../zktls/witness/getHyperliquidWitness.ts";
@@ -46,12 +46,12 @@ async function main(): Promise<void> {
   const _salt = hyperliquidWitness.salt;
 
   // For debugging purposes
-  // console.log("Raw Fills Response Hash: " + rawfillsResponseHash);
-  // console.log("Verified Result: " + JSON.stringify(zktlsVerifiedResult));
-  // console.log("Address Commitment: "+ addressCommitment);
-  // console.log("Fills Commitment: "+ fillsCommitment);
-  // console.log("Salt: " + _salt);
-  // console.log("Calculated Address hash: " + sha256WithSalt(HYPERLIQUID_USER_ADDRESS, _salt));
+  console.log("Raw Fills Response Hash: " + rawfillsResponseHash);
+  console.log("Verified Result: " + JSON.stringify(zktlsVerifiedResult));
+  console.log("Address Commitment: "+ addressCommitment);
+  console.log("Fills Commitment: "+ fillsCommitment);
+  console.log("Salt: " + _salt);
+  console.log("Calculated Address hash: " + sha256WithSalt(HYPERLIQUID_USER_ADDRESS, _salt));
 
   const addressCommitmentBytes = hexToFixedBytes(addressCommitment, 32);
   const fillsCommitmentBytes = hexToFixedBytes(fillsCommitment, 32);
