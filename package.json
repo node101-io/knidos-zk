@@ -1,15 +1,17 @@
 {
   "type": "module",
   "scripts": {
-    "fetch:hyperliquid": "ts-node scripts/main.ts"
+    "fetch:hyperliquid": "ts-node scripts/main.ts",
+    "build": "tsc"
   },
   "dependencies": {
     "@primuslabs/network-core-sdk": "^0.1.7",
     "axios": "^1.13.2",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "zkverifyjs": "^2.1.0"
   },
   "devDependencies": {
-    "@types/node": "^25.0.10",
+    "@types/node": "^25.3.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
