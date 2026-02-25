@@ -1,6 +1,6 @@
 import "dotenv/config";
 import fs from "fs";
-import { zkVerifySession } from "zkverifyjs";
+import { zkVerifySession, UltrahonkVariant } from "zkverifyjs";
 import { requireEnv } from "../scripts/utils/requireEnv.js";
 
 const proof = fs.readFileSync("../circuit/target/zkv_proof.hex", "utf-8").trim();
@@ -21,7 +21,7 @@ const session = await zkVerifySession
 try {
   const res = await session
     .verify()
-    .ultrahonk({ variant: "Plain" as any })
+    .ultrahonk({ variant: UltrahonkVariant.Plain })
     .execute({proofData});
 
   console.log("Submitted:", res);

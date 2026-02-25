@@ -2,7 +2,8 @@
   "type": "module",
   "scripts": {
     "fetch:hyperliquid": "tsx scripts/main.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "zkverify-submit": "tsx zkVerify/submit.ts"
   },
   "dependencies": {
     "@primuslabs/network-core-sdk": "^0.1.7",
