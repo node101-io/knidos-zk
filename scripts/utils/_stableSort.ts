@@ -1,7 +1,7 @@
 //TODO: We no longer need normalization
 //you might delete this file entirely.
 //check it at the end
-import type { NormalizedFill } from "../types.ts"
+import type { NormalizedFill } from "../types.js"
 
 export function stableSort(fills:NormalizedFill[]): NormalizedFill[] {
   if (fills.length === 0)

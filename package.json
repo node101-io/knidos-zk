@@ -1,7 +1,7 @@
 {
   "type": "module",
   "scripts": {
-    "fetch:hyperliquid": "ts-node scripts/main.ts",
+    "fetch:hyperliquid": "tsx scripts/main.ts",
     "build": "tsc"
   },
   "dependencies": {
@@ -13,6 +13,7 @@
   "devDependencies": {
     "@types/node": "^25.3.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.20.4",
     "typescript": "^5.9.3"
   }
 }

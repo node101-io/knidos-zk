@@ -1,8 +1,8 @@
 import axios from "axios"
 import "dotenv/config";
 
-import type { RawFills } from "../types.ts"
-// import { sha256Raw } from "../utils/hashRawResponse.ts";
+import type { RawFills } from "../types.js"
+// import { sha256Raw } from "../utils/hashRawResponse.js";
 
 const TIMEOUT = 30_000;
 

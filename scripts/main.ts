@@ -5,17 +5,17 @@ import { ethers } from "ethers";
 import fs from "fs";
 // import { createHash } from "crypto";
 
-import { fetchHyperliquidFills } from "./api/fetchHyperliquidFills.ts";
-import { requireEnv } from "./utils/requireEnv.ts";
-import { attestHyperliquidUserFills } from "../zktls/attestHyperliquid.ts";
-import { sha256Raw } from "./utils/hashRawResponse.ts";
-import { sha256WithSalt } from "./utils/hashAddressAndSalt.ts";
-import { getAddressCommitment } from "../zktls/commitments/addressCommitment.ts"
-import { getFillsCommitment } from "../zktls/commitments/fillsCommitment.ts";
-import { getHyperliquidWitness } from "../zktls/witness/getHyperliquidWitness.ts";
-import { hexToFixedBytes } from "./utils/hexToFixedBytes.ts";
-import { padRawFills } from "./utils/padRawFills.ts";
-// import { addressStringToBytes42 } from "./utils/addressStringToBytes.ts";
+import { fetchHyperliquidFills } from "./api/fetchHyperliquidFills.js";
+import { requireEnv } from "./utils/requireEnv.js";
+import { attestHyperliquidUserFills } from "../zktls/attestHyperliquid.js";
+import { sha256Raw } from "./utils/hashRawResponse.js";
+import { sha256WithSalt } from "./utils/hashAddressAndSalt.js";
+import { getAddressCommitment } from "../zktls/commitments/addressCommitment.js"
+import { getFillsCommitment } from "../zktls/commitments/fillsCommitment.js";
+import { getHyperliquidWitness } from "../zktls/witness/getHyperliquidWitness.js";
+import { hexToFixedBytes } from "./utils/hexToFixedBytes.js";
+import { padRawFills } from "./utils/padRawFills.js";
+// import { addressStringToBytes42 } from "./utils/addressStringToBytes.js";
 
 async function main(): Promise<void> {
   const PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");

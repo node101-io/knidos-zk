@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import type { RawFills } from "../types.ts";
+import type { RawFills } from "../types.js";
 
 export function sha256Raw(rawResponse: RawFills): string {
   return createHash("sha256")

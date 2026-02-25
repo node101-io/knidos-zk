@@ -1,4 +1,4 @@
-import type { RawFills } from "../types.ts";
+import type { RawFills } from "../types.js";
 
 const MAX_FILLS_LEN = 4096;
 

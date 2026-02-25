@@ -1,5 +1,5 @@
 import { PrimusNetwork } from "@primuslabs/network-core-sdk";
-import type { HyperliquidWitness } from "../../scripts/types.ts";
+import type { HyperliquidWitness } from "../../scripts/types.js";
 
 export function getHyperliquidWitness( primus: PrimusNetwork, taskId: string, hyperliquidUserAddress: string): HyperliquidWitness {
   const salt = primus.getPrivateData(taskId, "user_commitment");

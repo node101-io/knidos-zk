@@ -5,11 +5,11 @@ import { writeFile } from "fs/promises";
 import type {
   UserFill,
   NormalizedFill
-} from "../types.ts";
+} from "../types.js";
 
-import { normalizeFill } from "../utils/normalizeFills.ts";
-import { stableSort } from "../utils/stableSort.ts";
-import { sha256Raw } from "../utils/hashRawResponse.ts";
+import { normalizeFill } from "../utils/_normalizeFills.js";
+import { stableSort } from "../utils/_stableSort.js";
+import { sha256Raw } from "../utils/hashRawResponse.js";
 const TIMEOUT = 30_000;
 
 export async function fetchAndNormalizeFills (apiUrl: string, userAddress: string) : Promise<NormalizedFill[]> {

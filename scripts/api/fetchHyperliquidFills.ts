@@ -1,10 +1,10 @@
-import { fetchRawFills } from "../core/fetchRawFills.ts";
+import { fetchRawFills } from "../core/fetchRawFills.js";
 
 import type {
   NormalizedFill,
   CallbackFills,
   RawFills
-} from "../types.ts";
+} from "../types.js";
 
 export function fetchHyperliquidFills (apiUrl: string, userAddress: string, callback?: CallbackFills) : Promise<RawFills> | void{
   if(!callback)

@@ -1,7 +1,7 @@
 import "dotenv/config";
 import fs from "fs";
 import { zkVerifySession } from "zkverifyjs";
-import { requireEnv } from "../scripts/utils/requireEnv.ts";
+import { requireEnv } from "../scripts/utils/requireEnv.js";
 
 const proof = fs.readFileSync("../circuit/target/zkv_proof.hex", "utf-8").trim();
 const publicSignals = fs.readFileSync("../circuit/target/zkv_pubs.hex", "utf-8").trim();
