@@ -15,6 +15,7 @@ import { getFillsCommitment } from "../zktls/commitments/fillsCommitment.js";
 import { getHyperliquidWitness } from "../zktls/witness/getHyperliquidWitness.js";
 import { hexToFixedBytes } from "./utils/hexToFixedBytes.js";
 import { padRawFills } from "./utils/padRawFills.js";
+import { bytes32ToField2DecStrings } from "./utils/addressCommitmentFieldTwo.js";
 // import { addressStringToBytes42 } from "./utils/addressStringToBytes.js";
 
 async function main(): Promise<void> {
@@ -56,6 +57,9 @@ async function main(): Promise<void> {
   const addressCommitmentBytes = hexToFixedBytes(addressCommitment, 32);
   const fillsCommitmentBytes = hexToFixedBytes(fillsCommitment, 32);
 
+  const addressCommitmentField2 = bytes32ToField2DecStrings(addressCommitmentBytes);
+  const fillsCommitmentField2   = bytes32ToField2DecStrings(fillsCommitmentBytes);
+
   const addressStringBytes = Buffer.from(HYPERLIQUID_USER_ADDRESS, "utf8");
   const saltBytes = hexToFixedBytes(_salt, 16);
 
@@ -74,14 +78,14 @@ async function main(): Promise<void> {
   fs.writeFileSync(
     "circuit/Prover.toml",
     `
-    address = ${JSON.stringify(Array.from(addressStringBytes))}
-    salt = ${JSON.stringify(Array.from(saltBytes))}
-    addressCommitment = ${JSON.stringify(Array.from(addressCommitmentBytes))}
-    fillsCommitment   = ${JSON.stringify(Array.from(fillsCommitmentBytes))}
-    rawFills = ${JSON.stringify(Array.from(rawFillsBytes))}
-    rawFillsLength = ${rawFillsLength}
-    addressAndSaltLength = 58
-    `
+  address = ${JSON.stringify(Array.from(addressStringBytes))}
+  salt = ${JSON.stringify(Array.from(saltBytes))}
+  addressCommitment = ${JSON.stringify(addressCommitmentField2)}
+  fillsCommitment   = ${JSON.stringify(fillsCommitmentField2)}
+  rawFills = ${JSON.stringify(Array.from(rawFillsBytes))}
+  rawFillsLength = ${rawFillsLength}
+  addressAndSaltLength = 58
+  `
   );
 }
 

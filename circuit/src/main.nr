@@ -14,17 +14,11 @@ fn concatAddressAndSalt(address: [u8; 42],salt: [u8; 16],) -> [u8; 58] {
   out
 }
 
-fn assertEqual32(a: [u8; 32], b: [u8; 32]) {
-  for i in 0..32 {
-      assert(a[i] == b[i]);
-  }
-}
-
 fn enforceZeroPadding(
-  raw: [u8; 4096],
+  raw: [u8; 1024],
   actual_len: u32,
 ) {
-  for i in 0..4096 {
+  for i in 0..1024 {
     let idx: u32 = i as u32;
 
     if idx >= actual_len {
@@ -33,20 +27,48 @@ fn enforceZeroPadding(
   }
 }
 
+fn bytes16ToField(b: [u8; 16]) -> Field {
+  let mut acc: Field = 0;
+  for i in 0..16 {
+      acc = acc * 256 + b[i] as Field;
+  }
+  acc
+}
 
-fn main(addressCommitment: pub [u8; 32], fillsCommitment: pub [u8; 32], address: [u8; 42], salt: [u8; 16], rawFills: [u8; 4096], rawFillsLength: u32, addressAndSaltLength: u32) -> pub ([u8; 32]) {
-  assert(rawFillsLength <= 4096 as u32);
+fn hash32ToFieldTwo(h: [u8; 32]) -> [Field; 2] {
+  let mut hi_bytes: [u8; 16] = [0; 16];
+  let mut lo_bytes: [u8; 16] = [0; 16];
 
-  // padding constraint
+  for i in 0..16 { hi_bytes[i] = h[i]; }
+  for i in 0..16 { lo_bytes[i] = h[16+i]; }
+
+  [bytes16ToField(hi_bytes), bytes16ToField(lo_bytes)]
+}
+
+fn assert_field2_eq(a: [Field; 2], b: [Field; 2]) {
+  assert(a[0] == b[0]);
+  assert(a[1] == b[1]);
+}
+
+fn main(
+  addressCommitment: pub [Field; 2],
+  fillsCommitment: pub [Field; 2],
+  address: [u8; 42],
+  salt: [u8; 16],
+  rawFills: [u8; 1024],
+  rawFillsLength: u32,
+  addressAndSaltLength: u32
+) {
+  assert(rawFillsLength <= 1024);
+
   enforceZeroPadding(rawFills, rawFillsLength);
 
-  // fills commitment
-  let fillsHash = sha256_var(rawFills, rawFillsLength);
-  assertEqual32(fillsHash, fillsCommitment);
-  // address commitment
-  let concatedAddressAndSalt = concatAddressAndSalt(address, salt);
-  // let lenghtAddressAndSalt = concatedAddressAndSalt.len(); // TODO: Check Noir examples for this problem
-  let concatedAddressAndSaltHash = sha256_var(concatedAddressAndSalt, addressAndSaltLength);
-  assertEqual32(concatedAddressAndSaltHash, addressCommitment);
-  concatedAddressAndSaltHash
+  let fillsHashBytes = sha256_var(rawFills, rawFillsLength);
+  let fillsHashField2 = hash32ToFieldTwo(fillsHashBytes);
+  assert_field2_eq(fillsHashField2, fillsCommitment);
+
+  let concated = concatAddressAndSalt(address, salt);
+  let addrHashBytes = sha256_var(concated, addressAndSaltLength);
+  let addrHashField2 = hash32ToFieldTwo(addrHashBytes);
+  assert_field2_eq(addrHashField2, addressCommitment);
 }

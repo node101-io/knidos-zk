@@ -3,7 +3,8 @@
   "scripts": {
     "fetch:hyperliquid": "tsx scripts/main.ts",
     "build": "tsc",
-    "zkverify-submit": "tsx zkVerify/submit.ts"
+    "zkverify-submit": "tsx zkVerify/submit.ts",
+    "make-hex": "tsx zkVerify/makeHex.ts"
   },
   "dependencies": {
     "@primuslabs/network-core-sdk": "^0.1.7",
