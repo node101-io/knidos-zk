@@ -4,3 +4,4 @@ dist
 proofs/*.json
 circuit/Prover.toml
 circuit/target
+zkVerify/aggregation.json

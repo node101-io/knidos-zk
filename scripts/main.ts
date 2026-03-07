@@ -3,7 +3,7 @@ import "dotenv/config";
 import { PrimusNetwork } from "@primuslabs/network-core-sdk";
 import { ethers } from "ethers";
 import fs from "fs";
-// import { createHash } from "crypto";
+import { createHash } from "crypto";
 
 import { fetchHyperliquidFills } from "./api/fetchHyperliquidFills.js";
 import { requireEnv } from "./utils/requireEnv.js";
@@ -45,7 +45,8 @@ async function main(): Promise<void> {
   const hyperliquidWitness = getHyperliquidWitness(primus, zktlsVerifiedResult.taskId, HYPERLIQUID_USER_ADDRESS);
 
   const _salt = hyperliquidWitness.salt;
-
+  const decoder = new TextDecoder("utf-8");
+  console.log(decoder.decode(_rawfillsResponse!));
   // For debugging purposes
   console.log("Raw Fills Response Hash: " + rawfillsResponseHash);
   console.log("Verified Result: " + JSON.stringify(zktlsVerifiedResult));
@@ -68,12 +69,12 @@ async function main(): Promise<void> {
   const rawFillsLength = rawFillsPadded.length;
 
   // UNCOMMENT FOR DEBUGGING PURPOSES
-  // const jsAddressAndSaltHash = createHash("sha256")
-  //   .update(Buffer.concat([addressStringBytes, saltBytes]))
-  //   .digest("hex");
+  const jsAddressAndSaltHash = createHash("sha256")
+    .update(Buffer.concat([addressStringBytes, saltBytes]))
+    .digest("hex");
 
-  // console.log("zkTLS address commitment (hex):", addressCommitment);
-  // console.log("JS recomputed address hash (hex):", jsAddressAndSaltHash);
+  console.log("zkTLS address commitment (hex):", addressCommitment);
+  console.log("JS recomputed address hash (hex):", jsAddressAndSaltHash);
 
   fs.writeFileSync(
     "circuit/Prover.toml",
