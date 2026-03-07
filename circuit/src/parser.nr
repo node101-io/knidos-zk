@@ -1,4 +1,4 @@
-use dep::json_parser::JSON8kb;
+use json_parser::JSON8kb;
 
 global MAX_FILLS: u32 = 32;
 

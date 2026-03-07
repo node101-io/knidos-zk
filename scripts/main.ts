@@ -18,6 +18,9 @@ import { padRawFills } from "./utils/padRawFills.js";
 import { bytes32ToField2DecStrings } from "./utils/addressCommitmentFieldTwo.js";
 // import { addressStringToBytes42 } from "./utils/addressStringToBytes.js";
 
+const START_TIME = 1769172979000; // Hardcoded
+const END_TIME   = 1769172996000;
+
 async function main(): Promise<void> {
   const PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
   const HYPERLIQUID_USER_ADDRESS = requireEnv("HYPERLIQUID_USER_ADDRESS");
@@ -34,10 +37,10 @@ async function main(): Promise<void> {
   const apiUrl = requireEnv("HYPERLIQUID_API_URL");
   const userAddress = requireEnv("HYPERLIQUID_USER_ADDRESS");
 
-  const _rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress);
+  const _rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress, START_TIME, END_TIME);
 
   const rawfillsResponseHash = sha256Raw(_rawfillsResponse!); // TODO: Ask Necip
-  const zktlsVerifiedResult = await attestHyperliquidUserFills(primus, CHAIN_ID); // Public input
+  const zktlsVerifiedResult = await attestHyperliquidUserFills(primus, CHAIN_ID, START_TIME, END_TIME); // Public input
 
   const addressCommitment = getAddressCommitment(zktlsVerifiedResult);
   const fillsCommitment = getFillsCommitment(zktlsVerifiedResult);
@@ -86,6 +89,9 @@ async function main(): Promise<void> {
   rawFills = ${JSON.stringify(Array.from(rawFillsBytes))}
   rawFillsLength = ${rawFillsLength}
   addressAndSaltLength = 58
+  fillCount = 3
+  startTime = ${START_TIME}
+  endTime = ${END_TIME}
   `
   );
 }

@@ -5,7 +5,7 @@ import { requireEnv } from "../scripts/utils/requireEnv.js";
 
 import type { VerifiedHyperliquidAttestation } from "../scripts/types.js"
 
-export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID: number): Promise<VerifiedHyperliquidAttestation> {
+export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID: number, startTime: number, endTime: number): Promise<VerifiedHyperliquidAttestation> {
   // const PRIMUS_PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
   const PRIMUS_USER_ADDRESS = requireEnv("PRIMUS_USER_ADDRESS");
   const HYPERLIQUID_USER_ADDRESS = requireEnv("HYPERLIQUID_USER_ADDRESS");
@@ -27,8 +27,10 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
         "Content-Type": "application/json",
       },
       body: {
-        type: "userFills",
+        type: "userFillsByTime",
         user: HYPERLIQUID_USER_ADDRESS,
+        startTime: startTime,
+        endTime: endTime,
       },
     },
   ];

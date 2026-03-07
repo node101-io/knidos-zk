@@ -6,10 +6,12 @@ import type { RawFills } from "../types.js"
 
 const TIMEOUT = 30_000;
 
-export async function fetchRawFills (apiUrl: string, userAddress:string) : Promise<RawFills> {
+export async function fetchRawFills (apiUrl: string, userAddress:string, startTime: number, endTime: number) : Promise<RawFills> {
   const body = {
-    type: "userFills",
+    type: "userFillsByTime",
     user: userAddress,
+    startTime: startTime,
+    endTime: endTime,
   };
 
   const response = await axios.post(apiUrl, body, {

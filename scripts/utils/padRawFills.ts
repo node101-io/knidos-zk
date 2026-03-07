@@ -1,6 +1,6 @@
 import type { RawFills } from "../types.js";
 
-const MAX_FILLS_LEN = 1024;
+const MAX_FILLS_LEN = 8192;
 
 export function padRawFills(raw: RawFills): {
   padded: number[];
