@@ -13,10 +13,10 @@ pub fn concatAddressAndSalt(address: [u8; 42],salt: [u8; 16],) -> [u8; 58] {
 }
 
 pub fn enforceZeroPadding(
-  raw: [u8; 1024],
+  raw: [u8; 8192],
   actual_len: u32,
 ) {
-  for i in 0..1024 {
+  for i in 0..8192 {
     let idx: u32 = i as u32;
 
     if idx >= actual_len {
