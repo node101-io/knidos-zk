@@ -21,12 +21,12 @@ fn main(
 
     let fillsHashBytes = sha256_var(rawFills, rawFillsLength);
     let fillsHashField2 = helpers::hash32ToFieldTwo(fillsHashBytes);
-    helpers::assert_fieldTwo_equal(fillsHashField2, fillsCommitment);
+    helpers::aseertFieldTwoEqual(fillsHashField2, fillsCommitment);
 
     let concated = helpers::concatAddressAndSalt(address, salt);
     let addrHashBytes = sha256_var(concated, addressAndSaltLength);
     let addrHashField2 = helpers::hash32ToFieldTwo(addrHashBytes);
-    helpers::assert_fieldTwo_equal(addrHashField2, addressCommitment);
+    helpers::aseertFieldTwoEqual(addrHashField2, addressCommitment);
 
-    parser::validate_fills(rawFills, fillCount, startTime, endTime);
+    parser::validateFills(rawFills, rawFillsLength, fillCount, startTime, endTime);
 }

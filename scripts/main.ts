@@ -82,17 +82,17 @@ async function main(): Promise<void> {
   fs.writeFileSync(
     "circuit/Prover.toml",
     `
-  address = ${JSON.stringify(Array.from(addressStringBytes))}
-  salt = ${JSON.stringify(Array.from(saltBytes))}
-  addressCommitment = ${JSON.stringify(addressCommitmentField2)}
-  fillsCommitment   = ${JSON.stringify(fillsCommitmentField2)}
-  rawFills = ${JSON.stringify(Array.from(rawFillsBytes))}
-  rawFillsLength = ${rawFillsLength}
-  addressAndSaltLength = 58
-  fillCount = 3
-  startTime = ${START_TIME}
-  endTime = ${END_TIME}
-  `
+    address = ${JSON.stringify(Array.from(addressStringBytes))}
+    salt = ${JSON.stringify(Array.from(saltBytes))}
+    addressCommitment = ${JSON.stringify(addressCommitmentField2)}
+    fillsCommitment   = ${JSON.stringify(fillsCommitmentField2)}
+    rawFills = ${JSON.stringify(Array.from(rawFillsBytes))}
+    rawFillsLength = ${rawFillsLength}
+    addressAndSaltLength = 58
+    fillCount = 3
+    startTime = ${START_TIME}
+    endTime = ${END_TIME}
+    `
   );
 }
 

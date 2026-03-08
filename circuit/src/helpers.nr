@@ -43,7 +43,7 @@ pub fn hash32ToFieldTwo(h: [u8; 32]) -> [Field; 2] {
   [bytes16ToField(hi_bytes), bytes16ToField(lo_bytes)]
 }
 
-pub fn assert_fieldTwo_equal(a: [Field; 2], b: [Field; 2]) {
+pub fn aseertFieldTwoEqual(a: [Field; 2], b: [Field; 2]) {
   assert(a[0] == b[0]);
   assert(a[1] == b[1]);
 }
