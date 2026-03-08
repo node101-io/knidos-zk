@@ -66,18 +66,46 @@ pub fn stringToSignedInteger1e6(string: BoundedVec<u8, 16>) -> (i64) {
   }
   assert (pointPosition < stringLen);
 
-  for i in 0..pointPosition {
+  if (isNegative) {
+    for i in 1..pointPosition {
     let asciiToDigit = string.get_unchecked(i) - 48;
     let digit: i64 = asciiToDigit as i64 * (10 ^ ((pointPosition as i64 ) - 1 - (i as i64) + 6));
     totalNumber += digit;
+    }
+  }
+  else {
+    for i in 0..pointPosition {
+      let asciiToDigit = string.get_unchecked(i) - 48;
+      let digit: i64 = asciiToDigit as i64 * (10 ^ ((pointPosition as i64 ) - 1 - (i as i64) + 6));
+      totalNumber += digit;
+    }
   }
 
-  for i in pointPosition..stringLen {
+  for i in (pointPosition + 1)..stringLen {
     let asciiToDigit = string.get_unchecked(i) - 48;
     let fraction: i64 = asciiToDigit as i64 * (10 ^ (6 - i as i64));
     totalNumber += fraction;
   }
+  if(isNegative) {
+    totalNumber = totalNumber * -1;
+  }
+
   totalNumber
+}
+
+pub fn calculateChecksum(fill: JSON8kb) -> (i64){
+  let closedPnlString = fill.get_string_unchecked("closedPnl".as_bytes());
+  let feeString = fill.get_string_unchecked("fee".as_bytes());
+
+  let closedPnlNumber = stringToSignedInteger1e6(closedPnlString);
+  let feeNumber = stringToSignedInteger1e6(feeString);
+  let profit = closedPnlNumber - feeNumber;
+  profit
+}
+
+pub fn validateChecksum (baseBalance:i64, totalProfit: i64, threshold: i64) {
+  let finalBalance = baseBalance + totalProfit;
+  assert(finalBalance > threshold);
 }
 
 pub fn validateTimeAndCoinOneFill (fill: JSON8kb, min_time: u64, max_time: u64){
@@ -86,20 +114,6 @@ pub fn validateTimeAndCoinOneFill (fill: JSON8kb, min_time: u64, max_time: u64){
 
   assertAllowedCoin(coin);
   assertValidTime(time, min_time, max_time);
-}
-pub fn validateChecksum (baseBalance:i64, totalProfit: i64, threshold: i64) {
-  let finalBalance = baseBalance + totalProfit;
-  assert(finalBalance > threshold);
-}
-
-pub fn calculateChecksum(fill: JSON8kb) -> (i64, i64){
-  let closedPnlString = fill.get_string_unchecked("closedPnl".as_bytes());
-  let feeString = fill.get_string_unchecked("fee".as_bytes());
-
-  let closedPnlNumber = stringToSignedInteger1e6(closedPnlString);
-  let feeNumber = stringToSignedInteger1e6(feeString);
-
-  (closedPnlNumber, feeNumber)
 }
 
 pub fn validateFills(
@@ -123,7 +137,7 @@ pub fn validateFills(
       let fill = json.get_object_from_array_unchecked(i as Field);
       validateTimeAndCoinOneFill(fill, min_time, max_time);
       let oneFillChecksum = calculateChecksum(fill);
-      totalProfit = oneFillChecksum.0 - oneFillChecksum.1;
+      totalProfit += oneFillChecksum;
     }
   }
   validateChecksum(baseBalance, totalProfit, threshold);
