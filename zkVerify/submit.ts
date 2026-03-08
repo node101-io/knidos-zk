@@ -33,6 +33,7 @@ function chunkBufferToBytes32List(buf: Buffer): string[] {
       `public_inputs binary length (${buf.length}) is not a multiple of 32 bytes`
     );
   }
+
   const out: string[] = [];
   for (let i = 0; i < buf.length; i += 32) {
     out.push(bufferTo0xHex(buf.subarray(i, i + 32)));
@@ -46,10 +47,15 @@ function loadPublicSignals(pubsPath: string): string[] {
   const asText = raw.toString("utf8").trim();
   const first = firstNonEmptyLine(asText);
 
-  if (first && (first.startsWith("[") || first.startsWith('"') || first.startsWith("0x"))) {
+  if (
+    first &&
+    (first.startsWith("[") || first.startsWith('"') || first.startsWith("0x"))
+  ) {
     if (first.startsWith("[")) {
       const arr = JSON.parse(stripWrappingTicks(asText));
-      if (!Array.isArray(arr)) throw new Error("public signals JSON is not an array");
+      if (!Array.isArray(arr)) {
+        throw new Error("public signals JSON is not an array");
+      }
       return arr.map((x) => normalize0x(String(x)));
     }
 
@@ -59,14 +65,16 @@ function loadPublicSignals(pubsPath: string): string[] {
       .filter((l) => l.length);
 
     if (lines.length === 1) {
-      const [onlyLine] = lines;
-      const h = normalize0x(stripWrappingTicks(onlyLine!));
+      const onlyLine = lines[0]!;
+      const h = normalize0x(stripWrappingTicks(onlyLine));
       const body = h.slice(2);
+
       if (body.length % 64 !== 0) {
         throw new Error(
           `Invalid public inputs hex length ${body.length}; expected multiple of 64 (bytes32 list)`
         );
       }
+
       const out: string[] = [];
       for (let i = 0; i < body.length; i += 64) {
         out.push(`0x${body.slice(i, i + 64)}`);
@@ -78,18 +86,22 @@ function loadPublicSignals(pubsPath: string): string[] {
     for (const line of lines) {
       const h = normalize0x(stripWrappingTicks(line));
       const body = h.slice(2);
-      if (body.length === 64) out.push(h);
-      else {
+
+      if (body.length === 64) {
+        out.push(h);
+      } else {
         if (body.length % 64 !== 0) {
           throw new Error(
             `Invalid public input line hex length ${body.length}; expected 64 or multiple of 64`
           );
         }
+
         for (let i = 0; i < body.length; i += 64) {
           out.push(`0x${body.slice(i, i + 64)}`);
         }
       }
     }
+
     return out;
   }
 
@@ -117,19 +129,25 @@ function loadProof(proofPath: string, variant: UltrahonkVariant): string {
     const cleaned = stripWrappingTicks(asText);
 
     if (cleaned.startsWith("{")) {
-      const obj = JSON.parse(cleaned);
-      const wantKey =
+      const obj = JSON.parse(cleaned) as Record<string, unknown>;
+
+      const wantKeys =
         variant === UltrahonkVariant.ZK
-          ? ["ZK", "zk", "ZK:" , "zk:"]
+          ? ["ZK", "zk", "ZK:", "zk:"]
           : ["Plain", "plain", "Plain:", "plain:"];
 
-      for (const k of wantKey) {
-        if (obj[k] != null) return normalize0x(String(obj[k]));
+      for (const key of wantKeys) {
+        if (obj[key] != null) {
+          return normalize0x(String(obj[key]));
+        }
       }
 
-      const v = Object.values(obj)[0];
-      if (v == null) throw new Error("proof JSON object is empty");
-      return normalize0x(String(v));
+      const firstValue = Object.values(obj)[0];
+      if (firstValue == null) {
+        throw new Error("proof JSON object is empty");
+      }
+
+      return normalize0x(String(firstValue));
     }
 
     if (/^["`]?0x[0-9a-fA-F]+["`]?$/.test(first)) {
@@ -148,12 +166,20 @@ async function main() {
   const proofPath = path.resolve(CIRCUIT_TARGET, "proof");
   const pubsPath = path.resolve(CIRCUIT_TARGET, "public_inputs");
 
-  if (!fs.existsSync(vkPath)) throw new Error(`VK not found: ${vkPath}`);
-  if (!fs.existsSync(proofPath)) throw new Error(`Proof not found: ${proofPath}`);
-  if (!fs.existsSync(pubsPath)) throw new Error(`Public inputs not found: ${pubsPath}`);
+  if (!fs.existsSync(vkPath)) {
+    throw new Error(`VK not found: ${vkPath}`);
+  }
+  if (!fs.existsSync(proofPath)) {
+    throw new Error(`Proof not found: ${proofPath}`);
+  }
+  if (!fs.existsSync(pubsPath)) {
+    throw new Error(`Public inputs not found: ${pubsPath}`);
+  }
+
+  const variant = UltrahonkVariant.Plain;
 
   const vk = loadVk(vkPath);
-  const proof = loadProof(proofPath, UltrahonkVariant.Plain);
+  const proof = loadProof(proofPath, variant);
   const publicSignals = loadPublicSignals(pubsPath);
 
   console.log("vk bytes (binary):", fs.readFileSync(vkPath).length);
@@ -161,7 +187,7 @@ async function main() {
 
   const session = await zkVerifySession
     .start()
-    .Volta() // testnet
+    .Volta()
     .withAccount(SEED_PHRASE);
 
   let statement: any;
@@ -173,11 +199,15 @@ async function main() {
       callback: async (eventData: any) => {
         console.log("New aggregation receipt:", eventData);
 
-        const receiptAggId = parseInt(eventData.data.aggregationId.replace(/,/g, ""));
+        const receiptAggId = parseInt(
+          String(eventData.data.aggregationId).replace(/,/g, ""),
+          10
+        );
+
         if (aggregationId !== undefined && aggregationId === receiptAggId) {
           const statementPath = await session.getAggregateStatementPath(
             eventData.blockHash,
-            parseInt(eventData.data.domainId),
+            parseInt(String(eventData.data.domainId), 10),
             receiptAggId,
             statement
           );
@@ -187,13 +217,14 @@ async function main() {
             JSON.stringify(
               {
                 ...statementPath,
-                domainId: parseInt(eventData.data.domainId),
+                domainId: parseInt(String(eventData.data.domainId), 10),
                 aggregationId: receiptAggId,
               },
               null,
               2
             )
           );
+
           console.log("Wrote aggregation.json");
         }
       },
@@ -203,7 +234,7 @@ async function main() {
 
   const { events } = await session
     .verify()
-    .ultrahonk({ variant: UltrahonkVariant.ZK })
+    .ultrahonk({ variant })
     .execute({
       proofData: { vk, proof, publicSignals },
       domainId: 0,
