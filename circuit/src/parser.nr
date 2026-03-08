@@ -48,12 +48,58 @@ pub fn trimRawFills(
   out
 }
 
-pub fn validateOneFill(fill: JSON8kb, min_time: u64, max_time: u64) {
+pub fn stringToSignedInteger1e6(string: BoundedVec<u8, 16>) -> (i64) {
+  let mut isNegative = false;
+
+  if(string.get_unchecked(0) == 45){  //ASCI character for -
+    isNegative = true;
+  }
+
+  let stringLen = string.len();
+  let mut pointPosition: u32 = 0;
+  let mut totalNumber: i64 = 0;
+
+  for i in 0..stringLen {
+    if (string.get_unchecked(i) == 46) {
+      pointPosition = i;
+    }
+  }
+  assert (pointPosition < stringLen);
+
+  for i in 0..pointPosition {
+    let asciiToDigit = string.get_unchecked(i) - 48;
+    let digit: i64 = asciiToDigit as i64 * (10 ^ ((pointPosition as i64 ) - 1 - (i as i64) + 6));
+    totalNumber += digit;
+  }
+
+  for i in pointPosition..stringLen {
+    let asciiToDigit = string.get_unchecked(i) - 48;
+    let fraction: i64 = asciiToDigit as i64 * (10 ^ (6 - i as i64));
+    totalNumber += fraction;
+  }
+  totalNumber
+}
+
+pub fn validateTimeAndCoinOneFill (fill: JSON8kb, min_time: u64, max_time: u64){
   let coin: BoundedVec<u8, 16> = fill.get_string_unchecked("coin".as_bytes());
   let time: u64 = fill.get_number_unchecked("time".as_bytes());
 
   assertAllowedCoin(coin);
   assertValidTime(time, min_time, max_time);
+}
+pub fn validateChecksum (baseBalance:i64, totalProfit: i64, threshold: i64) {
+  let finalBalance = baseBalance + totalProfit;
+  assert(finalBalance > threshold);
+}
+
+pub fn calculateChecksum(fill: JSON8kb) -> (i64, i64){
+  let closedPnlString = fill.get_string_unchecked("closedPnl".as_bytes());
+  let feeString = fill.get_string_unchecked("fee".as_bytes());
+
+  let closedPnlNumber = stringToSignedInteger1e6(closedPnlString);
+  let feeNumber = stringToSignedInteger1e6(feeString);
+
+  (closedPnlNumber, feeNumber)
 }
 
 pub fn validateFills(
@@ -61,17 +107,24 @@ pub fn validateFills(
   raw_fills_lenght: u32,
   fill_count: u32,
   min_time: u64,
-  max_time: u64
+  max_time: u64,
+  baseBalance: i64,
+  threshold: i64
 ) {
   assert(fill_count <= MAX_FILLS);
   assert(min_time <= max_time);
 
   let cleaned_raw = trimRawFills(raw_fills, raw_fills_lenght);
   let json: JSON8kb = JSON8kb::parse_json(cleaned_raw);
+  let mut totalProfit: i64 = 0;
+
   for i in 0..MAX_FILLS {
     if (i as u32) < fill_count {
       let fill = json.get_object_from_array_unchecked(i as Field);
-      validateOneFill(fill, min_time, max_time);
+      validateTimeAndCoinOneFill(fill, min_time, max_time);
+      let oneFillChecksum = calculateChecksum(fill);
+      totalProfit = oneFillChecksum.0 - oneFillChecksum.1;
     }
   }
+  validateChecksum(baseBalance, totalProfit, threshold);
 }
