@@ -213,7 +213,7 @@ async function main() {
           );
 
           fs.writeFileSync(
-            path.resolve(ROOT, "aggregation.json"),
+            path.resolve(ROOT, "zkVerify", "aggregation.json"),
             JSON.stringify(
               {
                 ...statementPath,
