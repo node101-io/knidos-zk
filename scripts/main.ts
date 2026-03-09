@@ -3,19 +3,23 @@ import "dotenv/config";
 import { PrimusNetwork } from "@primuslabs/network-core-sdk";
 import { ethers } from "ethers";
 import fs from "fs";
-// import { createHash } from "crypto";
+import { createHash } from "crypto";
 
-import { fetchHyperliquidFills } from "./api/fetchHyperliquidFills.ts";
-import { requireEnv } from "./utils/requireEnv.ts";
-import { attestHyperliquidUserFills } from "../zktls/attestHyperliquid.ts";
-import { sha256Raw } from "./utils/hashRawResponse.ts";
-import { sha256WithSalt } from "./utils/hashAddressAndSalt.ts";
-import { getAddressCommitment } from "../zktls/commitments/addressCommitment.ts"
-import { getFillsCommitment } from "../zktls/commitments/fillsCommitment.ts";
-import { getHyperliquidWitness } from "../zktls/witness/getHyperliquidWitness.ts";
-import { hexToFixedBytes } from "./utils/hexToFixedBytes.ts";
-import { padRawFills } from "./utils/padRawFills.ts";
-// import { addressStringToBytes42 } from "./utils/addressStringToBytes.ts";
+import { fetchHyperliquidFills } from "./api/fetchHyperliquidFills.js";
+import { requireEnv } from "./utils/requireEnv.js";
+import { attestHyperliquidUserFills } from "../zktls/attestHyperliquid.js";
+import { sha256Raw } from "./utils/hashRawResponse.js";
+import { sha256WithSalt } from "./utils/hashAddressAndSalt.js";
+import { getAddressCommitment } from "../zktls/commitments/addressCommitment.js"
+import { getFillsCommitment } from "../zktls/commitments/fillsCommitment.js";
+import { getHyperliquidWitness } from "../zktls/witness/getHyperliquidWitness.js";
+import { hexToFixedBytes } from "./utils/hexToFixedBytes.js";
+import { padRawFills } from "./utils/padRawFills.js";
+import { bytes32ToField2DecStrings } from "./utils/addressCommitmentFieldTwo.js";
+// import { addressStringToBytes42 } from "./utils/addressStringToBytes.js";
+
+const START_TIME = 1769172979000; // Hardcoded
+const END_TIME   = 1769172996000;
 
 async function main(): Promise<void> {
   const PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
@@ -33,10 +37,10 @@ async function main(): Promise<void> {
   const apiUrl = requireEnv("HYPERLIQUID_API_URL");
   const userAddress = requireEnv("HYPERLIQUID_USER_ADDRESS");
 
-  const _rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress);
+  const _rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress, START_TIME, END_TIME);
 
   const rawfillsResponseHash = sha256Raw(_rawfillsResponse!); // TODO: Ask Necip
-  const zktlsVerifiedResult = await attestHyperliquidUserFills(primus, CHAIN_ID); // Public input
+  const zktlsVerifiedResult = await attestHyperliquidUserFills(primus, CHAIN_ID, START_TIME, END_TIME); // Public input
 
   const addressCommitment = getAddressCommitment(zktlsVerifiedResult);
   const fillsCommitment = getFillsCommitment(zktlsVerifiedResult);
@@ -44,7 +48,8 @@ async function main(): Promise<void> {
   const hyperliquidWitness = getHyperliquidWitness(primus, zktlsVerifiedResult.taskId, HYPERLIQUID_USER_ADDRESS);
 
   const _salt = hyperliquidWitness.salt;
-
+  const decoder = new TextDecoder("utf-8");
+  console.log(decoder.decode(_rawfillsResponse!));
   // For debugging purposes
   console.log("Raw Fills Response Hash: " + rawfillsResponseHash);
   console.log("Verified Result: " + JSON.stringify(zktlsVerifiedResult));
@@ -56,6 +61,9 @@ async function main(): Promise<void> {
   const addressCommitmentBytes = hexToFixedBytes(addressCommitment, 32);
   const fillsCommitmentBytes = hexToFixedBytes(fillsCommitment, 32);
 
+  const addressCommitmentField2 = bytes32ToField2DecStrings(addressCommitmentBytes);
+  const fillsCommitmentField2   = bytes32ToField2DecStrings(fillsCommitmentBytes);
+
   const addressStringBytes = Buffer.from(HYPERLIQUID_USER_ADDRESS, "utf8");
   const saltBytes = hexToFixedBytes(_salt, 16);
 
@@ -64,23 +72,28 @@ async function main(): Promise<void> {
   const rawFillsLength = rawFillsPadded.length;
 
   // UNCOMMENT FOR DEBUGGING PURPOSES
-  // const jsAddressAndSaltHash = createHash("sha256")
-  //   .update(Buffer.concat([addressStringBytes, saltBytes]))
-  //   .digest("hex");
+  const jsAddressAndSaltHash = createHash("sha256")
+    .update(Buffer.concat([addressStringBytes, saltBytes]))
+    .digest("hex");
 
-  // console.log("zkTLS address commitment (hex):", addressCommitment);
-  // console.log("JS recomputed address hash (hex):", jsAddressAndSaltHash);
+  console.log("zkTLS address commitment (hex):", addressCommitment);
+  console.log("JS recomputed address hash (hex):", jsAddressAndSaltHash);
 
   fs.writeFileSync(
     "circuit/Prover.toml",
     `
     address = ${JSON.stringify(Array.from(addressStringBytes))}
     salt = ${JSON.stringify(Array.from(saltBytes))}
-    addressCommitment = ${JSON.stringify(Array.from(addressCommitmentBytes))}
-    fillsCommitment   = ${JSON.stringify(Array.from(fillsCommitmentBytes))}
+    addressCommitment = ${JSON.stringify(addressCommitmentField2)}
+    fillsCommitment   = ${JSON.stringify(fillsCommitmentField2)}
     rawFills = ${JSON.stringify(Array.from(rawFillsBytes))}
     rawFillsLength = ${rawFillsLength}
     addressAndSaltLength = 58
+    fillCount = 3
+    startTime = ${START_TIME}
+    endTime = ${END_TIME}
+    baseBalance = 100000000
+    threshold = 50000000
     `
   );
 }

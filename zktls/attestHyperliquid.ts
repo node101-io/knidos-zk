@@ -1,11 +1,11 @@
 import { PrimusNetwork } from "@primuslabs/network-core-sdk";
 import { ethers } from "ethers";
 
-import { requireEnv } from "../scripts/utils/requireEnv.ts";
+import { requireEnv } from "../scripts/utils/requireEnv.js";
 
-import type { VerifiedHyperliquidAttestation } from "../scripts/types.ts"
+import type { VerifiedHyperliquidAttestation } from "../scripts/types.js"
 
-export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID: number): Promise<VerifiedHyperliquidAttestation> {
+export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID: number, startTime: number, endTime: number): Promise<VerifiedHyperliquidAttestation> {
   // const PRIMUS_PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
   const PRIMUS_USER_ADDRESS = requireEnv("PRIMUS_USER_ADDRESS");
   const HYPERLIQUID_USER_ADDRESS = requireEnv("HYPERLIQUID_USER_ADDRESS");
@@ -27,8 +27,10 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
         "Content-Type": "application/json",
       },
       body: {
-        type: "userFills",
+        type: "userFillsByTime",
         user: HYPERLIQUID_USER_ADDRESS,
+        startTime: startTime,
+        endTime: endTime,
       },
     },
   ];
@@ -78,7 +80,11 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
     },
   });
 
-  const reportTxHash = attestResult[0].reportTxHash;
+  const firstAttestResult = attestResult[0];
+  if (!firstAttestResult?.reportTxHash) {
+    throw new Error("attestation_report_missing");
+  }
+  const reportTxHash = firstAttestResult.reportTxHash;
 
   const verifiedResultraw = await primus.verifyAndPollTaskResult({
     taskId,
@@ -86,8 +92,22 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
   });
 
   const verified = verifiedResultraw[0];
+  if (!verified) {
+    throw new Error("verified_result_missing");
+  }
+
   const attestation = verified.attestation;
-  const attData = JSON.parse(attestation.data);
+  if (!attestation || typeof attestation.data !== "string") {
+    throw new Error("invalid_attestation_payload");
+  }
+
+  const attData = JSON.parse(attestation.data) as Record<string, unknown>;
+  const addressCommitment = attData["user_commitment"];
+  const fillsCommitment = attData["SHA256($)"];
+
+  if (typeof addressCommitment !== "string" || typeof fillsCommitment !== "string") {
+    throw new Error("invalid_attestation_commitments");
+  }
 
   const verifiedHyperliquidAttestationResult = {
     taskId,
@@ -96,8 +116,8 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
     recipient: attestation.recipient,
     chainId: CHAIN_ID,
 
-    addressCommitment: attData["user_commitment"],
-    fillsCommitment: attData["SHA256($)"],
+    addressCommitment,
+    fillsCommitment,
 
     verifiedResult: JSON.stringify(verifiedResultraw, null),
   }
