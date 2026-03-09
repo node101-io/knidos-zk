@@ -92,6 +92,8 @@ async function main(): Promise<void> {
     fillCount = 3
     startTime = ${START_TIME}
     endTime = ${END_TIME}
+    baseBalance = 100000000
+    threshold = 50000000
     `
   );
 }

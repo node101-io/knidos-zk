@@ -1,6 +1,7 @@
 use json_parser::JSON8kb;
 
 global MAX_FILLS: u32 = 32;
+global MAX_STRING_LENGHT: u32 = 16;
 
 pub fn assertAllowedCoin(coin: BoundedVec<u8, 16>) {
   let btc = BoundedVec::from_array("BTC".as_bytes());
@@ -47,6 +48,29 @@ pub fn trimRawFills(
 
   out
 }
+// Power of positive exponents
+pub fn power10(exp: u32) -> i64 {
+  let table: [i64; 16] = [
+    1,
+    10,
+    100,
+    1000,
+    10000,
+    100000,
+    1000000,
+    10000000,
+    100000000,
+    1000000000,
+    10000000000,
+    100000000000,
+    1000000000000,
+    10000000000000,
+    100000000000000,
+    1000000000000000,
+  ];
+  assert(exp <= 6);
+  table[exp]
+}
 
 pub fn stringToSignedInteger1e6(string: BoundedVec<u8, 16>) -> (i64) {
   let mut isNegative = false;
@@ -56,36 +80,44 @@ pub fn stringToSignedInteger1e6(string: BoundedVec<u8, 16>) -> (i64) {
   }
 
   let stringLen = string.len();
-  let mut pointPosition: u32 = 0;
-  let mut totalNumber: i64 = 0;
+  assert(stringLen > 0);
 
-  for i in 0..stringLen {
-    if (string.get_unchecked(i) == 46) {
-      pointPosition = i;
+  let mut pointPosition: u32 = 16;
+
+  for i in 0..MAX_STRING_LENGHT {
+    if(i < stringLen) {
+      if (string.get_unchecked(i) == 46) {
+        pointPosition = i;
+      }
     }
   }
+
   assert (pointPosition < stringLen);
 
-  if (isNegative) {
-    for i in 1..pointPosition {
-    let asciiToDigit = string.get_unchecked(i) - 48;
-    let digit: i64 = asciiToDigit as i64 * (10 ^ ((pointPosition as i64 ) - 1 - (i as i64) + 6));
-    totalNumber += digit;
-    }
-  }
-  else {
-    for i in 0..pointPosition {
+  let mut totalNumber: i64 = 0;
+  let startPosition: u32 = if isNegative {1} else {0};
+
+  assert(startPosition < pointPosition); // TODO: Check API to determine whether you have always fee and closedPnl
+
+  for i in 0..MAX_STRING_LENGHT {
+    if(i>= startPosition & i < pointPosition){
       let asciiToDigit = string.get_unchecked(i) - 48;
-      let digit: i64 = asciiToDigit as i64 * (10 ^ ((pointPosition as i64 ) - 1 - (i as i64) + 6));
+      let exponent: u32 = ((pointPosition) - 1 - (i) + 6);
+      let digit: i64 = asciiToDigit as i64 * power10(exponent);
       totalNumber += digit;
     }
   }
 
-  for i in (pointPosition + 1)..stringLen {
-    let asciiToDigit = string.get_unchecked(i) - 48;
-    let fraction: i64 = asciiToDigit as i64 * (10 ^ (6 - i as i64));
-    totalNumber += fraction;
+  for i in 0..MAX_STRING_LENGHT {
+    if(i > pointPosition & i < stringLen) {
+      let asciiToDigit = string.get_unchecked(i) - 48;
+      let fractionIndex = i - pointPosition;
+      let exponent: u32 = 6 - fractionIndex;
+      let fraction: i64 = asciiToDigit as i64 * power10(exponent);
+      totalNumber += fraction;
+    }
   }
+
   if(isNegative) {
     totalNumber = totalNumber * -1;
   }
