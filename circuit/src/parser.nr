@@ -10,7 +10,7 @@ pub fn assertAllowedCoin(coin: BoundedVec<u8, 16>) {
   let xrp = BoundedVec::from_array("XRP".as_bytes());
   let bnb = BoundedVec::from_array("BNB".as_bytes());
   let link = BoundedVec::from_array("LINK".as_bytes());
-  let hype = BoundedVec::from_array("@1035".as_bytes());
+  let hype = BoundedVec::from_array("@1035".as_bytes()); //TODO:
 
   let is_btc: bool = coin == btc;
   let is_eth: bool = coin == eth;
@@ -68,7 +68,7 @@ pub fn power10(exp: u32) -> i64 {
     100000000000000,
     1000000000000000,
   ];
-  assert(exp <= 6);
+  assert(exp <= 16);
   table[exp]
 }
 

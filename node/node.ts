@@ -26,6 +26,7 @@ async function main() {
 }
 
 main().catch((err) => {
+  // recover -> processing to task
   console.error("[app] fatal error", err);
   process.exit(1);
 });
