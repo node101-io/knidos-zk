@@ -13,6 +13,7 @@
     "bullmq": "^5.70.4",
     "dotenv": "^17.2.3",
     "ioredis": "^5.10.0",
+    "mongoose": "^9.3.1",
     "zkverifyjs": "^2.1.0"
   },
   "devDependencies": {
