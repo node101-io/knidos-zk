@@ -1,7 +1,7 @@
 export const QUEUE_NAMES = {
-  ZKTLS: "zktls-queue",
+  ZKTLS: "zkTLS-queue",
   NOIR: "noir-queue",
-  ZKVERIFY: "zkverify-queue",
+  ZKVERIFY: "zkVerify-queue",
 } as const;
 
 export const JOB_NAMES = {

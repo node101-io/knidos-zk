@@ -10,7 +10,7 @@ export interface TaskInterface {
   finishedAt?: Date;
   failedAt?: Date;
   pipelineId: Types.ObjectId;
-  input: unknown;
+  input: Record<string, unknown>;
   result?: unknown;
   error?: unknown;
   attemptCount: number;
@@ -22,7 +22,7 @@ export interface TaskModel extends Model<TaskInterface> {
     body: {
       type: "zkTLS" | "noir" | "zkVerify";
       pipelineId: Types.ObjectId;
-      input: unknown;
+      input: Record<string, unknown>;
       maxAttempt?: number;
     },
     callback: (

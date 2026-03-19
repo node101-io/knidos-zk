@@ -1,15 +1,39 @@
-import { JOB_NAMES } from "../config/queueNames";
-import { zktlsQueue } from "../queues/zkTLS";
-import type { PipelineJobData } from "../types";
+import cron from "node-cron";
+import Task from "../db/models/Task";
+import { zkTLSQueue } from "../queues/zkTLS";
+import { markTaskQueued } from "../services/taskLifeCycle";
 
-export class ZkTlsMaster {
-  async createTask(data: PipelineJobData): Promise<void> {
-    console.log("[zkTLS master] creating task");
+export function startZkTLSMaster() {
+  cron.schedule("* * * * *", async () => {
+    try {
+      const pendingTasks = await Task.find({
+        type: "zkTLS",
+        status: "PENDING",
+      }).limit(20);
 
-    await zktlsQueue.add(JOB_NAMES.ZKTLS_PROCESS, data, {
-      jobId: `zktls-${data.pipelineRunId}`,
-    });
+      if (pendingTasks.length === 0) {
+        return;
+      }
 
-    console.log("[zkTLS master] task added to zkTLS queue");
-  }
+      for (const task of pendingTasks) {
+        await zkTLSQueue.add(
+          "zkTLS-job",
+          {
+            taskId: task._id.toString(),
+            input: task.input,
+          },
+          {
+            jobId: task._id.toString(),
+            removeOnComplete: 100,
+            removeOnFail: 100,
+          }
+        );
+
+        await markTaskQueued(task._id.toString());
+        console.log(`[zkTLS master] queued task ${task._id}`);
+      }
+    } catch (error) {
+      console.error("[zkTLS master] error:", error);
+    }
+  });
 }
