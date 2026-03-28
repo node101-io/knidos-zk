@@ -1,6 +1,8 @@
 import cron from 'node-cron';
 import mongoose from 'mongoose';
 
+import { requireEnv } from "../../scripts/utils/requireEnv.js";
+
 import Task from '../db/models/Task';
 
 export function startScheduler() {
@@ -15,9 +17,11 @@ export function startScheduler() {
         type: "zkTLS",
         pipelineId: new (mongoose.Types.ObjectId)(), // temporary pipeline id
         input: {
-          walletAddress: '0x1234567890abcdef',
-          timeWindowStart: fifteenMinutesAgo.toISOString(),
-          timeWindowEnd: now.toISOString(),
+          // walletAddress: '0x1234567890abcdef', // TODO: change this
+          startTime: fifteenMinutesAgo.toISOString(),
+          endTime: now.toISOString(),
+          baseBalance: 100000000, //TODO: fetch these time info dynamically
+          threshold: 50000000
         },
       },
       (err, task) => {

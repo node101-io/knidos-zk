@@ -1,7 +1,6 @@
 import { fetchRawFills } from "../core/fetchRawFills.js";
 
 import type {
-  NormalizedFill,
   CallbackFills,
   RawFills
 } from "../types.js";

@@ -53,8 +53,10 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<voi
     baseBalance,
     threshold,
   } = input;
+  const startTimeMs = new Date(startTime).getTime();
+  const endTimeMs = new Date(endTime).getTime();
 
-  const PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
+  const PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY"); //TODO: bu bilgileri db'den mi çekmeli sor
   const HYPERLIQUID_USER_ADDRESS = requireEnv("HYPERLIQUID_USER_ADDRESS");
 
   const CHAIN_ID: number = +requireEnv("PRIMUS_CHAIN_ID"); //TODO:ask Necip string to number
@@ -69,9 +71,8 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<voi
   const apiUrl = requireEnv("HYPERLIQUID_API_URL");
   const userAddress = requireEnv("HYPERLIQUID_USER_ADDRESS");
 
-  const rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress, startTime, endTime);
-  const zktlsVerifiedResult = await attestHyperliquidUserFills(primus, CHAIN_ID, startTime, endTime); // Public input
-
+  const rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress, startTimeMs, endTimeMs);
+  const zktlsVerifiedResult = await attestHyperliquidUserFills(primus, CHAIN_ID, startTimeMs, endTimeMs); // Public input
   const addressCommitment = getAddressCommitment(zktlsVerifiedResult);
   const fillsCommitment = getFillsCommitment(zktlsVerifiedResult);
 
