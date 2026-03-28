@@ -1,11 +1,18 @@
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
-import path from 'path';
+import dotenv from 'dotenv';
 
-const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/node101-knidos-zk-trade';
+dotenv.config();
 
-await mongoose
-  .connect(mongoUri)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+export async function connectMongoDB(): Promise<void> {
+  const mongoUri =
+    process.env.MONGO_URI ||
+    'mongodb://127.0.0.1:27017/node101-knidos-zk-trade';
+
+  try {
+    await mongoose.connect(mongoUri);
+    console.log('Connected to MongoDB');
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    process.exit(1); // stop app if DB fails
+  }
+}

@@ -5,7 +5,7 @@
     "build": "tsc",
     "zkverify-submit": "tsx zkVerify/submit.ts",
     "make-hex": "tsx zkVerify/makeHex.ts",
-    "node": "tsx node/node.ts"
+    "node": "tsx node/app.ts"
   },
   "dependencies": {
     "@primuslabs/network-core-sdk": "^0.1.7",
