@@ -70,7 +70,7 @@ export function startZkTLSWorker() {
         await updateTaskStatusAsync({
           taskId,
           status: "COMPLETED",
-          result,
+          result, //TODO: noir'da yazıyoruz zaten gerek var mı buna?
         });
 
         await createTaskAsync({
@@ -79,6 +79,7 @@ export function startZkTLSWorker() {
           input: {
             zkTLSTaskId: taskId,
             circuitInput: result,
+            circuitTomlRoute: `../../circuit/tmp/${taskId}`,
           },
           maxAttempt: task.maxAttempt,
         });
@@ -101,6 +102,7 @@ export function startZkTLSWorker() {
     },
     {
       connection: connection,
+      concurrency: 5,
     }
   );
 
