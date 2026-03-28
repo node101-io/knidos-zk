@@ -3,8 +3,12 @@ import Task from "../db/models/Task";
 import { zkTLSQueue } from "../queues/zkTLS";
 import { markTaskQueued } from "../services/taskLifeCycle";
 
+let isRunning = false;
+
 export function startZkTLSMaster() {
   cron.schedule("* * * * *", async () => {
+    if (isRunning) return;
+    isRunning = true;
     try {
       const pendingTasks = await Task.find({
         type: "zkTLS",
@@ -34,6 +38,8 @@ export function startZkTLSMaster() {
       }
     } catch (error) {
       console.error("[zkTLS master] error:", error);
+    } finally {
+      isRunning = false;
     }
   });
 }

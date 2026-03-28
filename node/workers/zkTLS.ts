@@ -55,7 +55,8 @@ export function startZkTLSWorker() {
 
       const task = await Task.findById(taskId);
       if (!task) {
-        throw new Error("document_not_found");
+        console.warn(`[zkTLS worker] task ${taskId} not found, skipping stale job`);
+        return;
       }
 
       try {
@@ -77,7 +78,7 @@ export function startZkTLSWorker() {
           pipelineId: task.pipelineId,
           input: {
             zkTLSTaskId: taskId,
-            zkTLSResult: result,
+            circuitInput: result,
           },
           maxAttempt: task.maxAttempt,
         });

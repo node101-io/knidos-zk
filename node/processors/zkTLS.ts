@@ -44,7 +44,7 @@ export interface ZkTLSProcessorResult {
   };
 }
 
-export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<void> {
+export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<string> {
     const {
     // walletAddress,
     startTime,
@@ -91,8 +91,7 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<voi
   const rawFillsLength = rawFillsPadded.length;
 
   const proverTomlPath = "circuit/Prover.toml";
-  fs.writeFileSync(proverTomlPath, //TODO: fillCount hesaplama fonksiyonu
-    `
+  const output =     `
     address = ${JSON.stringify(Array.from(addressStringBytes))}
     salt = ${JSON.stringify(Array.from(saltBytes))}
     addressCommitment = ${JSON.stringify(addressCommitmentField2)}
@@ -101,10 +100,11 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<voi
     rawFillsLength = ${rawFillsLength}
     addressAndSaltLength = 58
     fillCount = 3
-    startTime = ${startTime}
-    endTime = ${endTime}
+    startTime = ${startTimeMs}
+    endTime = ${endTimeMs}
     baseBalance = ${baseBalance}
     threshold = ${threshold}
     `
-    );
+  fs.writeFileSync(proverTomlPath, output);
+  return output;
 }

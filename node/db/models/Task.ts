@@ -1,6 +1,6 @@
 import mongoose, { Schema, Model, Types } from "mongoose";
 
-const MAX_INPUT_SIZE = 1e4;
+const MAX_INPUT_SIZE = 1e5;
 
 export interface TaskInterface {
   _id: Types.ObjectId;
