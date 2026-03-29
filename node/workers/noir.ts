@@ -1,29 +1,104 @@
-import { Worker, Job } from "bullmq";
-import { connection } from "../config/redis";
-import { JOB_NAMES, QUEUE_NAMES } from "../config/queueNames";
-import { zkverifyQueue } from "../queues/zkVerify";
-import type { PipelineJobData } from "../types";
+import type { Job } from "bullmq";
+import { Types } from "mongoose";
 
-export const noirWorker = new Worker<PipelineJobData>(
-  QUEUE_NAMES.NOIR,
-  async (job: Job<PipelineJobData>) => {
-    console.log("[Noir worker] started:", job.data);
+import Task from "../db/models/Task.js";
+import logger from "../logger.js";
+import type { NoirJobData } from "../types.js";
+import {  runNoirProcessor  } from "../processors/noir"
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+function updateTaskStatusAsync(body: {
+  taskId: string;
+  status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+  result?: unknown;
+  error?: unknown;
+}) {
+  return new Promise((resolve, reject) => {
+    Task.updateTaskStatus(body, (err, task) => {
+      if (err) return reject(err);
+      resolve(task);
+    });
+  });
+}
+function createTaskAsync(body: {
+  type: "zkTLS" | "noir" | "zkVerify";
+  pipelineId: Types.ObjectId;
+  input: Record<string, unknown>;
+  maxAttempt?: number;
+}) {
+  return new Promise((resolve, reject) => {
+    Task.createTask(body, (err, task) => {
+      if (err) return reject(err);
+      resolve(task);
+    });
+  });
+}
 
-    console.log("[Noir worker] finished proof generation");
 
-    await zkverifyQueue.add(JOB_NAMES.ZKVERIFY_PROCESS, job.data);
+export async function processNoirJob(
+  workerId: number,
+  job: Job<NoirJobData, void, string>,
+): Promise<void> {
+  const { taskId, input } = job.data;
 
-    console.log("[Noir worker] pushed job to zkVerify queue");
-  },
-  { connection }
-);
+  const task = await Task.findById(taskId);
+  if (!task) {
+    logger.warn({ taskId, jobId: job.id }, "[noir worker] task not found");
+    return;
+  }
 
-noirWorker.on("completed", (job) => {
-  console.log(`[Noir worker] completed job ${job.id}`);
-});
+  try {
+    await updateTaskStatusAsync({
+      taskId,
+      status: "RUNNING",
+    });
 
-noirWorker.on("failed", (job, err) => {
-  console.error(`[Noir worker] failed job ${job?.id}`, err);
-});
+    logger.info(
+      { taskId, workerId, noirProjectDir: input.noirCircuitDir },
+      "[noir worker] starting noir task",
+    );
+
+    const result = await runNoirProcessor(input);
+
+    await updateTaskStatusAsync({
+      taskId,
+      status: "COMPLETED",
+      result,
+    });
+
+    logger.info(
+      { taskId, workerId },
+      "[noir worker] completed noir task",
+    );
+
+    await createTaskAsync({
+      type: "zkVerify",
+      pipelineId: task.pipelineId,
+      input: {
+        noirTaskId: taskId,
+        noirResult: result,
+      },
+      maxAttempt: task.maxAttempt,
+    });
+
+    logger.info(
+      { taskId, workerId },
+      "[noir worker] created zkVerify task",
+    );
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
+
+    await updateTaskStatusAsync({
+      taskId,
+      status: "FAILED",
+      error: errorMessage,
+    });
+
+    logger.error(
+      { taskId, workerId, error: errorMessage },
+      "[noir worker] failed noir task",
+    );
+
+    throw error;
+  }
+}

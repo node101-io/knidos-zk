@@ -68,7 +68,7 @@ export async function processZkTLSJob(
       input: {
         zkTLSTaskId: taskId,
         circuitInput: result,
-        circuitTomlRoute: `../../circuit/tmp/${taskId}`,
+        noirCircuitDir: `../../circuit-runs/${taskId}`,
       },
       maxAttempt: task.maxAttempt,
     });

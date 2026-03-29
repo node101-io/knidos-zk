@@ -20,3 +20,14 @@ export type ZkTLSProcessorInput = {
   threshold?: number;
   fillCount?: number;
 };
+
+export type NoirJobInput = {
+  zkTLSTaskId: string;
+  circuitInput: string;
+  noirCircuitDir: string;
+};
+
+export type NoirJobData = {
+  taskId: string;
+  input: NoirJobInput;
+};
