@@ -7,6 +7,8 @@ import logger from "../logger.js";
 import type { ZkVerifyJobData } from "../types.js";
 import { runZkVerifyProcessor } from "../processors/zkVerify.js";
 
+import VerificationRecord from "../db/models/VerificationRecord.js";
+
 function updateTaskStatusAsync(body: {
   taskId: string;
   status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
@@ -54,6 +56,23 @@ export async function processZkVerifyJob(
       status: "COMPLETED",
       result,
     });
+
+    await VerificationRecord.create({
+      pipelineId: task.pipelineId,
+      zkVerifyTaskId: task._id,
+      noirTaskId: input.noirTaskId,
+
+      statement: result.statement,
+      aggregationId: result.aggregationId,
+      includedInBlock: result.includedInBlock,
+
+      variant: result.variant,
+
+      vk: result.vk,
+      proof: result.proof,
+      publicSignals: result.publicSignals,
+    });
+
     const pipelineDir = path.dirname(path.resolve(input.targetDir));
     try {
       await fs.rm(pipelineDir, {
