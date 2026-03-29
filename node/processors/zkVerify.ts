@@ -2,7 +2,8 @@ import "dotenv/config";
 import fs from "fs";
 import path from "path";
 import { zkVerifySession, ZkVerifyEvents, UltrahonkVariant } from "zkverifyjs";
-import { requireEnv } from "../scripts/utils/requireEnv.js";
+import { requireEnv } from "../../scripts/utils/requireEnv.js";
+import type { ZkVerifyJobData } from "../types.js";
 
 const SEED_PHRASE = requireEnv("ZKVERIFY_SEED_PHRASE");
 
@@ -30,7 +31,7 @@ function bufferTo0xHex(buf: Buffer): string {
 function chunkBufferToBytes32List(buf: Buffer): string[] {
   if (buf.length % 32 !== 0) {
     throw new Error(
-      `public_inputs binary length (${buf.length}) is not a multiple of 32 bytes`
+      `public_inputs binary length (${buf.length}) is not a multiple of 32 bytes`,
     );
   }
 
@@ -71,7 +72,7 @@ function loadPublicSignals(pubsPath: string): string[] {
 
       if (body.length % 64 !== 0) {
         throw new Error(
-          `Invalid public inputs hex length ${body.length}; expected multiple of 64 (bytes32 list)`
+          `Invalid public inputs hex length ${body.length}; expected multiple of 64 (bytes32 list)`,
         );
       }
 
@@ -92,7 +93,7 @@ function loadPublicSignals(pubsPath: string): string[] {
       } else {
         if (body.length % 64 !== 0) {
           throw new Error(
-            `Invalid public input line hex length ${body.length}; expected 64 or multiple of 64`
+            `Invalid public input line hex length ${body.length}; expected 64 or multiple of 64`,
           );
         }
 
@@ -158,13 +159,28 @@ function loadProof(proofPath: string, variant: UltrahonkVariant): string {
   return bufferTo0xHex(raw);
 }
 
-async function main() {
-  const ROOT = process.cwd();
-  const CIRCUIT_TARGET = path.resolve(ROOT, "circuit", "target");
+export type ZkVerifyProcessorResult = {
+  targetDir: string;
+  vkPath: string;
+  proofPath: string;
+  publicInputsPath: string;
+  variant: UltrahonkVariant;
+  vk: string;
+  proof: string;
+  publicSignals: string[];
+  includedInBlock?: unknown;
+  statement?: unknown;
+  aggregationId?: number;
+};
 
-  const vkPath = path.resolve(CIRCUIT_TARGET, "vk");
-  const proofPath = path.resolve(CIRCUIT_TARGET, "proof");
-  const pubsPath = path.resolve(CIRCUIT_TARGET, "public_inputs");
+export async function runZkVerifyProcessor(
+  input: ZkVerifyJobData["input"],
+): Promise<ZkVerifyProcessorResult> {
+  const targetDir = path.resolve(input.targetDir);
+
+  const vkPath = path.join(targetDir, "vk");
+  const proofPath = path.join(targetDir, "proof");
+  const publicInputsPath = path.join(targetDir, "public_inputs");
 
   if (!fs.existsSync(vkPath)) {
     throw new Error(`VK not found: ${vkPath}`);
@@ -172,65 +188,24 @@ async function main() {
   if (!fs.existsSync(proofPath)) {
     throw new Error(`Proof not found: ${proofPath}`);
   }
-  if (!fs.existsSync(pubsPath)) {
-    throw new Error(`Public inputs not found: ${pubsPath}`);
+  if (!fs.existsSync(publicInputsPath)) {
+    throw new Error(`Public inputs not found: ${publicInputsPath}`);
   }
 
   const variant = UltrahonkVariant.Plain;
 
   const vk = loadVk(vkPath);
   const proof = loadProof(proofPath, variant);
-  const publicSignals = loadPublicSignals(pubsPath);
-
-  console.log("vk bytes (binary):", fs.readFileSync(vkPath).length);
-  console.log("publicSignals count:", publicSignals.length);
+  const publicSignals = loadPublicSignals(publicInputsPath);
 
   const session = await zkVerifySession
     .start()
     .Volta()
     .withAccount(SEED_PHRASE);
 
-  let statement: any;
+  let includedInBlock: unknown;
+  let statement: unknown;
   let aggregationId: number | undefined;
-
-  session.subscribe([
-    {
-      event: ZkVerifyEvents.NewAggregationReceipt,
-      callback: async (eventData: any) => {
-        console.log("New aggregation receipt:", eventData);
-
-        const receiptAggId = parseInt(
-          String(eventData.data.aggregationId).replace(/,/g, ""),
-          10
-        );
-
-        if (aggregationId !== undefined && aggregationId === receiptAggId) {
-          const statementPath = await session.getAggregateStatementPath(
-            eventData.blockHash,
-            parseInt(String(eventData.data.domainId), 10),
-            receiptAggId,
-            statement
-          );
-
-          fs.writeFileSync(
-            path.resolve(ROOT, "zkVerify", "aggregation.json"),
-            JSON.stringify(
-              {
-                ...statementPath,
-                domainId: parseInt(String(eventData.data.domainId), 10),
-                aggregationId: receiptAggId,
-              },
-              null,
-              2
-            )
-          );
-
-          console.log("Wrote aggregation.json");
-        }
-      },
-      options: { domainId: 0 },
-    },
-  ]);
 
   const { events } = await session
     .verify()
@@ -240,14 +215,26 @@ async function main() {
       domainId: 0,
     });
 
-  events.on(ZkVerifyEvents.IncludedInBlock, (eventData: any) => {
-    console.log("Included in block", eventData);
-    statement = eventData.statement;
-    aggregationId = eventData.aggregationId;
+  await new Promise<void>((resolve) => {
+    events.on(ZkVerifyEvents.IncludedInBlock, (eventData: any) => {
+      includedInBlock = eventData;
+      statement = eventData.statement;
+      aggregationId = eventData.aggregationId;
+      resolve();
+    });
   });
-}
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+  return {
+    targetDir,
+    vkPath,
+    proofPath,
+    publicInputsPath,
+    variant,
+    vk,
+    proof,
+    publicSignals,
+    includedInBlock,
+    statement,
+    aggregationId,
+  };
+}

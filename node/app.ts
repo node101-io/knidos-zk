@@ -4,8 +4,10 @@ import { connection } from "./config/redis.js";
 import { QUEUE_NAMES } from "./config/queueNames.js";
 import { ZkTLSMaster } from "./masters/zkTLS";
 import { NoirMaster } from "./masters/noir.js";
+import { ZkVerifyMaster } from "./masters/zkVerify.js";
 import { processZkTLSJob } from "./workers/zkTLS";
 import { processNoirJob } from "./workers/noir.js";
+import { processZkVerifyJob } from "./workers/zkVerify.js";
 import logger from "./logger.js";
 
 async function bootstrap() {
@@ -32,12 +34,22 @@ async function bootstrap() {
     stalledIntervalMs: 30000,
     processJob: processNoirJob,
 });
+  const zkVerifyMaster = new ZkVerifyMaster({
+    queueName: QUEUE_NAMES.ZKVERIFY,
+    workerLabel: "zkVerify",
+    connection,
+    workerCount: 2,
+    lockDurationMs: 30000,
+    stalledIntervalMs: 30000,
+    processJob: processZkVerifyJob,
+  });
 
   logger.info("[app] zkTLS pipeline started");
 
   await Promise.all([
     zkTLSMaster.run(),
     noirMaster.run(),
+    zkVerifyMaster.run(),
   ]);
 }
 

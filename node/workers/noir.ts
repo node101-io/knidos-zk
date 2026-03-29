@@ -75,7 +75,7 @@ export async function processNoirJob(
       pipelineId: task.pipelineId,
       input: {
         noirTaskId: taskId,
-        noirResult: result,
+        targetDir: result.targetDir,
       },
       maxAttempt: task.maxAttempt,
     });

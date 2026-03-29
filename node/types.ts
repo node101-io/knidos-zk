@@ -31,3 +31,13 @@ export type NoirJobData = {
   taskId: string;
   input: NoirJobInput;
 };
+
+export type ZkVerifyJobInput = {
+  noirTaskId: string;
+  targetDir: string;
+};
+
+export type ZkVerifyJobData = {
+  taskId: string;
+  input: ZkVerifyJobInput;
+};

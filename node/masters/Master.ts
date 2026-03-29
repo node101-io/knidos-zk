@@ -44,7 +44,7 @@ export abstract class Master<JobData> {
     const worker = new Worker<JobData, void, string>(
       queueName,
       async (job) => {
-        logger.info(  { jobId: job.id, data: job.data },
+        logger.info(  { jobId: job.id},
           `${workerLabel} worker ${workerId} started job ${job.id}`,
         );
         await processJob(workerId, job);
