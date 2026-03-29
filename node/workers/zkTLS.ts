@@ -2,6 +2,8 @@ import type { Job } from "bullmq";
 import Task from "../db/models/Task.js";
 import { runZkTLSProcessor } from "../processors/zkTLS.js";
 import type { ZkTLSProcessorInput } from "../types.js";
+import path from "path";
+
 
 
 export type ZkTLSJobData = {
@@ -61,14 +63,15 @@ export async function processZkTLSJob(
       taskId,
       status: "COMPLETED",
     });
-
+  const baseDir = path.resolve(process.cwd(), "circuit-runs");
+  const taskNoirDir = path.join(baseDir, task.pipelineId.toString());
     await createTaskAsync({
       type: "noir",
       pipelineId: task.pipelineId,
       input: {
         zkTLSTaskId: taskId,
         circuitInput: result,
-        noirCircuitDir: `../../circuit-runs/${taskId}`,
+        noirCircuitDir: taskNoirDir,
       },
       maxAttempt: task.maxAttempt,
     });

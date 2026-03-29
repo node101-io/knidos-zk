@@ -52,8 +52,7 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
     baseBalance,
     threshold,
   } = input;
-  const startTimeMs = new Date(startTime).getTime();
-  const endTimeMs = new Date(endTime).getTime();
+
 
   const PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY"); //TODO: bu bilgileri db'den mi çekmeli sor
   const HYPERLIQUID_USER_ADDRESS = requireEnv("HYPERLIQUID_USER_ADDRESS");
@@ -70,8 +69,8 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
   const apiUrl = requireEnv("HYPERLIQUID_API_URL");
   const userAddress = requireEnv("HYPERLIQUID_USER_ADDRESS");
 
-  const rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress, startTimeMs, endTimeMs);
-  const zktlsVerifiedResult = await attestHyperliquidUserFills(primus, CHAIN_ID, startTimeMs, endTimeMs); // Public input
+  const rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress, startTime, endTime);
+  const zktlsVerifiedResult = await attestHyperliquidUserFills(primus, CHAIN_ID, startTime, endTime); // Public input
   const addressCommitment = getAddressCommitment(zktlsVerifiedResult);
   const fillsCommitment = getFillsCommitment(zktlsVerifiedResult);
 
@@ -89,7 +88,6 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
   const rawFillsBytes = rawFillsPadded.padded;
   const rawFillsLength = rawFillsPadded.length;
 
-  const proverTomlPath = "circuit/Prover.toml";
   const output =
     `address = ${JSON.stringify(Array.from(addressStringBytes))}
     salt = ${JSON.stringify(Array.from(saltBytes))}
@@ -99,11 +97,10 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
     rawFillsLength = ${rawFillsLength}
     addressAndSaltLength = 58
     fillCount = 3
-    startTime = ${startTimeMs}
-    endTime = ${endTimeMs}
+    startTime = ${startTime}
+    endTime = ${endTime}
     baseBalance = ${baseBalance}
     threshold = ${threshold}
     `
-  fs.writeFileSync(proverTomlPath, output); // todo
   return output;
 }

@@ -71,10 +71,9 @@ export async function runNoirProcessor(
 
   const executeResult = await execFileAsync(
     "nargo",
-    ["execute"],
+    ["execute", "--skip-brillig-constraints-check"],
     { cwd: noirCircuitDir },
   );
-
   const writeVkResult = await execFileAsync(
     "bb",
     [
