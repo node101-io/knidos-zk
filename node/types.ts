@@ -11,3 +11,12 @@ export type PipelineJobData = {
 export type ZkTlsJobName = "zktls-process";
 export type NoirJobName = "noir-process";
 export type ZkVerifyJobName = "zkverify-process";
+
+export type ZkTLSProcessorInput = {
+  startTime: number;
+  endTime: number;
+  proofType?: string;
+  baseBalance?: number;
+  threshold?: number;
+  fillCount?: number;
+};

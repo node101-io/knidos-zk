@@ -1,20 +1,10 @@
-import { Worker, Job } from "bullmq";
-import { connection } from "../config/redis";
-import { QUEUE_NAMES } from "../config/queueNames";
-import Task from "../db/models/Task";
-import { runZkTLSProcessor } from "../processors/zkTLS";
+import type { Job } from "bullmq";
+import Task from "../db/models/Task.js";
+import { runZkTLSProcessor } from "../processors/zkTLS.js";
+import type { ZkTLSProcessorInput } from "../types.js";
 
-type ZkTLSProcessorInput = {
-  walletAddress: string;
-  startTime: number;
-  endTime: number;
-  proofType?: string;
-  baseBalance?: number;
-  threshold?: number;
-  fillCount?: number;
-};
 
-type ZkTLSJobData = {
+export type ZkTLSJobData = {
   taskId: string;
   input: ZkTLSProcessorInput;
 };
@@ -47,72 +37,51 @@ function createTaskAsync(body: {
   });
 }
 
-export function startZkTLSWorker() {
-  const worker = new Worker(
-    QUEUE_NAMES.ZKTLS,
-    async (job: Job<ZkTLSJobData>) => {
-      const { taskId, input } = job.data;
+export async function processZkTLSJob(
+  workerId: number,
+  job: Job<ZkTLSJobData, void, string>,
+): Promise<void> {
+  const { taskId, input } = job.data;
 
-      const task = await Task.findById(taskId);
-      if (!task) {
-        console.warn(`[zkTLS worker] task ${taskId} not found, skipping stale job`);
-        return;
-      }
+  const task = await Task.findById(taskId);
+  if (!task) {
+    console.warn(`[zkTLS worker ${workerId}] task ${taskId} not found`);
+    return;
+  }
 
-      try {
-        await updateTaskStatusAsync({
-          taskId,
-          status: "RUNNING",
-        });
+  try {
+    await updateTaskStatusAsync({
+      taskId,
+      status: "RUNNING",
+    });
 
-        const result = await runZkTLSProcessor(input);
+    const result = await runZkTLSProcessor(input);
 
-        await updateTaskStatusAsync({
-          taskId,
-          status: "COMPLETED",
-          result, //TODO: noir'da yazıyoruz zaten gerek var mı buna?
-        });
+    await updateTaskStatusAsync({
+      taskId,
+      status: "COMPLETED",
+    });
 
-        await createTaskAsync({
-          type: "noir",
-          pipelineId: task.pipelineId,
-          input: {
-            zkTLSTaskId: taskId,
-            circuitInput: result,
-            circuitTomlRoute: `../../circuit/tmp/${taskId}`,
-          },
-          maxAttempt: task.maxAttempt,
-        });
+    await createTaskAsync({
+      type: "noir",
+      pipelineId: task.pipelineId,
+      input: {
+        zkTLSTaskId: taskId,
+        circuitInput: result,
+        circuitTomlRoute: `../../circuit/tmp/${taskId}`,
+      },
+      maxAttempt: task.maxAttempt,
+    });
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
 
-        console.log(`[zkTLS worker] completed task ${taskId}`);
-        return result;
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
+    await updateTaskStatusAsync({
+      taskId,
+      status: "FAILED",
+      error: errorMessage,
+    });
 
-        await updateTaskStatusAsync({
-          taskId,
-          status: "FAILED",
-          error: errorMessage,
-        });
-
-        console.error(`[zkTLS worker] failed task ${taskId}:`, errorMessage);
-        throw error;
-      }
-    },
-    {
-      connection: connection,
-      concurrency: 5,
-    }
-  );
-
-  worker.on("completed", (job) => {
-    console.log(`[zkTLS worker] BullMQ job completed: ${job.id}`);
-  });
-
-  worker.on("failed", (job, err) => {
-    console.error(`[zkTLS worker] BullMQ job failed: ${job?.id}`, err.message);
-  });
-
-  return worker;
+    throw error;
+  }
 }

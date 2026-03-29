@@ -15,7 +15,6 @@ import { bytes32ToField2DecStrings } from "../../scripts/utils/addressCommitment
 import { padRawFills } from "../../scripts/utils/padRawFills.js";
 
 export interface ZkTLSProcessorInput {
-  walletAddress: string;
   startTime: number;
   endTime: number;
   proofType?: string;
@@ -91,8 +90,8 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
   const rawFillsLength = rawFillsPadded.length;
 
   const proverTomlPath = "circuit/Prover.toml";
-  const output =     `
-    address = ${JSON.stringify(Array.from(addressStringBytes))}
+  const output =
+    `address = ${JSON.stringify(Array.from(addressStringBytes))}
     salt = ${JSON.stringify(Array.from(saltBytes))}
     addressCommitment = ${JSON.stringify(addressCommitmentField2)}
     fillsCommitment = ${JSON.stringify(fillsCommitmentField2)}
@@ -105,6 +104,6 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
     baseBalance = ${baseBalance}
     threshold = ${threshold}
     `
-  fs.writeFileSync(proverTomlPath, output);
+  fs.writeFileSync(proverTomlPath, output); // todo
   return output;
 }

@@ -1,14 +1,18 @@
-import cron from "node-cron";
 import Task from "../db/models/Task";
+import logger from "../logger";
 import { zkTLSQueue } from "../queues/zkTLS";
 import { markTaskQueued } from "../services/taskLifeCycle";
+import { Master } from "./Master";
+import type { ZkTLSProcessorInput } from "../types.js";
 
-let isRunning = false;
 
-export function startZkTLSMaster() {
-  cron.schedule("* * * * *", async () => {
-    if (isRunning) return;
-    isRunning = true;
+export type ZkTLSJobData = {
+  taskId: string;
+  input: ZkTLSProcessorInput;
+};
+
+export class ZkTLSMaster extends Master<ZkTLSJobData> {
+  protected async handleTask(): Promise<void> {
     try {
       const pendingTasks = await Task.find({
         type: "zkTLS",
@@ -16,6 +20,7 @@ export function startZkTLSMaster() {
       }).limit(20);
 
       if (pendingTasks.length === 0) {
+        await this.sleep(1000);
         return;
       }
 
@@ -30,16 +35,20 @@ export function startZkTLSMaster() {
             jobId: task._id.toString(),
             removeOnComplete: 100,
             removeOnFail: 100,
-          }
+          },
         );
 
         await markTaskQueued(task._id.toString());
-        console.log(`[zkTLS master] queued task ${task._id}`);
+
+        logger.info( { taskId: task._id.toString() },
+          `[zkTLS master] queued task ${task._id}`,
+        );
       }
     } catch (error) {
-      console.error("[zkTLS master] error:", error);
-    } finally {
-      isRunning = false;
+      logger.error({  error },
+        "[zkTLS master] error"
+      )
+      await this.sleep(1000);
     }
-  });
+  }
 }

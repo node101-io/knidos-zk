@@ -6,7 +6,7 @@ import { requireEnv } from "../../scripts/utils/requireEnv.js";
 import Task from '../db/models/Task';
 
 export function startScheduler() {
-  cron.schedule('*/2 * * * *', async () => { // * * * * * <- for test. TODO: change */15 * * * *
+  cron.schedule('*/1 * * * *', async () => { // * * * * * <- for test. TODO: change */15 * * * *
     console.log('[scheduler] creating zkTLS task');
 
     const now = new Date();
