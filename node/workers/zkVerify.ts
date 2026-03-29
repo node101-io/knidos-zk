@@ -1,4 +1,7 @@
 import type { Job } from "bullmq";
+import fs from "fs/promises";
+import path from "path";
+
 import Task from "../db/models/Task.js";
 import logger from "../logger.js";
 import type { ZkVerifyJobData } from "../types.js";
@@ -51,6 +54,23 @@ export async function processZkVerifyJob(
       status: "COMPLETED",
       result,
     });
+    const pipelineDir = path.dirname(path.resolve(input.targetDir));
+    try {
+      await fs.rm(pipelineDir, {
+        recursive: true,
+        force: true,
+      });
+
+      logger.info(
+        { taskId, workerId, pipelineDir },
+        "[zkVerify worker] deleted pipeline directory",
+      );
+    } catch (cleanupError) {
+      logger.warn(
+        { taskId, workerId, pipelineDir, cleanupError },
+        "[zkVerify worker] zkVerify succeeded but pipeline cleanup failed",
+      );
+    }
 
     logger.info(
       { taskId, workerId, aggregationId: result.aggregationId },

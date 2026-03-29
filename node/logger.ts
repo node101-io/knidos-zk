@@ -16,10 +16,6 @@ const logger = pino({
         },
       }
     : undefined,
-
-  base: {
-    service: "knidos",
-  },
 });
 
 export default logger;
