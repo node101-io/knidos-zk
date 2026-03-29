@@ -38,7 +38,7 @@ async function bootstrap() {
     queueName: QUEUE_NAMES.ZKVERIFY,
     workerLabel: "zkVerify",
     connection,
-    workerCount: 2,
+    workerCount: 5,
     lockDurationMs: 30000,
     stalledIntervalMs: 30000,
     processJob: processZkVerifyJob,
