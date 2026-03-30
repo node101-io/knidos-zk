@@ -1,43 +1,14 @@
 import type { Job } from "bullmq";
+import mongoose from "mongoose";
+import path from "path";
 import Task from "../db/models/Task.js";
 import { runZkTLSProcessor } from "../processors/zkTLS.js";
 import type { ZkTLSProcessorInput } from "../types.js";
-import path from "path";
-
-
 
 export type ZkTLSJobData = {
   taskId: string;
   input: ZkTLSProcessorInput;
 };
-
-function updateTaskStatusAsync(body: {
-  taskId: string;
-  status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
-  result?: unknown;
-  error?: unknown;
-}) {
-  return new Promise((resolve, reject) => {
-    Task.updateTaskStatus(body, (err, task) => {
-      if (err) return reject(err);
-      resolve(task);
-    });
-  });
-}
-
-function createTaskAsync(body: {
-  type: "zkTLS" | "noir" | "zkVerify";
-  pipelineId: any;
-  input: Record<string, unknown>;
-  maxAttempt?: number;
-}) {
-  return new Promise((resolve, reject) => {
-    Task.createTask(body, (err, task) => {
-      if (err) return reject(err);
-      resolve(task);
-    });
-  });
-}
 
 export async function processZkTLSJob(
   workerId: number,
@@ -52,38 +23,54 @@ export async function processZkTLSJob(
   }
 
   try {
-    await updateTaskStatusAsync({
-      taskId,
-      status: "RUNNING",
-    });
+    await Task.updateOne(
+      { _id: taskId },
+      { status: "RUNNING" }
+    );
 
     const result = await runZkTLSProcessor(input);
 
-    await updateTaskStatusAsync({
-      taskId,
-      status: "COMPLETED",
-    });
-  const baseDir = path.resolve(process.cwd(), "circuit-runs");
-  const taskNoirDir = path.join(baseDir, task.pipelineId.toString());
-    await createTaskAsync({
-      type: "noir",
-      pipelineId: task.pipelineId,
-      input: {
-        zkTLSTaskId: taskId,
-        circuitInput: result,
-        noirCircuitDir: taskNoirDir,
-      },
-      maxAttempt: task.maxAttempt,
-    });
+    const session = await mongoose.startSession();
+
+    try {
+      await session.withTransaction(async () => {
+        await Task.updateOne(
+          { _id: taskId },
+          { status: "COMPLETED" },
+          { session }
+        );
+
+        const baseDir = path.resolve(process.cwd(), "circuit-runs");
+        const taskNoirDir = path.join(baseDir, task.pipelineId.toString());
+
+        await Task.create(
+          [
+            {
+              type: "noir",
+              pipelineId: task.pipelineId,
+              input: {
+                zkTLSTaskId: taskId,
+                circuitInput: result,
+                noirCircuitDir: taskNoirDir,
+              },
+              maxAttempt: task.maxAttempt,
+              status: "PENDING",
+            },
+          ],
+          { session }
+        );
+      });
+    } finally {
+      await session.endSession();
+    }
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : String(error);
 
-    await updateTaskStatusAsync({
-      taskId,
-      status: "FAILED",
-      error: errorMessage,
-    });
+    await Task.updateOne(
+      { _id: taskId },
+      { status: "FAILED", error: errorMessage }
+    );
 
     throw error;
   }

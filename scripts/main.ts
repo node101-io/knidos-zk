@@ -17,9 +17,9 @@ import { hexToFixedBytes } from "./utils/hexToFixedBytes.js";
 import { padRawFills } from "./utils/padRawFills.js";
 import { bytes32ToField2DecStrings } from "./utils/addressCommitmentFieldTwo.js";
 // import { addressStringToBytes42 } from "./utils/addressStringToBytes.js";
-
-const START_TIME = 1769172979000; // Hardcoded
-const END_TIME   = 1769172996000;
+const now = new Date();
+const  END_TIME= now.getTime(); // Hardcoded
+const   START_TIME = now.getTime() - 15 * 60 * 1000;
 
 async function main(): Promise<void> {
   const PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
@@ -66,7 +66,7 @@ async function main(): Promise<void> {
 
   const addressStringBytes = Buffer.from(HYPERLIQUID_USER_ADDRESS, "utf8");
   const saltBytes = hexToFixedBytes(_salt, 16);
-
+  console.log(_rawfillsResponse);
   const rawFillsPadded = padRawFills(_rawfillsResponse!);
   const rawFillsBytes = rawFillsPadded.padded;
   const rawFillsLength = rawFillsPadded.length;

@@ -70,7 +70,7 @@ export abstract class Master<JobData> {
     worker.on("failed", async (job, err) => {
       if (onJobFailed && job) await onJobFailed(job);
       logger.error(
-        { error: err, jobId: job?.id, data: job?.data },
+        { error: err, jobId: job?.id }, //data: job?.data
         `${workerLabel} worker ${workerId} failed job ${job?.id}`,
       );
     });

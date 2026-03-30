@@ -143,7 +143,7 @@ TaskSchema.statics.updateTaskStatus = function (body: Parameters<TaskModel["upda
   const update: Record<string, unknown> = { status };
 
   if (status === "QUEUED") update.queuedAt = new Date();
-  if (status === "RUNNING") update.startedAt = new Date();
+  if (status === "RUNNING") update.startedAt = new Date(); //TODO
   if (status === "COMPLETED") {
     update.finishedAt = new Date();
     update.result = result ?? null;

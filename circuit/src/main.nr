@@ -29,6 +29,7 @@ fn main(
     let addrHashBytes = sha256_var(concated, addressAndSaltLength);
     let addrHashField2 = helpers::hash32ToFieldTwo(addrHashBytes);
     helpers::aseertFieldTwoEqual(addrHashField2, addressCommitment);
-
-    parser::validateFills(rawFills, rawFillsLength, fillCount, startTime, endTime, baseBalance, threshold);
+    if(rawFillsLength != 0) {
+        parser::validateFills(rawFills, rawFillsLength, fillCount, startTime, endTime, baseBalance, threshold);
+    }
 }

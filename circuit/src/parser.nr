@@ -10,7 +10,7 @@ pub fn assertAllowedCoin(coin: BoundedVec<u8, 16>) {
   let xrp = BoundedVec::from_array("XRP".as_bytes());
   let bnb = BoundedVec::from_array("BNB".as_bytes());
   let link = BoundedVec::from_array("LINK".as_bytes());
-  let hype = BoundedVec::from_array("@1035".as_bytes()); //TODO:
+  let hype = BoundedVec::from_array("@1035".as_bytes()); //TODO: this is for testing remove it
 
   let is_btc: bool = coin == btc;
   let is_eth: bool = coin == eth;
