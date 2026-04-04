@@ -12,13 +12,18 @@ export type ZkTlsJobName = "zktls-process";
 export type NoirJobName = "noir-process";
 export type ZkVerifyJobName = "zkverify-process";
 
-export type ZkTLSProcessorInput = {
+export type ZkTLSJobInput = {
   startTime: number;
   endTime: number;
   proofType?: string;
   baseBalance?: number;
   threshold?: number;
   fillCount?: number;
+};
+export type ZkTLSJobData = {
+  taskId: string;
+  input: ZkTLSJobInput;
+  attemptCount: number;
 };
 
 export type NoirJobInput = {
@@ -27,9 +32,11 @@ export type NoirJobInput = {
   noirCircuitDir: string;
 };
 
+
 export type NoirJobData = {
   taskId: string;
   input: NoirJobInput;
+  attemptCount: number;
 };
 
 export type ZkVerifyJobInput = {
@@ -40,4 +47,5 @@ export type ZkVerifyJobInput = {
 export type ZkVerifyJobData = {
   taskId: string;
   input: ZkVerifyJobInput;
+  attemptCount: number;
 };

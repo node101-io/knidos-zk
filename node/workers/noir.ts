@@ -10,7 +10,7 @@ export async function processNoirJob(
   workerId: number,
   job: Job<NoirJobData, void, string>,
 ): Promise<void> {
-  const { taskId, input } = job.data;
+  const { taskId, input, attemptCount} = job.data;
 
   const task = await Task.findById(taskId);
   if (!task) {
@@ -22,6 +22,7 @@ export async function processNoirJob(
     await Task.updateTaskStatus2({
       taskId,
       status: "RUNNING",
+      attemptCount
     });
 
     logger.info(
@@ -39,6 +40,7 @@ export async function processNoirJob(
           {
             taskId,
             status: "COMPLETED",
+            attemptCount,
             result,
           },
           { session }
@@ -80,6 +82,7 @@ export async function processNoirJob(
     await Task.updateTaskStatus2({
       taskId,
       status: "FAILED",
+      attemptCount,
       error: errorMessage,
     });
 

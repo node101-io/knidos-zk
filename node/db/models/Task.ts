@@ -44,6 +44,7 @@ export interface TaskModel extends Model<TaskInterface> {
       body: {
         taskId: string;
         status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+        attemptCount: number;
         result?: unknown;
         error?: unknown;
       },
@@ -144,21 +145,38 @@ TaskSchema.statics.findTasksByPipelineId = function (body: Parameters<TaskModel[
     .then((tasks: TaskInterface[]) => callback(null, tasks))
     .catch(() => callback("bad_request", null));
 };
-TaskSchema.statics.updateTaskStatus2 = async function (body: Parameters<TaskModel["updateTaskStatus2"]>[0], options?: Parameters<TaskModel["updateTaskStatus2"]>[1]) {
+TaskSchema.statics.updateTaskStatus2 = async function ( //TODO: ask necip
+  body: Parameters<TaskModel["updateTaskStatus2"]>[0],
+  options?: Parameters<TaskModel["updateTaskStatus2"]>[1]
+) {
   const { taskId, status, result, error } = body;
 
-  const update: Record<string, unknown> = { status };
+  const update: Record<string, any> = {
+    $set: { status },
+  };
 
-  if (update.status === "QUEUED") update.queuedAt = new Date();
-  if (update.status === "RUNNING") update.startedAt = new Date();
-  if (update.status === "COMPLETED") {
-    update.finishedAt = new Date();
-    update.result = update.result ?? null;
-    update.error = null;
+  if (status === "QUEUED") {
+    update.$set.queuedAt = new Date();
   }
-  if (update.status === "FAILED") {
-    update.failedAt = new Date();
-    update.error = update.error ?? null;
+
+  if (status === "RUNNING") {
+    update.$set.startedAt = new Date();
+    update.$inc = { attemptCount: 1 }; //burada increment kullanmam lazım, eğer bir sıkıntı olursa db bunu yapamazsa falan sıkıntı çıkıyor mu?
+
+  }
+
+  if (status === "COMPLETED") {
+    update.$set.finishedAt = new Date();
+    update.$set.result = result ?? null;
+    update.$set.error = null;
+  }
+
+  if (status === "FAILED") {
+    update.$set.failedAt = new Date();
+  }
+
+  if (error !== undefined) {
+    update.$set.error = error;
   }
 
   return this.updateOne(

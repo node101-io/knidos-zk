@@ -4,18 +4,13 @@ import path from "path";
 import Task from "../db/models/Task.js";
 import logger from "../logger.js";
 import { runZkTLSProcessor } from "../processors/zkTLS.js";
-import type { ZkTLSProcessorInput } from "../types.js";
-
-export type ZkTLSJobData = {
-  taskId: string;
-  input: ZkTLSProcessorInput;
-};
+import type { ZkTLSJobData} from "../types.js"
 
 export async function processZkTLSJob(
   workerId: number,
   job: Job<ZkTLSJobData, void, string>,
 ): Promise<void> {
-  const { taskId, input } = job.data;
+  const { taskId, input, attemptCount} = job.data;
 
   const task = await Task.findById(taskId);
   if (!task) {
@@ -26,7 +21,8 @@ export async function processZkTLSJob(
   try {
     await Task.updateTaskStatus2 ({
       taskId,
-      status: "RUNNING"
+      status: "RUNNING",
+      attemptCount
     });
 
     const result = await runZkTLSProcessor(input);
@@ -39,6 +35,7 @@ export async function processZkTLSJob(
           {
             taskId,
             status: "COMPLETED",
+            attemptCount
           },
           { session }
         );
