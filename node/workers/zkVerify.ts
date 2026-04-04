@@ -108,6 +108,27 @@ export async function processZkVerifyJob(
       errorMessage.includes("nonce") ||
       errorMessage.includes("replace another transaction already in the pool");
 
+    const freshTask = await Task.findById(taskId);
+
+    if (!freshTask) {
+      logger.error({ taskId, workerId }, "[zkVerify worker] task disappeared during error handling");
+      throw error;
+    }
+
+    if (isRetryableTxPoolError && freshTask.attemptCount < freshTask.maxAttempt) {
+      await Task.updateTaskStatus({
+        taskId,
+        status: "PENDING",
+        error: errorMessage,
+      });
+
+      logger.warn(
+        { taskId, workerId, error: errorMessage, attemptCount: freshTask.attemptCount, maxAttempt: freshTask.maxAttempt },
+        "[zkVerify worker] retryable tx pool error, task returned to PENDING",
+      );
+      return;
+    }
+
     await Task.updateTaskStatus({
       taskId,
       status: "FAILED",
@@ -118,14 +139,6 @@ export async function processZkVerifyJob(
       { taskId, workerId, error: errorMessage },
       "[zkVerify worker] failed zkVerify task",
     );
-
-    if (isRetryableTxPoolError) {
-      logger.warn(
-        { taskId, workerId, error: errorMessage },
-        "[zkVerify worker] retryable tx pool error handled gracefully",
-      );
-      return;
-    }
 
     throw error;
   }
