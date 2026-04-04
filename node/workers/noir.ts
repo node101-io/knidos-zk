@@ -6,11 +6,13 @@ import logger from "../logger.js";
 import type { NoirJobData } from "../types.js";
 import { runNoirProcessor } from "../processors/noir";
 
+const NOIR_STALE_MS = 15 * 60 * 1000;
+
 export async function processNoirJob(
   workerId: number,
   job: Job<NoirJobData, void, string>,
 ): Promise<void> {
-  const { taskId, input} = job.data;
+  const { taskId, input } = job.data;
 
   const task = await Task.findById(taskId);
   if (!task) {
@@ -18,10 +20,31 @@ export async function processNoirJob(
     return;
   }
 
+  const now = Date.now();
+
+  if (task.status === "COMPLETED")
+    return;
+
+  if (task.status === "FAILED" && task.attemptCount >= task.maxAttempt)
+    return;
+
+  if (task.status === "RUNNING") {
+    const startedAtMs = task.startedAt ? new Date(task.startedAt).getTime() : 0;
+    const ageMs = startedAtMs ? now - startedAtMs : Number.MAX_SAFE_INTEGER;
+
+    if (ageMs < NOIR_STALE_MS)
+      return;
+
+    logger.warn(
+      { taskId, jobId: job.id, workerId, ageMs },
+      "[noir worker] reclaiming stale running task",
+    );
+  }
+
   try {
     await Task.updateTaskStatus({
       taskId,
-      status: "RUNNING"
+      status: "RUNNING",
     });
 
     logger.info(

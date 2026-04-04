@@ -4,24 +4,48 @@ import path from "path";
 import Task from "../db/models/Task.js";
 import logger from "../logger.js";
 import { runZkTLSProcessor } from "../processors/zkTLS.js";
-import type { ZkTLSJobData} from "../types.js"
+import type { ZkTLSJobData } from "../types.js";
+
+const ZKTLS_STALE_MS = 5 * 60 * 1000;
 
 export async function processZkTLSJob(
   workerId: number,
   job: Job<ZkTLSJobData, void, string>,
 ): Promise<void> {
-  const { taskId, input} = job.data;
+  const { taskId, input } = job.data;
 
   const task = await Task.findById(taskId);
   if (!task) {
-        logger.warn({ taskId, jobId: job.id }, "[zkTLS worker] task not found");
+    logger.warn({ taskId, jobId: job.id }, "[zkTLS worker] task not found");
     return;
+  }
+
+  const now = Date.now();
+
+  if (task.status === "COMPLETED")
+    return;
+
+  if (task.status === "FAILED" && task.attemptCount >= task.maxAttempt)
+    return;
+
+  if (task.status === "RUNNING") {
+    const startedAtMs = task.startedAt ? new Date(task.startedAt).getTime() : 0;
+    const ageMs = startedAtMs ? now - startedAtMs : Number.MAX_SAFE_INTEGER;
+
+    if (ageMs < ZKTLS_STALE_MS) {
+      return;
+    }
+
+    logger.warn(
+      { taskId, jobId: job.id, workerId, ageMs },
+      "[zkTLS worker] reclaiming stale running task",
+    );
   }
 
   try {
     await Task.updateTaskStatus ({
       taskId,
-      status: "RUNNING"
+      status: "RUNNING",
     });
 
     const result = await runZkTLSProcessor(input);
@@ -33,7 +57,7 @@ export async function processZkTLSJob(
         await Task.updateTaskStatus(
           {
             taskId,
-            status: "COMPLETED"
+            status: "COMPLETED",
           },
           { session }
         );
