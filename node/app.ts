@@ -11,7 +11,12 @@ import { processZkVerifyJob } from "./workers/zkVerify.js";
 import logger from "./logger.js";
 
 async function bootstrap() {
-  await connectMongoDB();
+  try {
+    await connectMongoDB();
+  }
+  catch (err){
+    process.exit(1); // TODO: Ask necip
+  }
 
   startScheduler();
 

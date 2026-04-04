@@ -2,6 +2,7 @@ import type { Job } from "bullmq";
 import mongoose from "mongoose";
 import path from "path";
 import Task from "../db/models/Task.js";
+import logger from "../logger.js";
 import { runZkTLSProcessor } from "../processors/zkTLS.js";
 import type { ZkTLSProcessorInput } from "../types.js";
 
@@ -18,15 +19,15 @@ export async function processZkTLSJob(
 
   const task = await Task.findById(taskId);
   if (!task) {
-    console.warn(`[zkTLS worker ${workerId}] task ${taskId} not found`);
+        logger.warn({ taskId, jobId: job.id }, "[zkTLS worker] task not found");
     return;
   }
 
   try {
-    await Task.updateOne(
-      { _id: taskId },
-      { status: "RUNNING" }
-    );
+    await Task.updateTaskStatus2 ({
+      taskId,
+      status: "RUNNING"
+    });
 
     const result = await runZkTLSProcessor(input);
 
@@ -34,9 +35,11 @@ export async function processZkTLSJob(
 
     try {
       await session.withTransaction(async () => {
-        await Task.updateOne(
-          { _id: taskId },
-          { status: "COMPLETED" },
+        await Task.updateTaskStatus2(
+          {
+            taskId,
+            status: "COMPLETED",
+          },
           { session }
         );
 

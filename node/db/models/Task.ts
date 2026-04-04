@@ -40,7 +40,15 @@ export interface TaskModel extends Model<TaskInterface> {
       tasks: TaskInterface[] | null
     ) => any
   ) => any;
-
+  updateTaskStatus2: (
+      body: {
+        taskId: string;
+        status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+        result?: unknown;
+        error?: unknown;
+      },
+      options?: { session?: mongoose.ClientSession }
+    ) => any;
   updateTaskStatus: (
     body: {
       taskId: string;
@@ -136,7 +144,29 @@ TaskSchema.statics.findTasksByPipelineId = function (body: Parameters<TaskModel[
     .then((tasks: TaskInterface[]) => callback(null, tasks))
     .catch(() => callback("bad_request", null));
 };
+TaskSchema.statics.updateTaskStatus2 = async function (body: Parameters<TaskModel["updateTaskStatus2"]>[0], options?: Parameters<TaskModel["updateTaskStatus2"]>[1]) {
+  const { taskId, status, result, error } = body;
 
+  const update: Record<string, unknown> = { status };
+
+  if (update.status === "QUEUED") update.queuedAt = new Date();
+  if (update.status === "RUNNING") update.startedAt = new Date();
+  if (update.status === "COMPLETED") {
+    update.finishedAt = new Date();
+    update.result = update.result ?? null;
+    update.error = null;
+  }
+  if (update.status === "FAILED") {
+    update.failedAt = new Date();
+    update.error = update.error ?? null;
+  }
+
+  return this.updateOne(
+    { _id: taskId },
+    update,
+    { session: options?.session }
+  );
+};
 TaskSchema.statics.updateTaskStatus = function (body: Parameters<TaskModel["updateTaskStatus"]>[0], callback: Parameters<TaskModel["updateTaskStatus"]>[1]) {
   const { taskId, status, result, error } = body;
 

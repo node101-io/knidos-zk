@@ -17,10 +17,12 @@ import { hexToFixedBytes } from "./utils/hexToFixedBytes.js";
 import { padRawFills } from "./utils/padRawFills.js";
 import { bytes32ToField2DecStrings } from "./utils/addressCommitmentFieldTwo.js";
 // import { addressStringToBytes42 } from "./utils/addressStringToBytes.js";
-const now = new Date();
-const  END_TIME= now.getTime(); // Hardcoded
-const   START_TIME = now.getTime() - 15 * 60 * 1000;
+// const now = new Date();
+// const  END_TIME= now.getTime(); // Hardcoded
+// const   START_TIME = now.getTime() - 15 * 60 * 1000;
 
+const  END_TIME=1769172996000;
+const   START_TIME = 1769172979000;
 async function main(): Promise<void> {
   const PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
   const HYPERLIQUID_USER_ADDRESS = requireEnv("HYPERLIQUID_USER_ADDRESS");
