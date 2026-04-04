@@ -1,4 +1,5 @@
 import type { Job } from "bullmq";
+import mongoose from "mongoose";
 import fs from "fs/promises";
 import path from "path";
 
@@ -6,22 +7,7 @@ import Task from "../db/models/Task.js";
 import logger from "../logger.js";
 import type { ZkVerifyJobData } from "../types.js";
 import { runZkVerifyProcessor } from "../processors/zkVerify.js";
-
 import VerificationRecord from "../db/models/VerificationRecord.js";
-
-function updateTaskStatusAsync(body: {
-  taskId: string;
-  status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
-  result?: unknown;
-  error?: unknown;
-}) {
-  return new Promise((resolve, reject) => {
-    Task.updateTaskStatus(body, (err, task) => {
-      if (err) return reject(err);
-      resolve(task);
-    });
-  });
-}
 
 export async function processZkVerifyJob(
   workerId: number,
@@ -39,7 +25,7 @@ export async function processZkVerifyJob(
   }
 
   try {
-    await updateTaskStatusAsync({
+    await Task.updateTaskStatus2({
       taskId,
       status: "RUNNING",
     });
@@ -51,29 +37,46 @@ export async function processZkVerifyJob(
 
     const result = await runZkVerifyProcessor(input);
 
-    await updateTaskStatusAsync({
-      taskId,
-      status: "COMPLETED",
-      result,
-    });
+    const session = await mongoose.startSession();
 
-    await VerificationRecord.create({
-      pipelineId: task.pipelineId,
-      zkVerifyTaskId: task._id,
-      noirTaskId: input.noirTaskId,
+    try {
+      await session.withTransaction(async () => {
+        await Task.updateTaskStatus2(
+          {
+            taskId,
+            status: "COMPLETED",
+            result,
+          },
+          { session }
+        );
 
-      statement: result.statement,
-      aggregationId: result.aggregationId,
-      includedInBlock: result.includedInBlock,
+        await VerificationRecord.create(
+          [
+            {
+              pipelineId: task.pipelineId,
+              zkVerifyTaskId: task._id,
+              noirTaskId: input.noirTaskId,
 
-      variant: result.variant,
+              statement: result.statement,
+              aggregationId: result.aggregationId,
+              includedInBlock: result.includedInBlock,
 
-      vk: result.vk,
-      proof: result.proof,
-      publicSignals: result.publicSignals,
-    });
+              variant: result.variant,
+
+              vk: result.vk,
+              proof: result.proof,
+              publicSignals: result.publicSignals,
+            },
+          ],
+          { session }
+        );
+      });
+    } finally {
+      await session.endSession();
+    }
 
     const pipelineDir = path.dirname(path.resolve(input.targetDir));
+
     try {
       await fs.rm(pipelineDir, {
         recursive: true,
@@ -99,7 +102,13 @@ export async function processZkVerifyJob(
     const errorMessage =
       error instanceof Error ? error.message : String(error);
 
-    await updateTaskStatusAsync({
+    const isRetryableTxPoolError = //TODO: ask necip
+      errorMessage.includes("Priority is too low") ||
+      errorMessage.includes("transaction already in the pool") ||
+      errorMessage.includes("nonce") ||
+      errorMessage.includes("replace another transaction already in the pool");
+
+    await Task.updateTaskStatus2({
       taskId,
       status: "FAILED",
       error: errorMessage,
@@ -109,6 +118,14 @@ export async function processZkVerifyJob(
       { taskId, workerId, error: errorMessage },
       "[zkVerify worker] failed zkVerify task",
     );
+
+    if (isRetryableTxPoolError) {
+      logger.warn(
+        { taskId, workerId, error: errorMessage },
+        "[zkVerify worker] retryable tx pool error handled gracefully",
+      );
+      return;
+    }
 
     throw error;
   }
