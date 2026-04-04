@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 import fs from "fs";
 
 import { requireEnv } from "../../scripts/utils/requireEnv.js";
-import { fetchHyperliquidFills } from "../../scripts/api/fetchHyperliquidFills.js";
+import { fetchHyperliquidFills } from "../../scripts/utils/fetchHyperliquidFills.js";
 import { attestHyperliquidUserFills } from "../../zktls/attestHyperliquid.js";
 import { getAddressCommitment } from "../../zktls/commitments/addressCommitment.js"
 import { getFillsCommitment } from "../../zktls/commitments/fillsCommitment.js";

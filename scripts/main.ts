@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 import fs from "fs";
 import { createHash } from "crypto";
 
-import { fetchHyperliquidFills } from "./api/fetchHyperliquidFills.js";
+import { fetchHyperliquidFills } from "./utils/fetchHyperliquidFills.js";
 import { requireEnv } from "./utils/requireEnv.js";
 import { attestHyperliquidUserFills } from "../zktls/attestHyperliquid.js";
 import { sha256Raw } from "./utils/hashRawResponse.js";
