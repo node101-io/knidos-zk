@@ -7,7 +7,7 @@ import Task from '../db/models/Task';
 const START_TIME = 1769172979000; // For testing
 const END_TIME   = 1769172996000; // For testing
 export function startScheduler() {
-  cron.schedule('*/1 * * * *', async () => { // * * * * * <- for test. TODO: change */15 * * * *
+  cron.schedule('*/15 * * * *', async () => { // * * * * * <- for test. TODO: change */15 * * * *
     console.log('[scheduler] creating zkTLS task');
 
     const now = new Date();

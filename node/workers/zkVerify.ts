@@ -9,6 +9,14 @@ import type { ZkVerifyJobData } from "../types.js";
 import { runZkVerifyProcessor } from "../processors/zkVerify.js";
 import VerificationRecord from "../db/models/VerificationRecord.js";
 
+const ZKVERIFY_STALE_MS = 2 * 60 * 1000;
+const ZKVERIFY_MIN_GAP_MS = 15 * 1000;
+const ZKVERIFY_SLEEP_STEP_MS = 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function processZkVerifyJob(
   workerId: number,
   job: Job<ZkVerifyJobData, void, string>,
@@ -24,11 +32,85 @@ export async function processZkVerifyJob(
     return;
   }
 
+  const now = Date.now();
+
+  if (task.status === "COMPLETED") {
+    logger.info(
+      { taskId, jobId: job.id, workerId },
+      "[zkVerify worker] task already completed, skipping",
+    );
+    return;
+  }
+
+  if (task.status === "FAILED" && task.attemptCount >= task.maxAttempt) {
+    logger.warn(
+      {
+        taskId,
+        workerId,
+        attemptCount: task.attemptCount,
+        maxAttempt: task.maxAttempt,
+      },
+      "[zkVerify worker] task already failed and max attempts reached, skipping",
+    );
+    return;
+  }
+
+  if (task.status === "RUNNING") {
+    const startedAtMs = task.startedAt ? new Date(task.startedAt).getTime() : 0;
+    const ageMs = startedAtMs ? now - startedAtMs : Number.MAX_SAFE_INTEGER;
+
+    if (ageMs < ZKVERIFY_STALE_MS) {
+      logger.warn(
+        { taskId, jobId: job.id, workerId, ageMs },
+        "[zkVerify worker] task is already running and not stale, skipping",
+      );
+      return;
+    }
+
+    logger.warn(
+      { taskId, jobId: job.id, workerId, ageMs },
+      "[zkVerify worker] reclaiming stale running task",
+    );
+  }
+
   try {
     await Task.updateTaskStatus({
       taskId,
       status: "RUNNING",
     });
+
+    while (true) {
+      const previousCompletedTask = await Task.findOne({
+        type: "zkVerify",
+        status: "COMPLETED",
+        _id: { $ne: taskId },
+      }).sort({ finishedAt: -1 });
+
+      if (!previousCompletedTask?.finishedAt) {
+        break;
+      }
+
+      const elapsedMs =
+        Date.now() - new Date(previousCompletedTask.finishedAt).getTime();
+
+      if (elapsedMs >= ZKVERIFY_MIN_GAP_MS) {
+        break;
+      }
+
+      const remainingMs = ZKVERIFY_MIN_GAP_MS - elapsedMs;
+
+      logger.info(
+        {
+          taskId,
+          workerId,
+          previousTaskId: previousCompletedTask._id,
+          remainingMs,
+        },
+        "[zkVerify worker] waiting before next zkVerify submission",
+      );
+
+      await sleep(Math.min(ZKVERIFY_SLEEP_STEP_MS, remainingMs));
+    }
 
     logger.info(
       { taskId, workerId, targetDir: input.targetDir },
@@ -53,19 +135,7 @@ export async function processZkVerifyJob(
         await VerificationRecord.create(
           [
             {
-              pipelineId: task.pipelineId,
-              zkVerifyTaskId: task._id,
-              noirTaskId: input.noirTaskId,
-
-              statement: result.statement,
-              aggregationId: result.aggregationId,
-              includedInBlock: result.includedInBlock,
-
-              variant: result.variant,
-
-              vk: result.vk,
-              proof: result.proof,
-              publicSignals: result.publicSignals,
+              tx: result.includedInBlock,
             },
           ],
           { session }
@@ -102,7 +172,7 @@ export async function processZkVerifyJob(
     const errorMessage =
       error instanceof Error ? error.message : String(error);
 
-    const isRetryableTxPoolError = //TODO: ask necip
+    const isRetryableTxPoolError =
       errorMessage.includes("Priority is too low") ||
       errorMessage.includes("transaction already in the pool") ||
       errorMessage.includes("nonce") ||
@@ -111,11 +181,17 @@ export async function processZkVerifyJob(
     const freshTask = await Task.findById(taskId);
 
     if (!freshTask) {
-      logger.error({ taskId, workerId }, "[zkVerify worker] task disappeared during error handling");
+      logger.error(
+        { taskId, workerId },
+        "[zkVerify worker] task disappeared during error handling",
+      );
       throw error;
     }
 
-    if (isRetryableTxPoolError && freshTask.attemptCount < freshTask.maxAttempt) {
+    if (
+      isRetryableTxPoolError &&
+      freshTask.attemptCount < freshTask.maxAttempt
+    ) {
       await Task.updateTaskStatus({
         taskId,
         status: "PENDING",
@@ -123,7 +199,13 @@ export async function processZkVerifyJob(
       });
 
       logger.warn(
-        { taskId, workerId, error: errorMessage, attemptCount: freshTask.attemptCount, maxAttempt: freshTask.maxAttempt },
+        {
+          taskId,
+          workerId,
+          error: errorMessage,
+          attemptCount: freshTask.attemptCount,
+          maxAttempt: freshTask.maxAttempt,
+        },
         "[zkVerify worker] retryable tx pool error, task returned to PENDING",
       );
       return;
