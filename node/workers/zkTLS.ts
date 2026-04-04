@@ -19,7 +19,7 @@ export async function processZkTLSJob(
   }
 
   try {
-    await Task.updateTaskStatus2 ({
+    await Task.updateTaskStatus ({
       taskId,
       status: "RUNNING"
     });
@@ -30,7 +30,7 @@ export async function processZkTLSJob(
 
     try {
       await session.withTransaction(async () => {
-        await Task.updateTaskStatus2(
+        await Task.updateTaskStatus(
           {
             taskId,
             status: "COMPLETED"

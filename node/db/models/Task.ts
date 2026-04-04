@@ -40,7 +40,7 @@ export interface TaskModel extends Model<TaskInterface> {
       tasks: TaskInterface[] | null
     ) => any
   ) => any;
-  updateTaskStatus2: (
+  updateTaskStatus: (
       body: {
         taskId: string;
         status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
@@ -49,18 +49,6 @@ export interface TaskModel extends Model<TaskInterface> {
       },
       options?: { session?: mongoose.ClientSession }
     ) => any;
-  updateTaskStatus: (
-    body: {
-      taskId: string;
-      status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
-      result?: unknown;
-      error?: unknown;
-    },
-    callback: (
-      err: string | null,
-      task: TaskInterface | null
-    ) => any
-  ) => any;
 }
 
 const TaskSchema = new Schema<TaskInterface>({
@@ -144,9 +132,9 @@ TaskSchema.statics.findTasksByPipelineId = function (body: Parameters<TaskModel[
     .then((tasks: TaskInterface[]) => callback(null, tasks))
     .catch(() => callback("bad_request", null));
 };
-TaskSchema.statics.updateTaskStatus2 = async function ( //TODO: ask necip
-  body: Parameters<TaskModel["updateTaskStatus2"]>[0],
-  options?: Parameters<TaskModel["updateTaskStatus2"]>[1]
+TaskSchema.statics.updateTaskStatus = async function ( //TODO: ask necip
+  body: Parameters<TaskModel["updateTaskStatus"]>[0],
+  options?: Parameters<TaskModel["updateTaskStatus"]>[1]
 ) {
   const { taskId, status, result, error } = body;
 
@@ -183,29 +171,6 @@ TaskSchema.statics.updateTaskStatus2 = async function ( //TODO: ask necip
     update,
     { session: options?.session }
   );
-};
-TaskSchema.statics.updateTaskStatus = function (body: Parameters<TaskModel["updateTaskStatus"]>[0], callback: Parameters<TaskModel["updateTaskStatus"]>[1]) {
-  const { taskId, status, result, error } = body;
-
-  const update: Record<string, unknown> = { status };
-
-  if (status === "QUEUED") update.queuedAt = new Date();
-  if (status === "RUNNING") update.startedAt = new Date(); //TODO
-  if (status === "COMPLETED") {
-    update.finishedAt = new Date();
-    update.result = result ?? null;
-  }
-  if (status === "FAILED") {
-    update.failedAt = new Date();
-    update.error = error ?? null;
-  }
-
-  this.findByIdAndUpdate(taskId, update, { new: true })
-    .then((task: TaskInterface | null) => {
-      if (!task) return callback("document_not_found", null);
-      return callback(null, task);
-    })
-    .catch(() => callback("bad_request", null));
 };
 
 const Task = (mongoose.models.Task as TaskModel) || mongoose.model<TaskInterface, TaskModel>("Task", TaskSchema);

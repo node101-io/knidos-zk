@@ -25,7 +25,7 @@ export async function processZkVerifyJob(
   }
 
   try {
-    await Task.updateTaskStatus2({
+    await Task.updateTaskStatus({
       taskId,
       status: "RUNNING",
     });
@@ -41,7 +41,7 @@ export async function processZkVerifyJob(
 
     try {
       await session.withTransaction(async () => {
-        await Task.updateTaskStatus2(
+        await Task.updateTaskStatus(
           {
             taskId,
             status: "COMPLETED",
@@ -108,7 +108,7 @@ export async function processZkVerifyJob(
       errorMessage.includes("nonce") ||
       errorMessage.includes("replace another transaction already in the pool");
 
-    await Task.updateTaskStatus2({
+    await Task.updateTaskStatus({
       taskId,
       status: "FAILED",
       error: errorMessage,

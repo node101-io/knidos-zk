@@ -19,7 +19,7 @@ export async function processNoirJob(
   }
 
   try {
-    await Task.updateTaskStatus2({
+    await Task.updateTaskStatus({
       taskId,
       status: "RUNNING"
     });
@@ -35,7 +35,7 @@ export async function processNoirJob(
 
     try {
       await session.withTransaction(async () => {
-        await Task.updateTaskStatus2(
+        await Task.updateTaskStatus(
           {
             taskId,
             status: "COMPLETED",
@@ -77,7 +77,7 @@ export async function processNoirJob(
     const errorMessage =
       error instanceof Error ? error.message : String(error);
 
-    await Task.updateTaskStatus2({
+    await Task.updateTaskStatus({
       taskId,
       status: "FAILED",
       error: errorMessage,
