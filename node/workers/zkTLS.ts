@@ -10,7 +10,7 @@ export async function processZkTLSJob(
   workerId: number,
   job: Job<ZkTLSJobData, void, string>,
 ): Promise<void> {
-  const { taskId, input, attemptCount} = job.data;
+  const { taskId, input} = job.data;
 
   const task = await Task.findById(taskId);
   if (!task) {
@@ -21,8 +21,7 @@ export async function processZkTLSJob(
   try {
     await Task.updateTaskStatus2 ({
       taskId,
-      status: "RUNNING",
-      attemptCount
+      status: "RUNNING"
     });
 
     const result = await runZkTLSProcessor(input);
@@ -34,8 +33,7 @@ export async function processZkTLSJob(
         await Task.updateTaskStatus2(
           {
             taskId,
-            status: "COMPLETED",
-            attemptCount
+            status: "COMPLETED"
           },
           { session }
         );

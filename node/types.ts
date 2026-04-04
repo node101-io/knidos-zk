@@ -23,7 +23,6 @@ export type ZkTLSJobInput = {
 export type ZkTLSJobData = {
   taskId: string;
   input: ZkTLSJobInput;
-  attemptCount: number;
 };
 
 export type NoirJobInput = {
@@ -36,7 +35,6 @@ export type NoirJobInput = {
 export type NoirJobData = {
   taskId: string;
   input: NoirJobInput;
-  attemptCount: number;
 };
 
 export type ZkVerifyJobInput = {
@@ -47,5 +45,4 @@ export type ZkVerifyJobInput = {
 export type ZkVerifyJobData = {
   taskId: string;
   input: ZkVerifyJobInput;
-  attemptCount: number;
 };

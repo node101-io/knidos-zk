@@ -44,7 +44,6 @@ export interface TaskModel extends Model<TaskInterface> {
       body: {
         taskId: string;
         status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
-        attemptCount: number;
         result?: unknown;
         error?: unknown;
       },
