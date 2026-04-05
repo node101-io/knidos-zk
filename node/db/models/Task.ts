@@ -1,4 +1,5 @@
 import mongoose, { Schema, Model, Types } from "mongoose";
+import { Buffer } from "buffer";
 
 const MAX_INPUT_SIZE = 1e5;
 
@@ -8,7 +9,7 @@ export interface TaskInterface {
   type: "zkTLS" | "noir" | "zkVerify";
   status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
   queuedAt?: Date;
-  startedAt?: Date;
+  attemptStartedAt?: Date;
   finishedAt?: Date;
   failedAt?: Date;
   pipelineId: Types.ObjectId;
@@ -68,7 +69,7 @@ const TaskSchema = new Schema<TaskInterface>({
   queuedAt: {
     type: Date
   },
-  startedAt: {
+  attemptStartedAt: {
     type: Date
   },
   finishedAt: {
@@ -147,7 +148,7 @@ TaskSchema.statics.updateTaskStatus = async function ( //TODO: ask necip
   }
 
   if (status === "RUNNING") {
-    update.$set.startedAt = new Date();
+    update.$set.attemptStartedAt = new Date();
     update.$inc = { attemptCount: 1 }; //burada increment kullanmam lazım, eğer bir sıkıntı olursa db bunu yapamazsa falan sıkıntı çıkıyor mu?
 
   }

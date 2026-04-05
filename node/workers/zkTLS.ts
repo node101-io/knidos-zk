@@ -29,8 +29,8 @@ export async function processZkTLSJob(
     return;
 
   if (task.status === "RUNNING") {
-    const startedAtMs = task.startedAt ? new Date(task.startedAt).getTime() : 0;
-    const ageMs = startedAtMs ? now - startedAtMs : Number.MAX_SAFE_INTEGER;
+    const attemptStartedAtMs = task.attemptStartedAt ? new Date(task.attemptStartedAt).getTime() : 0;
+    const ageMs = attemptStartedAtMs ? now - attemptStartedAtMs : Number.MAX_SAFE_INTEGER;
 
     if (ageMs < ZKTLS_STALE_MS) {
       return;

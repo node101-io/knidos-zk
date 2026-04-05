@@ -34,43 +34,23 @@ export async function processZkVerifyJob(
 
   const now = Date.now();
 
-  if (task.status === "COMPLETED") {
-    logger.info(
-      { taskId, jobId: job.id, workerId },
-      "[zkVerify worker] task already completed, skipping",
-    );
+  if (task.status === "COMPLETED")
     return;
-  }
 
-  if (task.status === "FAILED" && task.attemptCount >= task.maxAttempt) {
-    logger.warn(
-      {
-        taskId,
-        workerId,
-        attemptCount: task.attemptCount,
-        maxAttempt: task.maxAttempt,
-      },
-      "[zkVerify worker] task already failed and max attempts reached, skipping",
-    );
+  if (task.status === "FAILED" && task.attemptCount >= task.maxAttempt)
     return;
-  }
 
   if (task.status === "RUNNING") {
-    const startedAtMs = task.startedAt ? new Date(task.startedAt).getTime() : 0;
-    const ageMs = startedAtMs ? now - startedAtMs : Number.MAX_SAFE_INTEGER;
+    const attemptStartedAtMs = task.attemptStartedAt ? new Date(task.attemptStartedAt).getTime() : 0;
+    const ageMs = attemptStartedAtMs ? now - attemptStartedAtMs : Number.MAX_SAFE_INTEGER;
 
-    if (ageMs < ZKVERIFY_STALE_MS) {
-      logger.warn(
-        { taskId, jobId: job.id, workerId, ageMs },
-        "[zkVerify worker] task is already running and not stale, skipping",
-      );
+    if (ageMs < ZKVERIFY_STALE_MS)
       return;
-    }
 
-    logger.warn(
-      { taskId, jobId: job.id, workerId, ageMs },
-      "[zkVerify worker] reclaiming stale running task",
-    );
+    // logger.warn(
+    //   { taskId, jobId: job.id, workerId, ageMs },
+    //   "[zkVerify worker] reclaiming stale running task",
+    // );
   }
 
   try {
@@ -221,7 +201,5 @@ export async function processZkVerifyJob(
       { taskId, workerId, error: errorMessage },
       "[zkVerify worker] failed zkVerify task",
     );
-
-    throw error;
   }
 }

@@ -29,16 +29,16 @@ export async function processNoirJob(
     return;
 
   if (task.status === "RUNNING") {
-    const startedAtMs = task.startedAt ? new Date(task.startedAt).getTime() : 0;
-    const ageMs = startedAtMs ? now - startedAtMs : Number.MAX_SAFE_INTEGER;
+    const attemptStartedAtMs = task.attemptStartedAt ? new Date(task.attemptStartedAt).getTime() : 0;
+    const ageMs = attemptStartedAtMs ? now - attemptStartedAtMs : Number.MAX_SAFE_INTEGER;
 
     if (ageMs < NOIR_STALE_MS)
       return;
 
-    logger.warn(
-      { taskId, jobId: job.id, workerId, ageMs },
-      "[noir worker] reclaiming stale running task",
-    );
+    // logger.warn(
+    //   { taskId, jobId: job.id, workerId, ageMs },
+    //   "[noir worker] reclaiming stale running task",
+    // );
   }
 
   try {
