@@ -13,9 +13,8 @@ import { hexToFixedBytes } from "./utils/hexToFixedBytes.js";
 import { padRawFills } from "./utils/padRawFills.js";
 import { bytes32ToField2DecStrings } from "./utils/addressCommitmentFieldTwo.js";
 
-const now = new Date();
-const END_TIME = now.getTime();
-const START_TIME = now.getTime() - 1 * 24 * 60 * 60 * 1000; // 1 day
+const END_TIME = 1769172996000;
+const START_TIME = 1769172979000;
 
 async function main(): Promise<void> {
   const PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
@@ -43,10 +42,11 @@ async function main(): Promise<void> {
 
   const decoder = new TextDecoder("utf-8");
   console.log(decoder.decode(_rawfillsResponse!));
-
-  console.log("Raw Fills Response Hash:", rawfillsResponseHash);
-  console.log("Fills Commitment (zkTLS):", fillsCommitment);
-  console.log("Hashes match:", rawfillsResponseHash === fillsCommitment);
+  // For debugging purposes
+  console.log("Raw Fills Response Hash: " + rawfillsResponseHash);
+  console.log("Verified Result: " + JSON.stringify(zktlsVerifiedResult));
+  console.log("Fills Commitment: " + fillsCommitment);
+  console.log(_rawfillsResponse);
 
   const fillsCommitmentBytes = hexToFixedBytes(fillsCommitment, 32);
   const fillsCommitmentField2 = bytes32ToField2DecStrings(fillsCommitmentBytes);
@@ -68,13 +68,9 @@ async function main(): Promise<void> {
     threshold = 50000000
     `
   );
-
-  console.log("Prover.toml written successfully");
 }
 
 main().catch(err => {
   console.error("Error:", err.message);
-  if (err.data) console.error("Error data:", JSON.stringify(err.data, null, 2));
-  if (err.code) console.error("Error code:", err.code);
   process.exit(1);
 });
