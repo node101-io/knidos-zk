@@ -7,7 +7,7 @@ const START_TIME = 1769172979000; // For testing
 const END_TIME   = 1769172996000; // For testing
 
 export function startScheduler() {
-  cron.schedule('*/15 * * * *', async () => {
+  cron.schedule('*/3 * * * *', async () => {
     console.log('[scheduler] creating zkTLS task');
 
     const now = new Date();

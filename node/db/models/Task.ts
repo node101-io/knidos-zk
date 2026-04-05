@@ -175,7 +175,7 @@ TaskSchema.statics.updateTaskStatus = async function ( //TODO: ask necip
   return this.updateOne(
     { _id: taskId },
     update,
-    { session: options?.session }
+    ...(options?.session ? [{ session: options.session }] : [])
   );
 };
 

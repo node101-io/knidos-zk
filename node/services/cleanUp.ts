@@ -92,9 +92,13 @@ export async function runCleanupOnce(): Promise<void> {
           "[cleanup] stuck task marked as FAILED",
         );
 
-        // if (task.type === "noir" && task.input?.noirCircuitDir) {
-        //   await deleteNoirCircuitDir(task.input.noirCircuitDir);
-        // }
+        if (task.type === "noir") {
+          const noirCircuitDir = task.input["noirCircuitDir"];
+
+          if (typeof noirCircuitDir === "string") {
+            await deleteNoirCircuitDir(noirCircuitDir);
+          }
+        }
 
         continue;
       }
