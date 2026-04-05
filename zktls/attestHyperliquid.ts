@@ -1,37 +1,30 @@
 import { PrimusNetwork } from "@primuslabs/network-core-sdk";
-import { ethers } from "ethers";
+import { createHmac } from "crypto";
 
 import { requireEnv } from "../scripts/utils/requireEnv.js";
 
 import type { VerifiedHyperliquidAttestation } from "../scripts/types.js"
 
-export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID: number, startTime: number, endTime: number): Promise<VerifiedHyperliquidAttestation> {
-  // const PRIMUS_PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
+export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID: number, symbol: string, startTime: number, endTime: number): Promise<VerifiedHyperliquidAttestation> {
   const PRIMUS_USER_ADDRESS = requireEnv("PRIMUS_USER_ADDRESS");
-  const HYPERLIQUID_USER_ADDRESS = requireEnv("HYPERLIQUID_USER_ADDRESS");
-  const HYPERLIQUID_API_URL = requireEnv("HYPERLIQUID_API_URL");
+  const BINANCE_API_URL = requireEnv("BINANCE_API_URL");
+  const BINANCE_API_KEY = requireEnv("BINANCE_API_KEY");
+  const BINANCE_API_SECRET = requireEnv("BINANCE_API_SECRET");
 
-  const RPC_URL = process.env.RPC_URL ?? "https://sepolia.base.org";
+  const timestamp = Date.now();
+  const queryString = `symbol=${symbol}&startTime=${startTime}&endTime=${endTime}&recvWindow=60000&timestamp=${timestamp}`;
+  const signature = createHmac('sha256', BINANCE_API_SECRET).update(queryString).digest('hex');
 
-  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
-  // const wallet = new ethers.Wallet(PRIMUS_PRIVATE_KEY, provider);
-
-  // const primus = new PrimusNetwork();
-  // await primus.init(wallet, CHAIN_ID);
+  const url = `${BINANCE_API_URL}/fapi/v1/userTrades?${queryString}&signature=${signature}`;
 
   const requests = [
     {
-      url: HYPERLIQUID_API_URL,
-      method: "POST",
+      url,
+      method: "GET",
       header: {
-        "Content-Type": "application/json",
+        "X-MBX-APIKEY": BINANCE_API_KEY,
       },
-      body: {
-        type: "userFillsByTime",
-        user: HYPERLIQUID_USER_ADDRESS,
-        startTime: startTime,
-        endTime: endTime,
-      },
+      body: {},
     },
   ];
 
@@ -42,12 +35,6 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
         parseType: "json",
         parsePath: "$",
         op: "SHA256",
-      },
-      {
-        keyName: "user_commitment",
-        parseType: "json",
-        parsePath: "^.user",
-        op: "SHA256_WITH_SALT",
       },
     ],
   ];
@@ -64,7 +51,8 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
     taskId: string;
     taskTxHash: string;
     taskAttestors: string[];
-  }
+  };
+
   const attestResult = await primus.attest({
     address: PRIMUS_USER_ADDRESS,
     taskId,
@@ -75,7 +63,7 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
     extendedParams: JSON.stringify({ attUrlOptimization: true }),
     getAllJsonResponse: "true",
     attMode: {
-      algorithmType: "proxytls",
+      algorithmType: "mpctls",
       resultType: "plain",
     },
   });
@@ -102,11 +90,10 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
   }
 
   const attData = JSON.parse(attestation.data) as Record<string, unknown>;
-  const addressCommitment = attData["user_commitment"];
   const fillsCommitment = attData["SHA256($)"];
 
-  if (typeof addressCommitment !== "string" || typeof fillsCommitment !== "string") {
-    throw new Error("invalid_attestation_commitments");
+  if (typeof fillsCommitment !== "string") {
+    throw new Error("invalid_fills_commitment");
   }
 
   const verifiedHyperliquidAttestationResult = {
@@ -116,7 +103,6 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
     recipient: attestation.recipient,
     chainId: CHAIN_ID,
 
-    addressCommitment,
     fillsCommitment,
 
     verifiedResult: JSON.stringify(verifiedResultraw, null),

@@ -43,7 +43,6 @@ export interface VerifiedHyperliquidAttestation {
   recipient: string;
   chainId: number;
 
-  addressCommitment: string; // user_commitment
   fillsCommitment: string;   // SHA256($)
 
   // Raw verified result, right now it is optional

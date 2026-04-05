@@ -1,29 +1,28 @@
 import axios from "axios"
+import { createHmac } from "crypto"
 import "dotenv/config";
 
 import type { RawFills } from "../types.js"
-// import { sha256Raw } from "../utils/hashRawResponse.js";
 
 const TIMEOUT = 30_000;
 
-export async function fetchRawFills (apiUrl: string, userAddress:string, startTime: number, endTime: number) : Promise<RawFills> {
-  const body = {
-    type: "userFillsByTime",
-    user: userAddress,
-    startTime: startTime,
-    endTime: endTime,
-  };
+export async function fetchRawFills (apiUrl: string, apiKey: string, apiSecret: string, symbol: string, startTime: number, endTime: number) : Promise<RawFills> {
+  const timestamp = Date.now();
+  const queryString = `symbol=${symbol}&startTime=${startTime}&endTime=${endTime}&recvWindow=60000&timestamp=${timestamp}`;
+  const signature = createHmac('sha256', apiSecret).update(queryString).digest('hex');
 
-  const response = await axios.post(apiUrl, body, {
+  const url = `${apiUrl}/fapi/v1/userTrades?${queryString}&signature=${signature}`;
+
+  const response = await axios.get(url, {
     headers: {
-      "Content-Type": "application/json",
+      "X-MBX-APIKEY": apiKey,
       "Accept": "application/json",
     },
-    timeout:TIMEOUT,
+    timeout: TIMEOUT,
     responseType: "arraybuffer",
     transformResponse: r => r,
   });
 
   const rawBuffer = new Uint8Array(response.data);
-  return rawBuffer; //TODO: you can also return the metada like timestamp etc.
+  return rawBuffer;
 }

@@ -4,13 +4,12 @@ global MAX_FILLS: u32 = 32;
 global MAX_STRING_LENGHT: u32 = 16;
 
 pub fn assertAllowedCoin(coin: BoundedVec<u8, 16>) {
-  let btc = BoundedVec::from_array("BTC".as_bytes());
-  let eth = BoundedVec::from_array("ETH".as_bytes());
-  let sol = BoundedVec::from_array("SOL".as_bytes());
-  let xrp = BoundedVec::from_array("XRP".as_bytes());
-  let bnb = BoundedVec::from_array("BNB".as_bytes());
-  let link = BoundedVec::from_array("LINK".as_bytes());
-  let hype = BoundedVec::from_array("@1035".as_bytes()); //TODO: this is for testing remove it
+  let btc = BoundedVec::from_array("BTCUSDT".as_bytes());
+  let eth = BoundedVec::from_array("ETHUSDT".as_bytes());
+  let sol = BoundedVec::from_array("SOLUSDT".as_bytes());
+  let xrp = BoundedVec::from_array("XRPUSDT".as_bytes());
+  let bnb = BoundedVec::from_array("BNBUSDT".as_bytes());
+  let link = BoundedVec::from_array("LINKUSDT".as_bytes());
 
   let is_btc: bool = coin == btc;
   let is_eth: bool = coin == eth;
@@ -18,9 +17,8 @@ pub fn assertAllowedCoin(coin: BoundedVec<u8, 16>) {
   let is_xrp: bool = coin == xrp;
   let is_bnb: bool = coin == bnb;
   let is_link: bool = coin == link;
-  let is_hype: bool = coin == hype;
 
-  let is_allowed: bool = is_btc | is_eth | is_sol | is_xrp | is_bnb | is_link | is_hype;
+  let is_allowed: bool = is_btc | is_eth | is_sol | is_xrp | is_bnb | is_link;
 
   assert(is_allowed);
 }
@@ -126,8 +124,8 @@ pub fn stringToSignedInteger1e6(string: BoundedVec<u8, 16>) -> (i64) {
 }
 
 pub fn calculateChecksum(fill: JSON8kb) -> (i64){
-  let closedPnlString = fill.get_string_unchecked("closedPnl".as_bytes());
-  let feeString = fill.get_string_unchecked("fee".as_bytes());
+  let closedPnlString = fill.get_string_unchecked("realizedPnl".as_bytes());
+  let feeString = fill.get_string_unchecked("commission".as_bytes());
 
   let closedPnlNumber = stringToSignedInteger1e6(closedPnlString);
   let feeNumber = stringToSignedInteger1e6(feeString);
@@ -141,7 +139,7 @@ pub fn validateChecksum (baseBalance:i64, totalProfit: i64, threshold: i64) {
 }
 
 pub fn validateTimeAndCoinOneFill (fill: JSON8kb, min_time: u64, max_time: u64){
-  let coin: BoundedVec<u8, 16> = fill.get_string_unchecked("coin".as_bytes());
+  let coin: BoundedVec<u8, 16> = fill.get_string_unchecked("symbol".as_bytes());
   let time: u64 = fill.get_number_unchecked("time".as_bytes());
 
   assertAllowedCoin(coin);
