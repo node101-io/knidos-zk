@@ -1,4 +1,4 @@
-import { fetchRawFills } from "../core/fetchRawFills.js";
+import { fetchRawFills } from "./fetchRawFills.js";
 
 import type {
   CallbackFills,

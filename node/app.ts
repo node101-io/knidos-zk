@@ -11,7 +11,12 @@ import { processZkVerifyJob } from "./workers/zkVerify.js";
 import logger from "./logger.js";
 
 async function bootstrap() {
-  await connectMongoDB();
+  try {
+    await connectMongoDB();
+  }
+  catch (err){
+    process.exit(1); // TODO: Ask necip
+  }
 
   startScheduler();
 
@@ -19,9 +24,9 @@ async function bootstrap() {
     queueName: QUEUE_NAMES.ZKTLS,
     workerLabel: "zkTLS",
     connection,
-    workerCount: 5,
-    lockDurationMs: 30000,
-    stalledIntervalMs: 30000,
+    workerCount: 2,
+    lockDurationMs: 2 * 60 * 1000,     // 2 minutes
+    stalledIntervalMs: 60 * 1000,      // check every 1 min
     processJob: processZkTLSJob,
     // onJobFailed ekle
   });
@@ -29,18 +34,18 @@ async function bootstrap() {
     queueName: QUEUE_NAMES.NOIR,
     workerLabel: "noir",
     connection,
-    workerCount: 5,
-    lockDurationMs: 30000,
-    stalledIntervalMs: 30000,
+    workerCount: 4,
+    lockDurationMs: 5 * 60 * 1000,     // 5 minutes
+    stalledIntervalMs: 60 * 1000,      // check every 1 min
     processJob: processNoirJob,
 });
   const zkVerifyMaster = new ZkVerifyMaster({
     queueName: QUEUE_NAMES.ZKVERIFY,
     workerLabel: "zkVerify",
     connection,
-    workerCount: 5,
-    lockDurationMs: 30000,
-    stalledIntervalMs: 30000,
+    workerCount: 1,   // we can only have 1 tx in a block (~8sec) with one address
+    lockDurationMs: 2 * 60 * 1000,      // 2 minutes
+    stalledIntervalMs: 1 * 60 * 1000,   // check every 1 min
     processJob: processZkVerifyJob,
   });
 

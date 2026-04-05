@@ -1,38 +1,12 @@
 import type { Job } from "bullmq";
-import { Types } from "mongoose";
+import mongoose from "mongoose";
 
 import Task from "../db/models/Task.js";
 import logger from "../logger.js";
 import type { NoirJobData } from "../types.js";
-import {  runNoirProcessor  } from "../processors/noir"
+import { runNoirProcessor } from "../processors/noir";
 
-function updateTaskStatusAsync(body: {
-  taskId: string;
-  status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
-  result?: unknown;
-  error?: unknown;
-}) {
-  return new Promise((resolve, reject) => {
-    Task.updateTaskStatus(body, (err, task) => {
-      if (err) return reject(err);
-      resolve(task);
-    });
-  });
-}
-function createTaskAsync(body: {
-  type: "zkTLS" | "noir" | "zkVerify";
-  pipelineId: Types.ObjectId;
-  input: Record<string, unknown>;
-  maxAttempt?: number;
-}) {
-  return new Promise((resolve, reject) => {
-    Task.createTask(body, (err, task) => {
-      if (err) return reject(err);
-      resolve(task);
-    });
-  });
-}
-
+const NOIR_STALE_MS = 15 * 60 * 1000;
 
 export async function processNoirJob(
   workerId: number,
@@ -46,8 +20,29 @@ export async function processNoirJob(
     return;
   }
 
+  const now = Date.now();
+
+  if (task.status === "COMPLETED")
+    return;
+
+  if (task.status === "FAILED" && task.attemptCount >= task.maxAttempt)
+    return;
+
+  if (task.status === "RUNNING") {
+    const attemptStartedAtMs = task.attemptStartedAt ? new Date(task.attemptStartedAt).getTime() : 0;
+    const ageMs = attemptStartedAtMs ? now - attemptStartedAtMs : Number.MAX_SAFE_INTEGER;
+
+    if (ageMs < NOIR_STALE_MS)
+      return;
+
+    // logger.warn(
+    //   { taskId, jobId: job.id, workerId, ageMs },
+    //   "[noir worker] reclaiming stale running task",
+    // );
+  }
+
   try {
-    await updateTaskStatusAsync({
+    await Task.updateTaskStatus({
       taskId,
       status: "RUNNING",
     });
@@ -59,26 +54,43 @@ export async function processNoirJob(
 
     const result = await runNoirProcessor(input);
 
-    await updateTaskStatusAsync({
-      taskId,
-      status: "COMPLETED",
-      result,
-    });
+    const session = await mongoose.startSession();
+
+    try {
+      await session.withTransaction(async () => {
+        await Task.updateTaskStatus(
+          {
+            taskId,
+            status: "COMPLETED",
+            result,
+          },
+          { session }
+        );
+
+        await Task.create(
+          [
+            {
+              type: "zkVerify",
+              pipelineId: task.pipelineId,
+              input: {
+                noirTaskId: taskId,
+                targetDir: result.targetDir,
+              },
+              maxAttempt: task.maxAttempt,
+              status: "PENDING",
+            },
+          ],
+          { session }
+        );
+      });
+    } finally {
+      await session.endSession();
+    }
 
     logger.info(
       { taskId, workerId },
       "[noir worker] completed noir task",
     );
-
-    await createTaskAsync({
-      type: "zkVerify",
-      pipelineId: task.pipelineId,
-      input: {
-        noirTaskId: taskId,
-        targetDir: result.targetDir,
-      },
-      maxAttempt: task.maxAttempt,
-    });
 
     logger.info(
       { taskId, workerId },
@@ -88,7 +100,7 @@ export async function processNoirJob(
     const errorMessage =
       error instanceof Error ? error.message : String(error);
 
-    await updateTaskStatusAsync({
+    await Task.updateTaskStatus({
       taskId,
       status: "FAILED",
       error: errorMessage,

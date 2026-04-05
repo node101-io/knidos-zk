@@ -2,13 +2,11 @@ import type { Job } from "bullmq";
 import mongoose from "mongoose";
 import path from "path";
 import Task from "../db/models/Task.js";
+import logger from "../logger.js";
 import { runZkTLSProcessor } from "../processors/zkTLS.js";
-import type { ZkTLSProcessorInput } from "../types.js";
+import type { ZkTLSJobData } from "../types.js";
 
-export type ZkTLSJobData = {
-  taskId: string;
-  input: ZkTLSProcessorInput;
-};
+const ZKTLS_STALE_MS = 5 * 60 * 1000;
 
 export async function processZkTLSJob(
   workerId: number,
@@ -18,15 +16,37 @@ export async function processZkTLSJob(
 
   const task = await Task.findById(taskId);
   if (!task) {
-    console.warn(`[zkTLS worker ${workerId}] task ${taskId} not found`);
+    logger.warn({ taskId, jobId: job.id }, "[zkTLS worker] task not found");
     return;
   }
 
-  try {
-    await Task.updateOne(
-      { _id: taskId },
-      { status: "RUNNING" }
+  const now = Date.now();
+
+  if (task.status === "COMPLETED")
+    return;
+
+  if (task.status === "FAILED" && task.attemptCount >= task.maxAttempt)
+    return;
+
+  if (task.status === "RUNNING") {
+    const attemptStartedAtMs = task.attemptStartedAt ? new Date(task.attemptStartedAt).getTime() : 0;
+    const ageMs = attemptStartedAtMs ? now - attemptStartedAtMs : Number.MAX_SAFE_INTEGER;
+
+    if (ageMs < ZKTLS_STALE_MS) {
+      return;
+    }
+
+    logger.warn(
+      { taskId, jobId: job.id, workerId, ageMs },
+      "[zkTLS worker] reclaiming stale running task",
     );
+  }
+
+  try {
+    await Task.updateTaskStatus ({
+      taskId,
+      status: "RUNNING",
+    });
 
     const result = await runZkTLSProcessor(input);
 
@@ -34,9 +54,11 @@ export async function processZkTLSJob(
 
     try {
       await session.withTransaction(async () => {
-        await Task.updateOne(
-          { _id: taskId },
-          { status: "COMPLETED" },
+        await Task.updateTaskStatus(
+          {
+            taskId,
+            status: "COMPLETED",
+          },
           { session }
         );
 

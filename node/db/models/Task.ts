@@ -1,4 +1,5 @@
 import mongoose, { Schema, Model, Types } from "mongoose";
+import { Buffer } from "buffer";
 
 const MAX_INPUT_SIZE = 1e5;
 
@@ -8,7 +9,7 @@ export interface TaskInterface {
   type: "zkTLS" | "noir" | "zkVerify";
   status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
   queuedAt?: Date;
-  startedAt?: Date;
+  attemptStartedAt?: Date;
   finishedAt?: Date;
   failedAt?: Date;
   pipelineId: Types.ObjectId;
@@ -40,19 +41,15 @@ export interface TaskModel extends Model<TaskInterface> {
       tasks: TaskInterface[] | null
     ) => any
   ) => any;
-
   updateTaskStatus: (
-    body: {
-      taskId: string;
-      status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
-      result?: unknown;
-      error?: unknown;
-    },
-    callback: (
-      err: string | null,
-      task: TaskInterface | null
-    ) => any
-  ) => any;
+      body: {
+        taskId: string;
+        status: "PENDING" | "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+        result?: unknown;
+        error?: unknown;
+      },
+      options?: { session?: mongoose.ClientSession }
+    ) => any;
 }
 
 const TaskSchema = new Schema<TaskInterface>({
@@ -72,7 +69,7 @@ const TaskSchema = new Schema<TaskInterface>({
   queuedAt: {
     type: Date
   },
-  startedAt: {
+  attemptStartedAt: {
     type: Date
   },
   finishedAt: {
@@ -136,29 +133,45 @@ TaskSchema.statics.findTasksByPipelineId = function (body: Parameters<TaskModel[
     .then((tasks: TaskInterface[]) => callback(null, tasks))
     .catch(() => callback("bad_request", null));
 };
-
-TaskSchema.statics.updateTaskStatus = function (body: Parameters<TaskModel["updateTaskStatus"]>[0], callback: Parameters<TaskModel["updateTaskStatus"]>[1]) {
+TaskSchema.statics.updateTaskStatus = async function ( //TODO: ask necip
+  body: Parameters<TaskModel["updateTaskStatus"]>[0],
+  options?: Parameters<TaskModel["updateTaskStatus"]>[1]
+) {
   const { taskId, status, result, error } = body;
 
-  const update: Record<string, unknown> = { status };
+  const update: Record<string, any> = {
+    $set: { status },
+  };
 
-  if (status === "QUEUED") update.queuedAt = new Date();
-  if (status === "RUNNING") update.startedAt = new Date(); //TODO
+  if (status === "QUEUED") {
+    update.$set.queuedAt = new Date();
+  }
+
+  if (status === "RUNNING") {
+    update.$set.attemptStartedAt = new Date();
+    update.$inc = { attemptCount: 1 }; //burada increment kullanmam lazım, eğer bir sıkıntı olursa db bunu yapamazsa falan sıkıntı çıkıyor mu?
+
+  }
+
   if (status === "COMPLETED") {
-    update.finishedAt = new Date();
-    update.result = result ?? null;
-  }
-  if (status === "FAILED") {
-    update.failedAt = new Date();
-    update.error = error ?? null;
+    update.$set.finishedAt = new Date();
+    update.$set.result = result ?? null;
+    update.$set.error = null;
   }
 
-  this.findByIdAndUpdate(taskId, update, { new: true })
-    .then((task: TaskInterface | null) => {
-      if (!task) return callback("document_not_found", null);
-      return callback(null, task);
-    })
-    .catch(() => callback("bad_request", null));
+  if (status === "FAILED") {
+    update.$set.failedAt = new Date();
+  }
+
+  if (error !== undefined) {
+    update.$set.error = error;
+  }
+
+  return this.updateOne(
+    { _id: taskId },
+    update,
+    { session: options?.session }
+  );
 };
 
 const Task = (mongoose.models.Task as TaskModel) || mongoose.model<TaskInterface, TaskModel>("Task", TaskSchema);
