@@ -28,19 +28,8 @@ export async function processZkTLSJob(
   if (task.status === "FAILED" && task.attemptCount >= task.maxAttempt)
     return;
 
-  if (task.status === "RUNNING") {
-    const attemptStartedAtMs = task.attemptStartedAt ? new Date(task.attemptStartedAt).getTime() : 0;
-    const ageMs = attemptStartedAtMs ? now - attemptStartedAtMs : Number.MAX_SAFE_INTEGER;
-
-    if (ageMs < ZKTLS_STALE_MS) {
-      return;
-    }
-
-    // logger.warn(
-    //   { taskId, jobId: job.id, workerId, ageMs },
-    //   "[zkTLS worker] reclaiming stale running task",
-    // );
-  }
+  if (task.status === "RUNNING")
+    return;
 
   try {
     await Task.updateTaskStatus ({

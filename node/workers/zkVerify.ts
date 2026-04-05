@@ -40,18 +40,9 @@ export async function processZkVerifyJob(
   if (task.status === "FAILED" && task.attemptCount >= task.maxAttempt)
     return;
 
-  if (task.status === "RUNNING") {
-    const attemptStartedAtMs = task.attemptStartedAt ? new Date(task.attemptStartedAt).getTime() : 0;
-    const ageMs = attemptStartedAtMs ? now - attemptStartedAtMs : Number.MAX_SAFE_INTEGER;
+  if (task.status === "RUNNING")
+    return;
 
-    if (ageMs < ZKVERIFY_STALE_MS)
-      return;
-
-    // logger.warn(
-    //   { taskId, jobId: job.id, workerId, ageMs },
-    //   "[zkVerify worker] reclaiming stale running task",
-    // );
-  }
 
   try {
     await Task.updateTaskStatus({

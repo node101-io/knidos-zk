@@ -146,7 +146,7 @@ TaskSchema.statics.updateTaskStatus = async function ( //TODO: ask necip
   };
   if (status === "PENDING") {
     update.$set.queuedAt = null;
-    update.$set.attemptStartedAt=null;
+    update.$set.attemptStartedAt=new Date();
   }
 
   if (status === "QUEUED") {
