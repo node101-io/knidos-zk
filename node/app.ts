@@ -2,13 +2,14 @@ import { connectMongoDB } from "./config/mongoDB.js";
 import { startScheduler } from "./services/scheduler.js";
 import { connection } from "./config/redis.js";
 import { QUEUE_NAMES } from "./config/queueNames.js";
-import { ZkTLSMaster } from "./masters/zkTLS";
+import { ZkTLSMaster } from "./masters/zkTLS.js";
 import { NoirMaster } from "./masters/noir.js";
 import { ZkVerifyMaster } from "./masters/zkVerify.js";
-import { processZkTLSJob } from "./workers/zkTLS";
+import { processZkTLSJob } from "./workers/zkTLS.js";
 import { processNoirJob } from "./workers/noir.js";
 import { processZkVerifyJob } from "./workers/zkVerify.js";
 import logger from "./logger.js";
+import { startCleanup } from "./services/cleanup.js";
 
 async function bootstrap() {
   try {
@@ -18,7 +19,18 @@ async function bootstrap() {
     process.exit(1); // TODO: Ask necip
   }
 
-  startScheduler();
+  try {
+    startScheduler();
+  }
+  catch (err) {
+    process.exit(1); // TODO: Ask necip
+  }
+  try {
+    startCleanup();
+  }
+  catch (err) {
+    process.exit(1); // TODO: Ask necip
+  }
 
   const zkTLSMaster = new ZkTLSMaster({
     queueName: QUEUE_NAMES.ZKTLS,

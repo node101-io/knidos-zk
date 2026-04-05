@@ -24,7 +24,8 @@
   "include": [
     "scripts/**/*.ts",
     "zktls/**/*.ts",
-    "zkVerify/**/*.ts"
+    "zkVerify/**/*.ts",
+    "node/**/*.ts"
   ],
   "exclude": [
     "dist",

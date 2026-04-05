@@ -36,10 +36,10 @@ export async function processZkTLSJob(
       return;
     }
 
-    logger.warn(
-      { taskId, jobId: job.id, workerId, ageMs },
-      "[zkTLS worker] reclaiming stale running task",
-    );
+    // logger.warn(
+    //   { taskId, jobId: job.id, workerId, ageMs },
+    //   "[zkTLS worker] reclaiming stale running task",
+    // );
   }
 
   try {
@@ -75,7 +75,6 @@ export async function processZkTLSJob(
                 circuitInput: result,
                 noirCircuitDir: taskNoirDir,
               },
-              maxAttempt: task.maxAttempt,
               status: "PENDING",
             },
           ],

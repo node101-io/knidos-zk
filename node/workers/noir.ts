@@ -4,7 +4,8 @@ import mongoose from "mongoose";
 import Task from "../db/models/Task.js";
 import logger from "../logger.js";
 import type { NoirJobData } from "../types.js";
-import { runNoirProcessor } from "../processors/noir";
+import { runNoirProcessor } from "../processors/noir.js";
+import { pipeline } from "node:stream";
 
 const NOIR_STALE_MS = 15 * 60 * 1000;
 
@@ -76,7 +77,6 @@ export async function processNoirJob(
                 noirTaskId: taskId,
                 targetDir: result.targetDir,
               },
-              maxAttempt: task.maxAttempt,
               status: "PENDING",
             },
           ],
@@ -107,7 +107,7 @@ export async function processNoirJob(
     });
 
     logger.error(
-      { taskId, workerId, error: errorMessage },
+      { taskId, workerId, pipelineId: task.pipelineId, error: errorMessage },
       "[noir worker] failed noir task",
     );
 

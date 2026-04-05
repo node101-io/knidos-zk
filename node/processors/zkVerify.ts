@@ -233,8 +233,8 @@ export async function runZkVerifyProcessor(
     vk,
     proof,
     publicSignals,
-    includedInBlock,
-    statement,
-    aggregationId,
+    ...(includedInBlock !== undefined ? { includedInBlock } : {}),
+    ...(statement !== undefined ? { statement } : {}),
+    ...(aggregationId !== undefined ? { aggregationId } : {}),
   };
 }

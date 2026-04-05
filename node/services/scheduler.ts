@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import mongoose from 'mongoose';
 
-import Task from '../db/models/Task';
+import Task from '../db/models/Task.js';
 
 const START_TIME = 1769172979000; // For testing
 const END_TIME   = 1769172996000; // For testing

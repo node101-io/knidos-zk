@@ -1,6 +1,6 @@
 import { Job, Worker } from "bullmq";
 import type { ConnectionOptions } from "bullmq";
-import logger from "../logger";
+import logger from "../logger.js";
 
 export interface MasterConfig<JobData> {
   queueName: string;

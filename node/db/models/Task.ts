@@ -2,6 +2,7 @@ import mongoose, { Schema, Model, Types } from "mongoose";
 import { Buffer } from "buffer";
 
 const MAX_INPUT_SIZE = 1e5;
+const MAX_ATTEMPT_COUNT = 3;
 
 export interface TaskInterface {
   _id: Types.ObjectId;
@@ -109,7 +110,7 @@ const TaskSchema = new Schema<TaskInterface>({
   },
   maxAttempt: {
     type: Number,
-    default: 3
+    default: MAX_ATTEMPT_COUNT
   }
 });
 
@@ -133,6 +134,7 @@ TaskSchema.statics.findTasksByPipelineId = function (body: Parameters<TaskModel[
     .then((tasks: TaskInterface[]) => callback(null, tasks))
     .catch(() => callback("bad_request", null));
 };
+
 TaskSchema.statics.updateTaskStatus = async function ( //TODO: ask necip
   body: Parameters<TaskModel["updateTaskStatus"]>[0],
   options?: Parameters<TaskModel["updateTaskStatus"]>[1]
@@ -142,6 +144,10 @@ TaskSchema.statics.updateTaskStatus = async function ( //TODO: ask necip
   const update: Record<string, any> = {
     $set: { status },
   };
+  if (status === "PENDING") {
+    update.$set.queuedAt = null;
+    update.$set.attemptStartedAt=null;
+  }
 
   if (status === "QUEUED") {
     update.$set.queuedAt = new Date();
@@ -150,7 +156,6 @@ TaskSchema.statics.updateTaskStatus = async function ( //TODO: ask necip
   if (status === "RUNNING") {
     update.$set.attemptStartedAt = new Date();
     update.$inc = { attemptCount: 1 }; //burada increment kullanmam lazım, eğer bir sıkıntı olursa db bunu yapamazsa falan sıkıntı çıkıyor mu?
-
   }
 
   if (status === "COMPLETED") {

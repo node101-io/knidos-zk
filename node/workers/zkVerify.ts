@@ -115,7 +115,19 @@ export async function processZkVerifyJob(
         await VerificationRecord.create(
           [
             {
-              tx: result.includedInBlock,
+              pipelineId: task.pipelineId,
+              zkVerifyTaskId: task._id,
+              noirTaskId: input.noirTaskId,
+
+              statement: result.statement,
+              aggregationId: result.aggregationId,
+              includedInBlock: result.includedInBlock,
+
+              variant: result.variant,
+
+              vk: result.vk,
+              proof: result.proof,
+              publicSignals: result.publicSignals,
             },
           ],
           { session }

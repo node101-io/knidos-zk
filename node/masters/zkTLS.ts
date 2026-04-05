@@ -1,15 +1,9 @@
-import Task from "../db/models/Task";
-import logger from "../logger";
-import { zkTLSQueue } from "../queues/zkTLS";
-import { markTaskQueued } from "../services/taskLifeCycle";
-import { Master } from "./Master";
-import type { ZkTLSProcessorInput } from "../types.js";
-
-
-export type ZkTLSJobData = {
-  taskId: string;
-  input: ZkTLSProcessorInput;
-};
+import Task from "../db/models/Task.js";
+import logger from "../logger.js";
+import { zkTLSQueue } from "../queues/zkTLS.js";
+import { markTaskQueued } from "../services/taskLifeCycle.js";
+import { Master } from "./Master.js";
+import type { ZkTLSJobData } from "../types.js";
 
 export class ZkTLSMaster extends Master<ZkTLSJobData> {
   protected async handleTask(): Promise<void> {
