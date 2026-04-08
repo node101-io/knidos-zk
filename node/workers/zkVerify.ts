@@ -108,14 +108,12 @@ export async function processZkVerifyJob(
               proof: result.proof,
               publicSignals: result.publicSignals,
 
-              ...(result.statement !== undefined
-                ? { statement: result.statement as string }
-                : {}),
+              ...(result.statement !== undefined ? { statement: result.statement } : {}),
               ...(result.aggregationId !== undefined
                 ? { aggregationId: result.aggregationId }
                 : {}),
               ...(result.includedInBlock !== undefined
-                ? { includedInBlock: result.includedInBlock as Record<string, unknown> }
+                ? { includedInBlock: result.includedInBlock }
                 : {}),
             },
           ],

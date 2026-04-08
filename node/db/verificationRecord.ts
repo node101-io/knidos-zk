@@ -1,4 +1,5 @@
 import mongoose, { Schema, Types } from 'mongoose';
+import type { VerifyTransactionInfo } from 'zkverifyjs';
 
 export interface VerificationRecordInterface {
   pipelineId: Types.ObjectId;
@@ -8,7 +9,7 @@ export interface VerificationRecordInterface {
   // zkVerify outputs
   statement?: string;
   aggregationId?: number;
-  includedInBlock?: Record<string, unknown>;
+  includedInBlock?: VerifyTransactionInfo;
 
   variant: string;
 
