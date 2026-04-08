@@ -60,7 +60,7 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
   const CHAIN_ID: number = +requireEnv("PRIMUS_CHAIN_ID"); //TODO:ask Necip string to number
   const RPC_URL = process.env.RPC_URL ?? "https://sepolia.base.org";
 
-  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
   const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
   const primus = new PrimusNetwork();

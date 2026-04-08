@@ -6,7 +6,7 @@ dotenv.config();
 export async function connectMongoDB(): Promise<void> {
   const mongoUri =
     process.env.MONGO_URI ||
-    "mongodb://127.0.0.1:27017/node101-knidos-zk-trade?replicaSet=rs0";
+    "mongodb://127.0.0.1:27017/node101-knidos-zk-trade";
 
   try {
     await mongoose.connect(mongoUri, {
@@ -15,11 +15,8 @@ export async function connectMongoDB(): Promise<void> {
 
     console.log("MongoDB connected");
   } catch (err: any) {
-    if (err?.name === "MongooseServerSelectionError") {
-      console.error("database_connection_error");
-    } else {
-      console.error("database_error:", err);
-    }
+    console.error("MongoDB connection error:", err);
+
     throw err;
   }
 }

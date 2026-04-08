@@ -1,7 +1,9 @@
 import "dotenv/config";
 import fs from "fs";
 import path from "path";
-import { zkVerifySession, ZkVerifyEvents, UltrahonkVariant } from "zkverifyjs";
+import * as zkv from "zkverifyjs";
+const { zkVerifySession, ZkVerifyEvents, UltrahonkVariant } = zkv;
+type UltrahonkVariant = zkv.UltrahonkVariant;
 import { requireEnv } from "../../scripts/utils/requireEnv.js";
 import type { ZkVerifyJobData } from "../types.js";
 

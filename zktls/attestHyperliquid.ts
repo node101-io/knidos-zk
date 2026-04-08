@@ -13,7 +13,7 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
 
   const RPC_URL = process.env.RPC_URL ?? "https://sepolia.base.org";
 
-  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
   // const wallet = new ethers.Wallet(PRIMUS_PRIVATE_KEY, provider);
 
   // const primus = new PrimusNetwork();

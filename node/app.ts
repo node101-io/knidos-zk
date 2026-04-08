@@ -9,7 +9,7 @@ import { processZkTLSJob } from "./workers/zkTLS.js";
 import { processNoirJob } from "./workers/noir.js";
 import { processZkVerifyJob } from "./workers/zkVerify.js";
 import logger from "./logger.js";
-import { startCleanup } from "./services/cleanup.js";
+import { startCleanup } from "./services/cleanUp.js";
 
 async function bootstrap() {
   try {
