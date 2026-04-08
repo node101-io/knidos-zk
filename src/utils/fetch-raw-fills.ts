@@ -1,4 +1,4 @@
-import type { RawFills } from './types.js';
+export type RawFills = Uint8Array;
 
 const TIMEOUT = 30_000;
 

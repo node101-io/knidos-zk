@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 
 import Task from '../../db/task.js';
-import VerificationRecord from '../../db/verificationRecord.js';
+import VerificationRecord from '../../db/verification-record.js';
 import { redis } from '../../shared/redis.js';
 import logger from '../../shared/logger.js';
 import type { ZkVerifyJobData } from '../types.js';

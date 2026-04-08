@@ -6,7 +6,7 @@ const { zkVerifySession, UltrahonkVariant } = zkv;
 type UltrahonkVariant = zkv.UltrahonkVariant;
 type VerifyTransactionInfo = zkv.VerifyTransactionInfo;
 
-import { env } from '../../config/env.js';
+import { env } from '../../env.js';
 import type { ZkVerifyJobData } from '../types.js';
 
 function firstNonEmptyLine(s: string): string | null {

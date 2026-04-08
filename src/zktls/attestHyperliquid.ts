@@ -1,6 +1,6 @@
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 
-import { env } from '../config/env.js';
+import { env } from '../env.js';
 import type { VerifiedHyperliquidAttestation } from './types.js';
 
 export async function attestHyperliquidUserFills(

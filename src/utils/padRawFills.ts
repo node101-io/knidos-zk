@@ -1,4 +1,4 @@
-import type { RawFills } from '../hyperliquid/types.js';
+import type { RawFills } from './fetch-raw-fills.js';
 
 const MAX_FILLS_LEN = 8192;
 

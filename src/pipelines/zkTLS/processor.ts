@@ -1,8 +1,8 @@
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 import { ethers } from 'ethers';
 
-import { env } from '../../config/env.js';
-import { fetchRawFills } from '../../hyperliquid/fetchRawFills.js';
+import { env } from '../../env.js';
+import { fetchRawFills } from '../../utils/fetch-raw-fills.js';
 import { bytes32ToField2DecStrings } from '../../utils/bytes32ToField2DecStrings.js';
 import { hexToFixedBytes } from '../../utils/hexToFixedBytes.js';
 import { padRawFills } from '../../utils/padRawFills.js';
