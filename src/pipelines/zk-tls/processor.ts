@@ -56,7 +56,7 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
   const CHAIN_ID = env.PRIMUS_CHAIN_ID;
   const RPC_URL = env.RPC_URL;
 
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
   const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 
   const primus = new PrimusNetwork();

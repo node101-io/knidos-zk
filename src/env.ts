@@ -1,7 +1,7 @@
 import 'dotenv/config';
 
 import { createEnv } from '@t3-oss/env-core';
-import { isAddress } from 'ethers';
+import { utils as ethersUtils } from 'ethers';
 import { z } from 'zod';
 
 const DEFAULT_HYPERLIQUID_API_URL = 'https://api.hyperliquid-testnet.xyz/info';
@@ -17,10 +17,10 @@ export const env = createEnv({
       .regex(/^0x[0-9a-fA-F]{64}$/, 'PRIMUS_PRIVATE_KEY must be a 0x-prefixed 32-byte hex string'),
     PRIMUS_USER_ADDRESS: z
       .string()
-      .refine(isAddress, 'PRIMUS_USER_ADDRESS must be a valid EVM address'),
+      .refine(ethersUtils.isAddress, 'PRIMUS_USER_ADDRESS must be a valid EVM address'),
     HYPERLIQUID_USER_ADDRESS: z
       .string()
-      .refine(isAddress, 'HYPERLIQUID_USER_ADDRESS must be a valid EVM address'),
+      .refine(ethersUtils.isAddress, 'HYPERLIQUID_USER_ADDRESS must be a valid EVM address'),
     ZKVERIFY_SEED_PHRASE: z.string().min(1, 'ZKVERIFY_SEED_PHRASE cannot be empty'),
     HYPERLIQUID_API_URL: z.url().default(DEFAULT_HYPERLIQUID_API_URL),
     RPC_URL: z.url().default(DEFAULT_RPC_URL),
