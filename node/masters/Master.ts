@@ -23,7 +23,7 @@ export abstract class Master<JobData> {
 
   protected abstract handleTask(): Promise<void>;
 
-  protected async createWorker(workerId: number): Promise<Worker<JobData, void, string>> {
+  protected createWorker(workerId: number): Worker<JobData, void, string> {
     const {
       queueName,
       workerLabel,
@@ -53,33 +53,53 @@ export abstract class Master<JobData> {
       logger.info({ jobId: job?.id }, `${workerLabel} worker ${workerId} completed job ${job.id}`);
     });
 
-    worker.on('failed', async (job, err) => {
-      if (onJobFailed && job) await onJobFailed(job);
+    worker.on('failed', (job, err) => {
       logger.error(
         { error: err, jobId: job?.id }, //data: job?.data
         `${workerLabel} worker ${workerId} failed job ${job?.id}`,
       );
     });
 
+    if (onJobFailed) {
+      worker.on('failed', (job) => {
+        if (!job) return;
+
+        void onJobFailed(job).catch((error: unknown) => {
+          logger.error(
+            { error, jobId: job.id },
+            `${workerLabel} worker ${workerId} failed to run onJobFailed hook`,
+          );
+        });
+      });
+    }
+
     worker.on('error', (err) => {
       logger.error({ error: err }, `${workerLabel} worker ${workerId} error`);
     });
 
-    worker.on('closed', async () => {
+    worker.on('closed', () => {
       logger.warn(`${workerLabel} worker ${workerId} closed, creating replacement`);
       const index = this.workers.indexOf(worker);
       if (index !== -1) this.workers.splice(index, 1);
-      await this.createWorker(workerId);
+
+      try {
+        this.createWorker(workerId);
+      } catch (error) {
+        logger.error(
+          { error, workerId },
+          `${workerLabel} worker ${workerId} replacement creation failed`,
+        );
+      }
     });
 
     this.workers.push(worker);
     return worker;
   }
 
-  protected async initializeWorkers(): Promise<void> {
+  protected initializeWorkers(): void {
     const { workerCount, workerLabel } = this.config;
     for (let i = 0; i < workerCount; i++) {
-      await this.createWorker(i);
+      this.createWorker(i);
     }
     logger.info(`Initialized ${workerCount} workers for ${workerLabel} queue`);
   }
@@ -89,7 +109,7 @@ export abstract class Master<JobData> {
   }
 
   async run(): Promise<never> {
-    await this.initializeWorkers();
+    this.initializeWorkers();
     while (true) {
       await this.handleTask();
     }

@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import * as zkv from 'zkverifyjs';
-const { zkVerifySession, ZkVerifyEvents, UltrahonkVariant } = zkv;
+const { zkVerifySession, UltrahonkVariant } = zkv;
 type UltrahonkVariant = zkv.UltrahonkVariant;
+type VerifyTransactionInfo = zkv.VerifyTransactionInfo;
 import { env } from '../../env.js';
 import type { ZkVerifyJobData } from '../shared/types.js';
 
@@ -27,6 +28,14 @@ function bufferTo0xHex(buf: Buffer): string {
   return `0x${buf.toString('hex')}`;
 }
 
+function stringifyScalar(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'bigint') {
+    return value.toString();
+  }
+  throw new Error('proof value is not a string-like value');
+}
+
 function chunkBufferToBytes32List(buf: Buffer): string[] {
   if (buf.length % 32 !== 0) {
     throw new Error(`public_inputs binary length (${buf.length}) is not a multiple of 32 bytes`);
@@ -47,7 +56,7 @@ function loadPublicSignals(pubsPath: string): string[] {
 
   if (first && (first.startsWith('[') || first.startsWith('"') || first.startsWith('0x'))) {
     if (first.startsWith('[')) {
-      const arr = JSON.parse(stripWrappingTicks(asText));
+      const arr: unknown = JSON.parse(stripWrappingTicks(asText));
       if (!Array.isArray(arr)) {
         throw new Error('public signals JSON is not an array');
       }
@@ -132,8 +141,9 @@ function loadProof(proofPath: string, variant: UltrahonkVariant): string {
           : ['Plain', 'plain', 'Plain:', 'plain:'];
 
       for (const key of wantKeys) {
-        if (obj[key] != null) {
-          return normalize0x(String(obj[key]));
+        const proofValue = obj[key];
+        if (proofValue != null) {
+          return normalize0x(stringifyScalar(proofValue));
         }
       }
 
@@ -142,7 +152,7 @@ function loadProof(proofPath: string, variant: UltrahonkVariant): string {
         throw new Error('proof JSON object is empty');
       }
 
-      return normalize0x(String(firstValue));
+      return normalize0x(stringifyScalar(firstValue));
     }
 
     if (/^["`]?0x[0-9a-fA-F]+["`]?$/.test(first)) {
@@ -162,8 +172,8 @@ export interface ZkVerifyProcessorResult {
   vk: string;
   proof: string;
   publicSignals: string[];
-  includedInBlock?: unknown;
-  statement?: unknown;
+  includedInBlock?: VerifyTransactionInfo;
+  statement?: string;
   aggregationId?: number;
 }
 
@@ -193,24 +203,14 @@ export async function runZkVerifyProcessor(
   const publicSignals = loadPublicSignals(publicInputsPath);
 
   const session = await zkVerifySession.start().Volta().withAccount(env.ZKVERIFY_SEED_PHRASE);
-
-  let includedInBlock: unknown;
-  let statement: unknown;
-  let aggregationId: number | undefined;
-
-  const { events } = await session.verify().ultrahonk({ variant }).execute({
+  const { transactionResult } = await session.verify().ultrahonk({ variant }).execute({
     proofData: { vk, proof, publicSignals },
     domainId: 0,
   });
 
-  await new Promise<void>((resolve) => {
-    events.on(ZkVerifyEvents.IncludedInBlock, (eventData: any) => {
-      includedInBlock = eventData;
-      statement = eventData.statement;
-      aggregationId = eventData.aggregationId;
-      resolve();
-    });
-  });
+  const transactionInfo = await transactionResult;
+  const statement = transactionInfo.statement ?? undefined;
+  const aggregationId = transactionInfo.aggregationId ?? undefined;
 
   return {
     targetDir,
@@ -221,7 +221,7 @@ export async function runZkVerifyProcessor(
     vk,
     proof,
     publicSignals,
-    ...(includedInBlock !== undefined ? { includedInBlock } : {}),
+    ...(transactionInfo !== undefined ? { includedInBlock: transactionInfo } : {}),
     ...(statement !== undefined ? { statement } : {}),
     ...(aggregationId !== undefined ? { aggregationId } : {}),
   };

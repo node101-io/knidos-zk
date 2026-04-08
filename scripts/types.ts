@@ -33,7 +33,6 @@ export interface NormalizedFill {
   closedPnl: string; //  Realized profit/loss from closing part of a position on this fill.
 }
 
-export type CallbackFills = (err: string | null, fills?: RawFills) => void;
 export interface VerifiedHyperliquidAttestation {
   taskId: string;
   reportTxHash: string;

@@ -1,5 +1,4 @@
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
-import { ethers } from 'ethers';
 
 import { env } from '../env.js';
 import type { VerifiedHyperliquidAttestation } from '../scripts/types.js';
@@ -13,14 +12,6 @@ export async function attestHyperliquidUserFills(
   const PRIMUS_USER_ADDRESS = env.PRIMUS_USER_ADDRESS;
   const HYPERLIQUID_USER_ADDRESS = env.HYPERLIQUID_USER_ADDRESS;
   const HYPERLIQUID_API_URL = env.HYPERLIQUID_API_URL;
-
-  const RPC_URL = env.RPC_URL;
-
-  const provider = new ethers.JsonRpcProvider(RPC_URL);
-  // const wallet = new ethers.Wallet(PRIMUS_PRIVATE_KEY, provider);
-
-  // const primus = new PrimusNetwork();
-  // await primus.init(wallet, CHAIN_ID);
 
   const requests = [
     {

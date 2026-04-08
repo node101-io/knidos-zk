@@ -4,7 +4,7 @@ import fs from 'fs';
 import { createHash } from 'crypto';
 
 import { env } from '../env.js';
-import { fetchHyperliquidFills } from './utils/fetchHyperliquidFills.js';
+import { fetchRawFills } from './utils/fetchRawFills.js';
 import { attestHyperliquidUserFills } from '../zktls/attestHyperliquid.js';
 import { sha256Raw } from './utils/hashRawResponse.js';
 import { sha256WithSalt } from './utils/hashAddressAndSalt.js';
@@ -37,9 +37,9 @@ async function main(): Promise<void> {
   const apiUrl = env.HYPERLIQUID_API_URL;
   const userAddress = env.HYPERLIQUID_USER_ADDRESS;
 
-  const _rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress, START_TIME, END_TIME);
+  const _rawfillsResponse = await fetchRawFills(apiUrl, userAddress, START_TIME, END_TIME);
 
-  const rawfillsResponseHash = sha256Raw(_rawfillsResponse!); // TODO: Ask Necip
+  const rawfillsResponseHash = sha256Raw(_rawfillsResponse); // TODO: Ask Necip
   const zktlsVerifiedResult = await attestHyperliquidUserFills(
     primus,
     CHAIN_ID,
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
 
   const _salt = hyperliquidWitness.salt;
   const decoder = new TextDecoder('utf-8');
-  console.log(decoder.decode(_rawfillsResponse!));
+  console.log(decoder.decode(_rawfillsResponse));
   // For debugging purposes
   console.log('Raw Fills Response Hash: ' + rawfillsResponseHash);
   console.log('Verified Result: ' + JSON.stringify(zktlsVerifiedResult));
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
   const addressStringBytes = Buffer.from(HYPERLIQUID_USER_ADDRESS, 'utf8');
   const saltBytes = hexToFixedBytes(_salt, 16);
   console.log(_rawfillsResponse);
-  const rawFillsPadded = padRawFills(_rawfillsResponse!);
+  const rawFillsPadded = padRawFills(_rawfillsResponse);
   const rawFillsBytes = rawFillsPadded.padded;
   const rawFillsLength = rawFillsPadded.length;
 
@@ -107,7 +107,7 @@ async function main(): Promise<void> {
   );
 }
 
-main().catch((err) => {
-  console.error('Error:', err.message);
+main().catch((error: unknown) => {
+  console.error('Error:', error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

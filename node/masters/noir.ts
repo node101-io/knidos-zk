@@ -2,7 +2,6 @@ import Task from '../db/task.js';
 import logger from '../shared/logger.js';
 import { Master } from './Master.js';
 import { noirQueue } from '../workers/noir.js';
-import { markTaskQueued } from '../services/taskLifeCycle.js';
 import type { NoirJobData } from '../shared/types.js';
 
 export class NoirMaster extends Master<NoirJobData> {
@@ -32,7 +31,7 @@ export class NoirMaster extends Master<NoirJobData> {
           },
         );
 
-        await markTaskQueued(task._id.toString());
+        await Task.markTaskQueued(task._id.toString());
 
         logger.info({ taskId: task._id.toString() }, '[noir master] queued task');
       }

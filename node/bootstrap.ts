@@ -14,20 +14,22 @@ import { startCleanup } from './services/cleanUp.js';
 export async function bootstrap() {
   try {
     await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
-  } catch (err) {
+  } catch (error) {
+    logger.error({ error }, '[app] failed to connect to MongoDB');
     process.exit(1); // TODO: Ask necip
   }
 
   try {
     startScheduler();
-  } catch (err) {
+  } catch (error) {
+    logger.error({ error }, '[app] failed to start scheduler');
     process.exit(1); // TODO: Ask necip
   }
-  try {
-    startCleanup();
-  } catch (err) {
+
+  void startCleanup().catch((error) => {
+    logger.error({ error }, '[app] cleanup loop crashed');
     process.exit(1); // TODO: Ask necip
-  }
+  });
 
   const zkTLSMaster = new ZkTLSMaster({
     queueName: zkTLSQueue.name,

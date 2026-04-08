@@ -2,7 +2,7 @@ import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 import { ethers } from 'ethers';
 
 import { env } from '../../env.js';
-import { fetchHyperliquidFills } from '../../scripts/utils/fetchHyperliquidFills.js';
+import { fetchRawFills } from '../../scripts/utils/fetchRawFills.js';
 import { attestHyperliquidUserFills } from '../../zktls/attestHyperliquid.js';
 import { getAddressCommitment } from '../../zktls/commitments/addressCommitment.js';
 import { getFillsCommitment } from '../../zktls/commitments/fillsCommitment.js';
@@ -65,7 +65,7 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
   const apiUrl = env.HYPERLIQUID_API_URL;
   const userAddress = env.HYPERLIQUID_USER_ADDRESS;
 
-  const rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress, startTime, endTime);
+  const rawfillsResponse = await fetchRawFills(apiUrl, userAddress, startTime, endTime);
   const zktlsVerifiedResult = await attestHyperliquidUserFills(
     primus,
     CHAIN_ID,
@@ -89,7 +89,7 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
   const fillsCommitmentField2 = bytes32ToField2DecStrings(fillsCommitmentBytes);
   const addressStringBytes = Buffer.from(HYPERLIQUID_USER_ADDRESS, 'utf8');
   const saltBytes = hexToFixedBytes(_salt, 16);
-  const rawFillsPadded = padRawFills(rawfillsResponse!);
+  const rawFillsPadded = padRawFills(rawfillsResponse);
   const rawFillsBytes = rawFillsPadded.padded;
   const rawFillsLength = rawFillsPadded.length;
 

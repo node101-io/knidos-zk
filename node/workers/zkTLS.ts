@@ -9,8 +9,6 @@ export const zkTLSQueue = new Queue('zkTLS-queue', { connection: redis });
 import { runZkTLSProcessor } from '../processors/zkTLS.js';
 import type { ZkTLSJobData } from '../shared/types.js';
 
-const ZKTLS_STALE_MS = 5 * 60 * 1000;
-
 export async function processZkTLSJob(
   workerId: number,
   job: Job<ZkTLSJobData, void, string>,
@@ -22,8 +20,6 @@ export async function processZkTLSJob(
     logger.warn({ taskId, jobId: job.id }, '[zkTLS worker] task not found');
     return;
   }
-
-  const now = Date.now();
 
   if (task.status === 'COMPLETED') return;
 

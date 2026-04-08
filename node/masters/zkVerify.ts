@@ -2,7 +2,6 @@ import Task from '../db/task.js';
 import logger from '../shared/logger.js';
 import { Master } from './Master.js';
 import { zkVerifyQueue } from '../workers/zkVerify.js';
-import { markTaskQueued } from '../services/taskLifeCycle.js';
 import type { ZkVerifyJobData } from '../shared/types.js';
 
 export class ZkVerifyMaster extends Master<ZkVerifyJobData> {
@@ -32,7 +31,7 @@ export class ZkVerifyMaster extends Master<ZkVerifyJobData> {
           },
         );
 
-        await markTaskQueued(task._id.toString());
+        await Task.markTaskQueued(task._id.toString());
 
         logger.info({ taskId: task._id.toString() }, '[zkVerify master] queued task');
       }

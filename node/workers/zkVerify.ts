@@ -12,7 +12,6 @@ import type { ZkVerifyJobData } from '../shared/types.js';
 import { runZkVerifyProcessor } from '../processors/zkVerify.js';
 import VerificationRecord from '../db/verificationRecord.js';
 
-const ZKVERIFY_STALE_MS = 2 * 60 * 1000;
 const ZKVERIFY_MIN_GAP_MS = 15 * 1000;
 const ZKVERIFY_SLEEP_STEP_MS = 1000;
 
@@ -31,8 +30,6 @@ export async function processZkVerifyJob(
     logger.warn({ taskId, jobId: job.id }, '[zkVerify worker] task not found');
     return;
   }
-
-  const now = Date.now();
 
   if (task.status === 'COMPLETED') return;
 

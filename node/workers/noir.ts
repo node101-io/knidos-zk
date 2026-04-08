@@ -6,11 +6,8 @@ import Task from '../db/task.js';
 import logger from '../shared/logger.js';
 import type { NoirJobData } from '../shared/types.js';
 import { runNoirProcessor } from '../processors/noir.js';
-import { pipeline } from 'node:stream';
 
 export const noirQueue = new Queue('noir-queue', { connection: redis });
-
-const NOIR_STALE_MS = 15 * 60 * 1000;
 
 export async function processNoirJob(
   workerId: number,
@@ -23,8 +20,6 @@ export async function processNoirJob(
     logger.warn({ taskId, jobId: job.id }, '[noir worker] task not found');
     return;
   }
-
-  const now = Date.now();
 
   if (task.status === 'COMPLETED') return;
 

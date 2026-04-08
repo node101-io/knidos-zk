@@ -10,8 +10,8 @@ export function startScheduler() {
   cron.schedule('*/3 * * * *', async () => {
     console.log('[scheduler] creating zkTLS task');
 
-    const now = new Date();
-    const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
+    // const now = new Date();
+    // const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
 
     try {
       const task = await Task.createTask({

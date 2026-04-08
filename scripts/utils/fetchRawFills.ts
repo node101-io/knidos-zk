@@ -1,5 +1,3 @@
-import axios from 'axios';
-
 import type { RawFills } from '../types.js';
 // import { sha256Raw } from "../utils/hashRawResponse.js";
 
@@ -18,16 +16,27 @@ export async function fetchRawFills(
     endTime: endTime,
   };
 
-  const response = await axios.post(apiUrl, body, {
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    timeout: TIMEOUT,
-    responseType: 'arraybuffer',
-    transformResponse: (r) => r,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
 
-  const rawBuffer = new Uint8Array(response.data);
-  return rawBuffer; //TODO: you can also return the metada like timestamp etc.
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Hyperliquid request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const rawBuffer = new Uint8Array(await response.arrayBuffer());
+    return rawBuffer; //TODO: you can also return the metada like timestamp etc.
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
