@@ -6,9 +6,8 @@ import { runCleanupOnce } from './cleanup.js';
 import logger from '../shared/logger.js';
 
 const CLEANUP_CRON = '* * * * *';
-const ZKTLS_SCHEDULE_CRON = '*/3 * * * *';
-const START_TIME = 1769172979000; // For testing
-const END_TIME = 1769172996000; // For testing
+const ZKTLS_SCHEDULE_CRON = '0,15,30,45 * * * *';
+const ZKTLS_WINDOW_MS = 15 * 60 * 1000;
 
 export function startScheduler(): void {
   cron.schedule(CLEANUP_CRON, async () => {
@@ -19,20 +18,24 @@ export function startScheduler(): void {
     }
   });
 
+  // TODO: catch-up - on startup, look at the most recent processed slot in the
+  // DB and enqueue a task for every missing 15-minute slot up to the current one,
+  // so downtime doesn't leave gaps in the zkTLS history.
   cron.schedule(ZKTLS_SCHEDULE_CRON, async () => {
     logger.info('[scheduler] creating zkTLS task');
 
-    // const now = new Date();
-    // const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
+    const now = Date.now();
+    const endTime = now - (now % ZKTLS_WINDOW_MS);
+    const startTime = endTime - ZKTLS_WINDOW_MS;
 
     try {
       const task = await Task.createTask({
         type: 'zkTLS',
         pipelineId: new mongoose.Types.ObjectId(),
         input: {
-          startTime: START_TIME, //fifteenMinutesAgo.toISOString()
-          endTime: END_TIME, //now.toISOString()
-          baseBalance: 100000000, //TODO: fetch these time info dynamically
+          startTime,
+          endTime,
+          baseBalance: 100000000, // TODO: fetch these time info dynamically
           threshold: 50000000,
         },
       });

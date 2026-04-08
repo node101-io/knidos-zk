@@ -34,7 +34,7 @@ export async function fetchRawFills(
     }
 
     const rawBuffer = new Uint8Array(await response.arrayBuffer());
-    return rawBuffer; //TODO: you can also return the metada like timestamp etc.
+    return rawBuffer; // TODO: you can also return the metada like timestamp etc.
   } finally {
     clearTimeout(timeoutId);
   }

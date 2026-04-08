@@ -50,7 +50,7 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
     threshold,
   } = input;
 
-  const PRIVATE_KEY = env.PRIMUS_PRIVATE_KEY; //TODO: bu bilgileri db'den mi çekmeli sor
+  const PRIVATE_KEY = env.PRIMUS_PRIVATE_KEY; // TODO: bu bilgileri db'den mi çekmeli sor
   const HYPERLIQUID_USER_ADDRESS = env.HYPERLIQUID_USER_ADDRESS;
 
   const CHAIN_ID = env.PRIMUS_CHAIN_ID;
