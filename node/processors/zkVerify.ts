@@ -1,13 +1,10 @@
-import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import * as zkv from 'zkverifyjs';
 const { zkVerifySession, ZkVerifyEvents, UltrahonkVariant } = zkv;
 type UltrahonkVariant = zkv.UltrahonkVariant;
-import { requireEnv } from '../../scripts/utils/requireEnv.js';
-import type { ZkVerifyJobData } from '../types.js';
-
-const SEED_PHRASE = requireEnv('ZKVERIFY_SEED_PHRASE');
+import { env } from '../../env.js';
+import type { ZkVerifyJobData } from '../shared/types.js';
 
 function firstNonEmptyLine(s: string): string | null {
   for (const line of s.split('\n')) {
@@ -156,7 +153,7 @@ function loadProof(proofPath: string, variant: UltrahonkVariant): string {
   return bufferTo0xHex(raw);
 }
 
-export type ZkVerifyProcessorResult = {
+export interface ZkVerifyProcessorResult {
   targetDir: string;
   vkPath: string;
   proofPath: string;
@@ -168,7 +165,7 @@ export type ZkVerifyProcessorResult = {
   includedInBlock?: unknown;
   statement?: unknown;
   aggregationId?: number;
-};
+}
 
 export async function runZkVerifyProcessor(
   input: ZkVerifyJobData['input'],
@@ -195,7 +192,7 @@ export async function runZkVerifyProcessor(
   const proof = loadProof(proofPath, variant);
   const publicSignals = loadPublicSignals(publicInputsPath);
 
-  const session = await zkVerifySession.start().Volta().withAccount(SEED_PHRASE);
+  const session = await zkVerifySession.start().Volta().withAccount(env.ZKVERIFY_SEED_PHRASE);
 
   let includedInBlock: unknown;
   let statement: unknown;

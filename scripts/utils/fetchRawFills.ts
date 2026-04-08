@@ -1,5 +1,4 @@
 import axios from 'axios';
-import 'dotenv/config';
 
 import type { RawFills } from '../types.js';
 // import { sha256Raw } from "../utils/hashRawResponse.js";

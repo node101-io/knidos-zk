@@ -1,4 +1,4 @@
-import Task from '../db/models/Task.js';
+import Task from '../db/task.js';
 
 export async function markTaskQueued(taskId: string) {
   return Task.findByIdAndUpdate(taskId, {

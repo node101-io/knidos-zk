@@ -1,0 +1,66 @@
+import mongoose from 'mongoose';
+import { env } from '../env.js';
+import { startScheduler } from './services/scheduler.js';
+import { redis } from './shared/redis.js';
+import { ZkTLSMaster } from './masters/zkTLS.js';
+import { NoirMaster } from './masters/noir.js';
+import { ZkVerifyMaster } from './masters/zkVerify.js';
+import { zkTLSQueue, processZkTLSJob } from './workers/zkTLS.js';
+import { noirQueue, processNoirJob } from './workers/noir.js';
+import { zkVerifyQueue, processZkVerifyJob } from './workers/zkVerify.js';
+import logger from './shared/logger.js';
+import { startCleanup } from './services/cleanUp.js';
+
+export async function bootstrap() {
+  try {
+    await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+  } catch (err) {
+    process.exit(1); // TODO: Ask necip
+  }
+
+  try {
+    startScheduler();
+  } catch (err) {
+    process.exit(1); // TODO: Ask necip
+  }
+  try {
+    startCleanup();
+  } catch (err) {
+    process.exit(1); // TODO: Ask necip
+  }
+
+  const zkTLSMaster = new ZkTLSMaster({
+    queueName: zkTLSQueue.name,
+    workerLabel: 'zkTLS',
+    connection: redis,
+    workerCount: 2,
+    lockDurationMs: 2 * 60 * 1000, // 2 minutes
+    stalledIntervalMs: 60 * 1000, // check every 1 min
+    processJob: processZkTLSJob,
+    // onJobFailed ekle
+  });
+
+  const noirMaster = new NoirMaster({
+    queueName: noirQueue.name,
+    workerLabel: 'noir',
+    connection: redis,
+    workerCount: 4,
+    lockDurationMs: 5 * 60 * 1000, // 5 minutes
+    stalledIntervalMs: 60 * 1000, // check every 1 min
+    processJob: processNoirJob,
+  });
+
+  const zkVerifyMaster = new ZkVerifyMaster({
+    queueName: zkVerifyQueue.name,
+    workerLabel: 'zkVerify',
+    connection: redis,
+    workerCount: 1, // we can only have 1 tx in a block (~8sec) with one address
+    lockDurationMs: 2 * 60 * 1000, // 2 minutes
+    stalledIntervalMs: 1 * 60 * 1000, // check every 1 min
+    processJob: processZkVerifyJob,
+  });
+
+  logger.info('[app] zkTLS pipeline started');
+
+  await Promise.all([zkTLSMaster.run(), noirMaster.run(), zkVerifyMaster.run()]);
+}

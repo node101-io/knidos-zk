@@ -1,13 +1,16 @@
-import type { Job } from 'bullmq';
+import { Queue, type Job } from 'bullmq';
 import mongoose from 'mongoose';
 import fs from 'fs/promises';
 import path from 'path';
+import { redis } from '../shared/redis.js';
 
-import Task from '../db/models/Task.js';
-import logger from '../logger.js';
-import type { ZkVerifyJobData } from '../types.js';
+export const zkVerifyQueue = new Queue('zkVerify-queue', { connection: redis });
+
+import Task from '../db/task.js';
+import logger from '../shared/logger.js';
+import type { ZkVerifyJobData } from '../shared/types.js';
 import { runZkVerifyProcessor } from '../processors/zkVerify.js';
-import VerificationRecord from '../db/models/VerificationRecord.js';
+import VerificationRecord from '../db/verificationRecord.js';
 
 const ZKVERIFY_STALE_MS = 2 * 60 * 1000;
 const ZKVERIFY_MIN_GAP_MS = 15 * 1000;
@@ -100,17 +103,23 @@ export async function processZkVerifyJob(
             {
               pipelineId: task.pipelineId,
               zkVerifyTaskId: task._id,
-              noirTaskId: input.noirTaskId,
-
-              statement: result.statement,
-              aggregationId: result.aggregationId,
-              includedInBlock: result.includedInBlock,
+              noirTaskId: new mongoose.Types.ObjectId(input.noirTaskId),
 
               variant: result.variant,
 
               vk: result.vk,
               proof: result.proof,
               publicSignals: result.publicSignals,
+
+              ...(result.statement !== undefined
+                ? { statement: result.statement as string }
+                : {}),
+              ...(result.aggregationId !== undefined
+                ? { aggregationId: result.aggregationId }
+                : {}),
+              ...(result.includedInBlock !== undefined
+                ? { includedInBlock: result.includedInBlock as Record<string, unknown> }
+                : {}),
             },
           ],
           { session },

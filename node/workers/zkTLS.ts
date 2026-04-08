@@ -1,10 +1,13 @@
-import type { Job } from 'bullmq';
+import { Queue, type Job } from 'bullmq';
 import mongoose from 'mongoose';
 import path from 'path';
-import Task from '../db/models/Task.js';
-import logger from '../logger.js';
+import { redis } from '../shared/redis.js';
+import Task from '../db/task.js';
+import logger from '../shared/logger.js';
+
+export const zkTLSQueue = new Queue('zkTLS-queue', { connection: redis });
 import { runZkTLSProcessor } from '../processors/zkTLS.js';
-import type { ZkTLSJobData } from '../types.js';
+import type { ZkTLSJobData } from '../shared/types.js';
 
 const ZKTLS_STALE_MS = 5 * 60 * 1000;
 

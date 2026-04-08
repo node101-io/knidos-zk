@@ -1,9 +1,9 @@
-import Task from '../db/models/Task.js';
-import logger from '../logger.js';
-import { zkTLSQueue } from '../queues/zkTLS.js';
+import Task from '../db/task.js';
+import logger from '../shared/logger.js';
+import { zkTLSQueue } from '../workers/zkTLS.js';
 import { markTaskQueued } from '../services/taskLifeCycle.js';
 import { Master } from './Master.js';
-import type { ZkTLSJobData } from '../types.js';
+import type { ZkTLSJobData } from '../shared/types.js';
 
 export class ZkTLSMaster extends Master<ZkTLSJobData> {
   protected async handleTask(): Promise<void> {

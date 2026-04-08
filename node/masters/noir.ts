@@ -1,9 +1,9 @@
-import Task from '../db/models/Task.js';
-import logger from '../logger.js';
+import Task from '../db/task.js';
+import logger from '../shared/logger.js';
 import { Master } from './Master.js';
-import { noirQueue } from '../queues/noir.js'; // make sure you have this
+import { noirQueue } from '../workers/noir.js';
 import { markTaskQueued } from '../services/taskLifeCycle.js';
-import type { NoirJobData } from '../types.js';
+import type { NoirJobData } from '../shared/types.js';
 
 export class NoirMaster extends Master<NoirJobData> {
   protected async handleTask(): Promise<void> {

@@ -17,8 +17,8 @@ export interface VerificationRecordInterface {
   proof: string;
   publicSignals: string[];
 
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const VerificationRecordSchema = new Schema<VerificationRecordInterface>(
@@ -39,15 +39,9 @@ const VerificationRecordSchema = new Schema<VerificationRecordInterface>(
       index: true,
     },
 
-    statement: {
-      type: String,
-    },
-    aggregationId: {
-      type: Number,
-    },
-    includedInBlock: {
-      type: Schema.Types.Mixed,
-    },
+    statement: { type: String },
+    aggregationId: { type: Number },
+    includedInBlock: { type: Schema.Types.Mixed },
 
     variant: {
       type: String,
@@ -73,8 +67,9 @@ const VerificationRecordSchema = new Schema<VerificationRecordInterface>(
   },
 );
 
-const VerificationRecord =
-  mongoose.models.VerificationRecord ||
-  mongoose.model<VerificationRecordInterface>('VerificationRecord', VerificationRecordSchema);
+const VerificationRecord = mongoose.model<VerificationRecordInterface>(
+  'VerificationRecord',
+  VerificationRecordSchema,
+);
 
 export default VerificationRecord;

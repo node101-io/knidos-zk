@@ -1,8 +1,7 @@
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 import { ethers } from 'ethers';
 
-import { requireEnv } from '../scripts/utils/requireEnv.js';
-
+import { env } from '../env.js';
 import type { VerifiedHyperliquidAttestation } from '../scripts/types.js';
 
 export async function attestHyperliquidUserFills(
@@ -11,12 +10,11 @@ export async function attestHyperliquidUserFills(
   startTime: number,
   endTime: number,
 ): Promise<VerifiedHyperliquidAttestation> {
-  // const PRIMUS_PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
-  const PRIMUS_USER_ADDRESS = requireEnv('PRIMUS_USER_ADDRESS');
-  const HYPERLIQUID_USER_ADDRESS = requireEnv('HYPERLIQUID_USER_ADDRESS');
-  const HYPERLIQUID_API_URL = requireEnv('HYPERLIQUID_API_URL');
+  const PRIMUS_USER_ADDRESS = env.PRIMUS_USER_ADDRESS;
+  const HYPERLIQUID_USER_ADDRESS = env.HYPERLIQUID_USER_ADDRESS;
+  const HYPERLIQUID_API_URL = env.HYPERLIQUID_API_URL;
 
-  const RPC_URL = process.env.RPC_URL ?? 'https://sepolia.base.org';
+  const RPC_URL = env.RPC_URL;
 
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   // const wallet = new ethers.Wallet(PRIMUS_PRIVATE_KEY, provider);
@@ -103,7 +101,7 @@ export async function attestHyperliquidUserFills(
   }
 
   const attData = JSON.parse(attestation.data) as Record<string, unknown>;
-  const addressCommitment = attData['user_commitment'];
+  const addressCommitment = attData.user_commitment;
   const fillsCommitment = attData['SHA256($)'];
 
   if (typeof addressCommitment !== 'string' || typeof fillsCommitment !== 'string') {

@@ -1,11 +1,14 @@
-import type { Job } from 'bullmq';
+import { Queue, type Job } from 'bullmq';
 import mongoose from 'mongoose';
 
-import Task from '../db/models/Task.js';
-import logger from '../logger.js';
-import type { NoirJobData } from '../types.js';
+import { redis } from '../shared/redis.js';
+import Task from '../db/task.js';
+import logger from '../shared/logger.js';
+import type { NoirJobData } from '../shared/types.js';
 import { runNoirProcessor } from '../processors/noir.js';
 import { pipeline } from 'node:stream';
+
+export const noirQueue = new Queue('noir-queue', { connection: redis });
 
 const NOIR_STALE_MS = 15 * 60 * 1000;
 

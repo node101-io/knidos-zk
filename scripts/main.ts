@@ -1,12 +1,10 @@
-import 'dotenv/config';
-
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 import { ethers } from 'ethers';
 import fs from 'fs';
 import { createHash } from 'crypto';
 
+import { env } from '../env.js';
 import { fetchHyperliquidFills } from './utils/fetchHyperliquidFills.js';
-import { requireEnv } from './utils/requireEnv.js';
 import { attestHyperliquidUserFills } from '../zktls/attestHyperliquid.js';
 import { sha256Raw } from './utils/hashRawResponse.js';
 import { sha256WithSalt } from './utils/hashAddressAndSalt.js';
@@ -24,11 +22,11 @@ import { bytes32ToField2DecStrings } from './utils/addressCommitmentFieldTwo.js'
 const END_TIME = 1769172996000;
 const START_TIME = 1769172979000;
 async function main(): Promise<void> {
-  const PRIVATE_KEY = requireEnv('PRIMUS_PRIVATE_KEY');
-  const HYPERLIQUID_USER_ADDRESS = requireEnv('HYPERLIQUID_USER_ADDRESS');
+  const PRIVATE_KEY = env.PRIMUS_PRIVATE_KEY;
+  const HYPERLIQUID_USER_ADDRESS = env.HYPERLIQUID_USER_ADDRESS;
 
-  const CHAIN_ID: number = +requireEnv('PRIMUS_CHAIN_ID'); //TODO:ask Necip string to number
-  const RPC_URL = process.env.RPC_URL ?? 'https://sepolia.base.org';
+  const CHAIN_ID = env.PRIMUS_CHAIN_ID;
+  const RPC_URL = env.RPC_URL;
 
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
@@ -36,8 +34,8 @@ async function main(): Promise<void> {
   const primus = new PrimusNetwork();
   await primus.init(wallet, CHAIN_ID);
 
-  const apiUrl = requireEnv('HYPERLIQUID_API_URL');
-  const userAddress = requireEnv('HYPERLIQUID_USER_ADDRESS');
+  const apiUrl = env.HYPERLIQUID_API_URL;
+  const userAddress = env.HYPERLIQUID_USER_ADDRESS;
 
   const _rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress, START_TIME, END_TIME);
 

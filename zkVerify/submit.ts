@@ -1,10 +1,9 @@
-import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import { zkVerifySession, ZkVerifyEvents, UltrahonkVariant } from 'zkverifyjs';
-import { requireEnv } from '../scripts/utils/requireEnv.js';
+import { env } from '../env.js';
 
-const SEED_PHRASE = requireEnv('ZKVERIFY_SEED_PHRASE');
+const SEED_PHRASE = env.ZKVERIFY_SEED_PHRASE;
 
 function firstNonEmptyLine(s: string): string | null {
   for (const line of s.split('\n')) {

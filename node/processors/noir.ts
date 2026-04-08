@@ -2,7 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import type { NoirJobData } from '../types.js';
+import type { NoirJobData } from '../shared/types.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -26,7 +26,7 @@ async function copyDirectory(src: string, dest: string): Promise<void> {
   }
 }
 
-type NoirProcessorResult = {
+interface NoirProcessorResult {
   noirCircuitDir: string;
   proverTomlPath: string;
   targetDir: string;
@@ -41,7 +41,7 @@ type NoirProcessorResult = {
   writeVkStderr: string;
   proveStdout: string;
   proveStderr: string;
-};
+}
 
 export async function runNoirProcessor(input: NoirJobData['input']): Promise<NoirProcessorResult> {
   const baseCircuitDir = path.resolve('circuit');

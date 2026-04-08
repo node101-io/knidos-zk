@@ -1,47 +1,47 @@
 export type ProofType = 'hyperliquid-fills-hourly';
 
-export type PipelineJobData = {
+export interface PipelineJobData {
   pipelineRunId: string;
   proofType: ProofType;
   walletAddress: string;
   timeWindowStart: string;
   timeWindowEnd: string;
-};
+}
 
 export type ZkTlsJobName = 'zktls-process';
 export type NoirJobName = 'noir-process';
 export type ZkVerifyJobName = 'zkverify-process';
 
-export type ZkTLSJobInput = {
+export interface ZkTLSJobInput {
   startTime: number;
   endTime: number;
   proofType?: string;
   baseBalance?: number;
   threshold?: number;
   fillCount?: number;
-};
-export type ZkTLSJobData = {
+}
+export interface ZkTLSJobData {
   taskId: string;
   input: ZkTLSJobInput;
-};
+}
 
-export type NoirJobInput = {
+export interface NoirJobInput {
   zkTLSTaskId: string;
   circuitInput: string;
   noirCircuitDir: string;
-};
+}
 
-export type NoirJobData = {
+export interface NoirJobData {
   taskId: string;
   input: NoirJobInput;
-};
+}
 
-export type ZkVerifyJobInput = {
+export interface ZkVerifyJobInput {
   noirTaskId: string;
   targetDir: string;
-};
+}
 
-export type ZkVerifyJobData = {
+export interface ZkVerifyJobData {
   taskId: string;
   input: ZkVerifyJobInput;
-};
+}

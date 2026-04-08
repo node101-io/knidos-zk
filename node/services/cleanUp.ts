@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 
-import Task from '../db/models/Task.js';
-import logger from '../logger.js';
+import Task from '../db/task.js';
+import logger from '../shared/logger.js';
 
 // const CLEANUP_INTERVAL_MS = 60 * 1000;      // 1 min
 // const ZKTLS_TIMEOUT_MS = 5 * 60 * 1000;     // 5 min fot zkTLS
@@ -84,7 +84,7 @@ export async function runCleanupOnce(): Promise<void> {
         );
 
         if (task.type === 'noir') {
-          const noirCircuitDir = task.input['noirCircuitDir'];
+          const noirCircuitDir = task.input.noirCircuitDir;
 
           if (typeof noirCircuitDir === 'string') {
             await deleteNoirCircuitDir(noirCircuitDir);

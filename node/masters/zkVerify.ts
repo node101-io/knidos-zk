@@ -1,9 +1,9 @@
-import Task from '../db/models/Task.js';
-import logger from '../logger.js';
+import Task from '../db/task.js';
+import logger from '../shared/logger.js';
 import { Master } from './Master.js';
-import { zkVerifyQueue } from '../queues/zkVerify.js';
+import { zkVerifyQueue } from '../workers/zkVerify.js';
 import { markTaskQueued } from '../services/taskLifeCycle.js';
-import type { ZkVerifyJobData } from '../types.js';
+import type { ZkVerifyJobData } from '../shared/types.js';
 
 export class ZkVerifyMaster extends Master<ZkVerifyJobData> {
   protected async handleTask(): Promise<void> {
