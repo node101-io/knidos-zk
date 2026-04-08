@@ -1,4 +1,4 @@
-export type RawFills =  Uint8Array;
+export type RawFills = Uint8Array;
 
 export interface UserFill {
   coin: string;
@@ -16,26 +16,26 @@ export interface UserFill {
   fee?: string;
   feeToken?: string;
   twapId?: number | null;
-};
+}
 
-export interface NormalizedFill  {
+export interface NormalizedFill {
   coin: string;
-  px: string;   //  Executed price
-  sz: string;   //  Executed size/amount
+  px: string; //  Executed price
+  sz: string; //  Executed size/amount
   side: string; //  Buy/Sell side of the fill
   time: number;
   hash: string; //  transaction hash
-  oid: number;  //  Order ID
-  tid: number;  //  Trade ID
+  oid: number; //  Order ID
+  tid: number; //  Trade ID
   fee: string;
   feeToken: string;
-  dir: string;  //  Direction / action type
-  closedPnl: string;  //  Realized profit/loss from closing part of a position on this fill.
-};
+  dir: string; //  Direction / action type
+  closedPnl: string; //  Realized profit/loss from closing part of a position on this fill.
+}
 
 export interface CallbackFills {
   (err: string | null, fills?: RawFills): void;
-};
+}
 export interface VerifiedHyperliquidAttestation {
   taskId: string;
   reportTxHash: string;
@@ -44,7 +44,7 @@ export interface VerifiedHyperliquidAttestation {
   chainId: number;
 
   addressCommitment: string; // user_commitment
-  fillsCommitment: string;   // SHA256($)
+  fillsCommitment: string; // SHA256($)
 
   // Raw verified result, right now it is optional
   // TODO: Check this is usefull or not

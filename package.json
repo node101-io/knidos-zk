@@ -11,7 +11,9 @@
     "dev:node": "tsx watch node/app.ts",
     "dev:fetch:hyperliquid": "tsx scripts/main.ts",
     "dev:zkverify-submit": "tsx zkVerify/submit.ts",
-    "dev:make-hex": "tsx zkVerify/makeHex.ts"
+    "dev:make-hex": "tsx zkVerify/makeHex.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@primuslabs/network-core-sdk": "^0.1.11",
@@ -28,6 +30,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.5.2",
+    "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

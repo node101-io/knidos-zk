@@ -1,14 +1,19 @@
-import axios from "axios"
-import "dotenv/config";
+import axios from 'axios';
+import 'dotenv/config';
 
-import type { RawFills } from "../types.js"
+import type { RawFills } from '../types.js';
 // import { sha256Raw } from "../utils/hashRawResponse.js";
 
 const TIMEOUT = 30_000;
 
-export async function fetchRawFills (apiUrl: string, userAddress:string, startTime: number, endTime: number) : Promise<RawFills> {
+export async function fetchRawFills(
+  apiUrl: string,
+  userAddress: string,
+  startTime: number,
+  endTime: number,
+): Promise<RawFills> {
   const body = {
-    type: "userFillsByTime",
+    type: 'userFillsByTime',
     user: userAddress,
     startTime: startTime,
     endTime: endTime,
@@ -16,12 +21,12 @@ export async function fetchRawFills (apiUrl: string, userAddress:string, startTi
 
   const response = await axios.post(apiUrl, body, {
     headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
     },
-    timeout:TIMEOUT,
-    responseType: "arraybuffer",
-    transformResponse: r => r,
+    timeout: TIMEOUT,
+    responseType: 'arraybuffer',
+    transformResponse: (r) => r,
   });
 
   const rawBuffer = new Uint8Array(response.data);

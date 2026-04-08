@@ -1,16 +1,16 @@
-import "dotenv/config";
-import fs from "fs";
-import path from "path";
-import * as zkv from "zkverifyjs";
+import 'dotenv/config';
+import fs from 'fs';
+import path from 'path';
+import * as zkv from 'zkverifyjs';
 const { zkVerifySession, ZkVerifyEvents, UltrahonkVariant } = zkv;
 type UltrahonkVariant = zkv.UltrahonkVariant;
-import { requireEnv } from "../../scripts/utils/requireEnv.js";
-import type { ZkVerifyJobData } from "../types.js";
+import { requireEnv } from '../../scripts/utils/requireEnv.js';
+import type { ZkVerifyJobData } from '../types.js';
 
-const SEED_PHRASE = requireEnv("ZKVERIFY_SEED_PHRASE");
+const SEED_PHRASE = requireEnv('ZKVERIFY_SEED_PHRASE');
 
 function firstNonEmptyLine(s: string): string | null {
-  for (const line of s.split("\n")) {
+  for (const line of s.split('\n')) {
     const t = line.trim();
     if (t.length) return t;
   }
@@ -18,23 +18,21 @@ function firstNonEmptyLine(s: string): string | null {
 }
 
 function stripWrappingTicks(s: string): string {
-  return s.trim().replace(/^`+/, "").replace(/`+$/, "").trim();
+  return s.trim().replace(/^`+/, '').replace(/`+$/, '').trim();
 }
 
 function normalize0x(hex: string): string {
   const t = hex.trim();
-  return t.startsWith("0x") ? t : `0x${t}`;
+  return t.startsWith('0x') ? t : `0x${t}`;
 }
 
 function bufferTo0xHex(buf: Buffer): string {
-  return `0x${buf.toString("hex")}`;
+  return `0x${buf.toString('hex')}`;
 }
 
 function chunkBufferToBytes32List(buf: Buffer): string[] {
   if (buf.length % 32 !== 0) {
-    throw new Error(
-      `public_inputs binary length (${buf.length}) is not a multiple of 32 bytes`,
-    );
+    throw new Error(`public_inputs binary length (${buf.length}) is not a multiple of 32 bytes`);
   }
 
   const out: string[] = [];
@@ -47,23 +45,20 @@ function chunkBufferToBytes32List(buf: Buffer): string[] {
 function loadPublicSignals(pubsPath: string): string[] {
   const raw = fs.readFileSync(pubsPath);
 
-  const asText = raw.toString("utf8").trim();
+  const asText = raw.toString('utf8').trim();
   const first = firstNonEmptyLine(asText);
 
-  if (
-    first &&
-    (first.startsWith("[") || first.startsWith('"') || first.startsWith("0x"))
-  ) {
-    if (first.startsWith("[")) {
+  if (first && (first.startsWith('[') || first.startsWith('"') || first.startsWith('0x'))) {
+    if (first.startsWith('[')) {
       const arr = JSON.parse(stripWrappingTicks(asText));
       if (!Array.isArray(arr)) {
-        throw new Error("public signals JSON is not an array");
+        throw new Error('public signals JSON is not an array');
       }
       return arr.map((x) => normalize0x(String(x)));
     }
 
     const lines = asText
-      .split("\n")
+      .split('\n')
       .map((l) => l.trim())
       .filter((l) => l.length);
 
@@ -113,11 +108,11 @@ function loadPublicSignals(pubsPath: string): string[] {
 
 function loadVk(vkPath: string): string {
   const raw = fs.readFileSync(vkPath);
-  const asText = raw.toString("utf8").trim();
+  const asText = raw.toString('utf8').trim();
   const first = firstNonEmptyLine(asText);
 
   if (first && /^[`"]?0x[0-9a-fA-F]+[`"]?$/.test(first)) {
-    return normalize0x(stripWrappingTicks(first).replace(/^"|"$/g, ""));
+    return normalize0x(stripWrappingTicks(first).replace(/^"|"$/g, ''));
   }
 
   return bufferTo0xHex(raw);
@@ -125,19 +120,19 @@ function loadVk(vkPath: string): string {
 
 function loadProof(proofPath: string, variant: UltrahonkVariant): string {
   const raw = fs.readFileSync(proofPath);
-  const asText = raw.toString("utf8").trim();
+  const asText = raw.toString('utf8').trim();
   const first = firstNonEmptyLine(asText);
 
   if (first) {
     const cleaned = stripWrappingTicks(asText);
 
-    if (cleaned.startsWith("{")) {
+    if (cleaned.startsWith('{')) {
       const obj = JSON.parse(cleaned) as Record<string, unknown>;
 
       const wantKeys =
         variant === UltrahonkVariant.ZK
-          ? ["ZK", "zk", "ZK:", "zk:"]
-          : ["Plain", "plain", "Plain:", "plain:"];
+          ? ['ZK', 'zk', 'ZK:', 'zk:']
+          : ['Plain', 'plain', 'Plain:', 'plain:'];
 
       for (const key of wantKeys) {
         if (obj[key] != null) {
@@ -147,14 +142,14 @@ function loadProof(proofPath: string, variant: UltrahonkVariant): string {
 
       const firstValue = Object.values(obj)[0];
       if (firstValue == null) {
-        throw new Error("proof JSON object is empty");
+        throw new Error('proof JSON object is empty');
       }
 
       return normalize0x(String(firstValue));
     }
 
     if (/^["`]?0x[0-9a-fA-F]+["`]?$/.test(first)) {
-      return normalize0x(stripWrappingTicks(first).replace(/^"|"$/g, ""));
+      return normalize0x(stripWrappingTicks(first).replace(/^"|"$/g, ''));
     }
   }
 
@@ -176,13 +171,13 @@ export type ZkVerifyProcessorResult = {
 };
 
 export async function runZkVerifyProcessor(
-  input: ZkVerifyJobData["input"],
+  input: ZkVerifyJobData['input'],
 ): Promise<ZkVerifyProcessorResult> {
   const targetDir = path.resolve(input.targetDir);
 
-  const vkPath = path.join(targetDir, "vk");
-  const proofPath = path.join(targetDir, "proof");
-  const publicInputsPath = path.join(targetDir, "public_inputs");
+  const vkPath = path.join(targetDir, 'vk');
+  const proofPath = path.join(targetDir, 'proof');
+  const publicInputsPath = path.join(targetDir, 'public_inputs');
 
   if (!fs.existsSync(vkPath)) {
     throw new Error(`VK not found: ${vkPath}`);
@@ -200,22 +195,16 @@ export async function runZkVerifyProcessor(
   const proof = loadProof(proofPath, variant);
   const publicSignals = loadPublicSignals(publicInputsPath);
 
-  const session = await zkVerifySession
-    .start()
-    .Volta()
-    .withAccount(SEED_PHRASE);
+  const session = await zkVerifySession.start().Volta().withAccount(SEED_PHRASE);
 
   let includedInBlock: unknown;
   let statement: unknown;
   let aggregationId: number | undefined;
 
-  const { events } = await session
-    .verify()
-    .ultrahonk({ variant })
-    .execute({
-      proofData: { vk, proof, publicSignals },
-      domainId: 0,
-    });
+  const { events } = await session.verify().ultrahonk({ variant }).execute({
+    proofData: { vk, proof, publicSignals },
+    domainId: 0,
+  });
 
   await new Promise<void>((resolve) => {
     events.on(ZkVerifyEvents.IncludedInBlock, (eventData: any) => {

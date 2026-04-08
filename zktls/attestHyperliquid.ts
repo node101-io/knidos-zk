@@ -1,17 +1,22 @@
-import { PrimusNetwork } from "@primuslabs/network-core-sdk";
-import { ethers } from "ethers";
+import { PrimusNetwork } from '@primuslabs/network-core-sdk';
+import { ethers } from 'ethers';
 
-import { requireEnv } from "../scripts/utils/requireEnv.js";
+import { requireEnv } from '../scripts/utils/requireEnv.js';
 
-import type { VerifiedHyperliquidAttestation } from "../scripts/types.js"
+import type { VerifiedHyperliquidAttestation } from '../scripts/types.js';
 
-export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID: number, startTime: number, endTime: number): Promise<VerifiedHyperliquidAttestation> {
+export async function attestHyperliquidUserFills(
+  primus: PrimusNetwork,
+  CHAIN_ID: number,
+  startTime: number,
+  endTime: number,
+): Promise<VerifiedHyperliquidAttestation> {
   // const PRIMUS_PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY");
-  const PRIMUS_USER_ADDRESS = requireEnv("PRIMUS_USER_ADDRESS");
-  const HYPERLIQUID_USER_ADDRESS = requireEnv("HYPERLIQUID_USER_ADDRESS");
-  const HYPERLIQUID_API_URL = requireEnv("HYPERLIQUID_API_URL");
+  const PRIMUS_USER_ADDRESS = requireEnv('PRIMUS_USER_ADDRESS');
+  const HYPERLIQUID_USER_ADDRESS = requireEnv('HYPERLIQUID_USER_ADDRESS');
+  const HYPERLIQUID_API_URL = requireEnv('HYPERLIQUID_API_URL');
 
-  const RPC_URL = process.env.RPC_URL ?? "https://sepolia.base.org";
+  const RPC_URL = process.env.RPC_URL ?? 'https://sepolia.base.org';
 
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   // const wallet = new ethers.Wallet(PRIMUS_PRIVATE_KEY, provider);
@@ -22,12 +27,12 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
   const requests = [
     {
       url: HYPERLIQUID_API_URL,
-      method: "POST",
+      method: 'POST',
       header: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: {
-        type: "userFillsByTime",
+        type: 'userFillsByTime',
         user: HYPERLIQUID_USER_ADDRESS,
         startTime: startTime,
         endTime: endTime,
@@ -38,16 +43,16 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
   const responseResolves = [
     [
       {
-        keyName: "fills_commitment",
-        parseType: "json",
-        parsePath: "$",
-        op: "SHA256",
+        keyName: 'fills_commitment',
+        parseType: 'json',
+        parsePath: '$',
+        op: 'SHA256',
       },
       {
-        keyName: "user_commitment",
-        parseType: "json",
-        parsePath: "^.user",
-        op: "SHA256_WITH_SALT",
+        keyName: 'user_commitment',
+        parseType: 'json',
+        parsePath: '^.user',
+        op: 'SHA256_WITH_SALT',
       },
     ],
   ];
@@ -56,15 +61,11 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
     address: PRIMUS_USER_ADDRESS,
   });
 
-  const {
-    taskId,
-    taskTxHash,
-    taskAttestors,
-  } = submitTaskResult as {
+  const { taskId, taskTxHash, taskAttestors } = submitTaskResult as {
     taskId: string;
     taskTxHash: string;
     taskAttestors: string[];
-  }
+  };
   const attestResult = await primus.attest({
     address: PRIMUS_USER_ADDRESS,
     taskId,
@@ -73,16 +74,16 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
     requests,
     responseResolves,
     extendedParams: JSON.stringify({ attUrlOptimization: true }),
-    getAllJsonResponse: "true",
+    getAllJsonResponse: 'true',
     attMode: {
-      algorithmType: "proxytls",
-      resultType: "plain",
+      algorithmType: 'proxytls',
+      resultType: 'plain',
     },
   });
 
   const firstAttestResult = attestResult[0];
   if (!firstAttestResult?.reportTxHash) {
-    throw new Error("attestation_report_missing");
+    throw new Error('attestation_report_missing');
   }
   const reportTxHash = firstAttestResult.reportTxHash;
 
@@ -93,20 +94,20 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
 
   const verified = verifiedResultraw[0];
   if (!verified) {
-    throw new Error("verified_result_missing");
+    throw new Error('verified_result_missing');
   }
 
   const attestation = verified.attestation;
-  if (!attestation || typeof attestation.data !== "string") {
-    throw new Error("invalid_attestation_payload");
+  if (!attestation || typeof attestation.data !== 'string') {
+    throw new Error('invalid_attestation_payload');
   }
 
   const attData = JSON.parse(attestation.data) as Record<string, unknown>;
-  const addressCommitment = attData["user_commitment"];
-  const fillsCommitment = attData["SHA256($)"];
+  const addressCommitment = attData['user_commitment'];
+  const fillsCommitment = attData['SHA256($)'];
 
-  if (typeof addressCommitment !== "string" || typeof fillsCommitment !== "string") {
-    throw new Error("invalid_attestation_commitments");
+  if (typeof addressCommitment !== 'string' || typeof fillsCommitment !== 'string') {
+    throw new Error('invalid_attestation_commitments');
   }
 
   const verifiedHyperliquidAttestationResult = {
@@ -120,7 +121,7 @@ export async function attestHyperliquidUserFills(primus: PrimusNetwork, CHAIN_ID
     fillsCommitment,
 
     verifiedResult: JSON.stringify(verifiedResultraw, null),
-  }
+  };
 
   return verifiedHyperliquidAttestationResult;
 }

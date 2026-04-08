@@ -1,11 +1,15 @@
-import { PrimusNetwork } from "@primuslabs/network-core-sdk";
-import type { HyperliquidWitness } from "../../scripts/types.js";
+import { PrimusNetwork } from '@primuslabs/network-core-sdk';
+import type { HyperliquidWitness } from '../../scripts/types.js';
 
-export function getHyperliquidWitness( primus: PrimusNetwork, taskId: string, hyperliquidUserAddress: string): HyperliquidWitness {
-  const salt = primus.getPrivateData(taskId, "user_commitment");
+export function getHyperliquidWitness(
+  primus: PrimusNetwork,
+  taskId: string,
+  hyperliquidUserAddress: string,
+): HyperliquidWitness {
+  const salt = primus.getPrivateData(taskId, 'user_commitment');
 
-  if (typeof salt !== "string") {
-    throw new Error("bad_request");
+  if (typeof salt !== 'string') {
+    throw new Error('bad_request');
   }
 
   return {

@@ -1,18 +1,18 @@
-import "dotenv/config";
+import 'dotenv/config';
 
-import { PrimusNetwork } from "@primuslabs/network-core-sdk";
-import { ethers } from "ethers";
-import fs from "fs";
+import { PrimusNetwork } from '@primuslabs/network-core-sdk';
+import { ethers } from 'ethers';
+import fs from 'fs';
 
-import { requireEnv } from "../../scripts/utils/requireEnv.js";
-import { fetchHyperliquidFills } from "../../scripts/utils/fetchHyperliquidFills.js";
-import { attestHyperliquidUserFills } from "../../zktls/attestHyperliquid.js";
-import { getAddressCommitment } from "../../zktls/commitments/addressCommitment.js"
-import { getFillsCommitment } from "../../zktls/commitments/fillsCommitment.js";
-import { getHyperliquidWitness } from "../../zktls/witness/getHyperliquidWitness.js";
-import { hexToFixedBytes } from "../../scripts/utils/hexToFixedBytes.js";
-import { bytes32ToField2DecStrings } from "../../scripts/utils/addressCommitmentFieldTwo.js";
-import { padRawFills } from "../../scripts/utils/padRawFills.js";
+import { requireEnv } from '../../scripts/utils/requireEnv.js';
+import { fetchHyperliquidFills } from '../../scripts/utils/fetchHyperliquidFills.js';
+import { attestHyperliquidUserFills } from '../../zktls/attestHyperliquid.js';
+import { getAddressCommitment } from '../../zktls/commitments/addressCommitment.js';
+import { getFillsCommitment } from '../../zktls/commitments/fillsCommitment.js';
+import { getHyperliquidWitness } from '../../zktls/witness/getHyperliquidWitness.js';
+import { hexToFixedBytes } from '../../scripts/utils/hexToFixedBytes.js';
+import { bytes32ToField2DecStrings } from '../../scripts/utils/addressCommitmentFieldTwo.js';
+import { padRawFills } from '../../scripts/utils/padRawFills.js';
 
 export interface ZkTLSProcessorInput {
   startTime: number;
@@ -44,7 +44,7 @@ export interface ZkTLSProcessorResult {
 }
 
 export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<string> {
-    const {
+  const {
     // walletAddress,
     startTime,
     endTime,
@@ -53,12 +53,11 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
     threshold,
   } = input;
 
+  const PRIVATE_KEY = requireEnv('PRIMUS_PRIVATE_KEY'); //TODO: bu bilgileri db'den mi çekmeli sor
+  const HYPERLIQUID_USER_ADDRESS = requireEnv('HYPERLIQUID_USER_ADDRESS');
 
-  const PRIVATE_KEY = requireEnv("PRIMUS_PRIVATE_KEY"); //TODO: bu bilgileri db'den mi çekmeli sor
-  const HYPERLIQUID_USER_ADDRESS = requireEnv("HYPERLIQUID_USER_ADDRESS");
-
-  const CHAIN_ID: number = +requireEnv("PRIMUS_CHAIN_ID"); //TODO:ask Necip string to number
-  const RPC_URL = process.env.RPC_URL ?? "https://sepolia.base.org";
+  const CHAIN_ID: number = +requireEnv('PRIMUS_CHAIN_ID'); //TODO:ask Necip string to number
+  const RPC_URL = process.env.RPC_URL ?? 'https://sepolia.base.org';
 
   const provider = new ethers.JsonRpcProvider(RPC_URL);
   const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
@@ -66,30 +65,38 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
   const primus = new PrimusNetwork();
   await primus.init(wallet, CHAIN_ID);
 
-  const apiUrl = requireEnv("HYPERLIQUID_API_URL");
-  const userAddress = requireEnv("HYPERLIQUID_USER_ADDRESS");
+  const apiUrl = requireEnv('HYPERLIQUID_API_URL');
+  const userAddress = requireEnv('HYPERLIQUID_USER_ADDRESS');
 
   const rawfillsResponse = await fetchHyperliquidFills(apiUrl, userAddress, startTime, endTime);
-  const zktlsVerifiedResult = await attestHyperliquidUserFills(primus, CHAIN_ID, startTime, endTime); // Public input
+  const zktlsVerifiedResult = await attestHyperliquidUserFills(
+    primus,
+    CHAIN_ID,
+    startTime,
+    endTime,
+  ); // Public input
   const addressCommitment = getAddressCommitment(zktlsVerifiedResult);
   const fillsCommitment = getFillsCommitment(zktlsVerifiedResult);
 
-  const hyperliquidWitness = getHyperliquidWitness(primus, zktlsVerifiedResult.taskId, HYPERLIQUID_USER_ADDRESS);
+  const hyperliquidWitness = getHyperliquidWitness(
+    primus,
+    zktlsVerifiedResult.taskId,
+    HYPERLIQUID_USER_ADDRESS,
+  );
   const _salt = hyperliquidWitness.salt;
 
   const addressCommitmentBytes = hexToFixedBytes(addressCommitment, 32);
   const fillsCommitmentBytes = hexToFixedBytes(fillsCommitment, 32);
 
   const addressCommitmentField2 = bytes32ToField2DecStrings(addressCommitmentBytes);
-  const fillsCommitmentField2   = bytes32ToField2DecStrings(fillsCommitmentBytes);
-  const addressStringBytes = Buffer.from(HYPERLIQUID_USER_ADDRESS, "utf8");
+  const fillsCommitmentField2 = bytes32ToField2DecStrings(fillsCommitmentBytes);
+  const addressStringBytes = Buffer.from(HYPERLIQUID_USER_ADDRESS, 'utf8');
   const saltBytes = hexToFixedBytes(_salt, 16);
   const rawFillsPadded = padRawFills(rawfillsResponse!);
   const rawFillsBytes = rawFillsPadded.padded;
   const rawFillsLength = rawFillsPadded.length;
 
-  const output =
-    `address = ${JSON.stringify(Array.from(addressStringBytes))}
+  const output = `address = ${JSON.stringify(Array.from(addressStringBytes))}
     salt = ${JSON.stringify(Array.from(saltBytes))}
     addressCommitment = ${JSON.stringify(addressCommitmentField2)}
     fillsCommitment = ${JSON.stringify(fillsCommitmentField2)}
@@ -101,6 +108,6 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
     endTime = ${endTime}
     baseBalance = ${baseBalance}
     threshold = ${threshold}
-    `
+    `;
   return output;
 }

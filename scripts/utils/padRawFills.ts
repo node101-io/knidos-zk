@@ -1,4 +1,4 @@
-import type { RawFills } from "../types.js";
+import type { RawFills } from '../types.js';
 
 const MAX_FILLS_LEN = 8192;
 
@@ -7,7 +7,7 @@ export function padRawFills(raw: RawFills): {
   length: number;
 } {
   if (raw.length > MAX_FILLS_LEN) {
-    throw new Error("bad_request");
+    throw new Error('bad_request');
   }
 
   const padded = new Uint8Array(MAX_FILLS_LEN);

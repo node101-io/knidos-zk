@@ -1,8 +1,8 @@
-import { promises as fs } from "fs";
-import path from "path";
-import { execFile } from "child_process";
-import { promisify } from "util";
-import type { NoirJobData } from "../types.js";
+import { promises as fs } from 'fs';
+import path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import type { NoirJobData } from '../types.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -43,67 +43,61 @@ type NoirProcessorResult = {
   proveStderr: string;
 };
 
-export async function runNoirProcessor(
-  input: NoirJobData["input"],
-): Promise<NoirProcessorResult> {
-  const baseCircuitDir = path.resolve("circuit");
+export async function runNoirProcessor(input: NoirJobData['input']): Promise<NoirProcessorResult> {
+  const baseCircuitDir = path.resolve('circuit');
   const noirCircuitDir = path.resolve(input.noirCircuitDir);
 
-  const baseNargoTomlPath = path.join(baseCircuitDir, "Nargo.toml");
-  const baseSrcDir = path.join(baseCircuitDir, "src");
+  const baseNargoTomlPath = path.join(baseCircuitDir, 'Nargo.toml');
+  const baseSrcDir = path.join(baseCircuitDir, 'src');
 
-  const targetNargoTomlPath = path.join(noirCircuitDir, "Nargo.toml");
-  const targetSrcDir = path.join(noirCircuitDir, "src");
-  const proverTomlPath = path.join(noirCircuitDir, "Prover.toml");
-  const targetDir = path.join(noirCircuitDir, "target");
+  const targetNargoTomlPath = path.join(noirCircuitDir, 'Nargo.toml');
+  const targetSrcDir = path.join(noirCircuitDir, 'src');
+  const proverTomlPath = path.join(noirCircuitDir, 'Prover.toml');
+  const targetDir = path.join(noirCircuitDir, 'target');
 
   await ensureDir(noirCircuitDir);
 
   await fs.copyFile(baseNargoTomlPath, targetNargoTomlPath);
   await copyDirectory(baseSrcDir, targetSrcDir);
-  await fs.writeFile(proverTomlPath, input.circuitInput, "utf8");
+  await fs.writeFile(proverTomlPath, input.circuitInput, 'utf8');
 
-  const compileResult = await execFileAsync(
-    "nargo",
-    ["compile"],
-    { cwd: noirCircuitDir },
-  );
+  const compileResult = await execFileAsync('nargo', ['compile'], { cwd: noirCircuitDir });
 
   const executeResult = await execFileAsync(
-    "nargo",
-    ["execute", "--skip-brillig-constraints-check"],
+    'nargo',
+    ['execute', '--skip-brillig-constraints-check'],
     { cwd: noirCircuitDir },
   );
   const writeVkResult = await execFileAsync(
-    "bb",
+    'bb',
     [
-      "write_vk",
-      "-s",
-      "ultra_honk",
-      "-b",
-      "./target/circuit.json",
-      "-o",
-      "./target",
-      "--oracle_hash",
-      "keccak",
+      'write_vk',
+      '-s',
+      'ultra_honk',
+      '-b',
+      './target/circuit.json',
+      '-o',
+      './target',
+      '--oracle_hash',
+      'keccak',
     ],
     { cwd: noirCircuitDir },
   );
 
   const proveResult = await execFileAsync(
-    "bb",
+    'bb',
     [
-      "prove",
-      "-s",
-      "ultra_honk",
-      "-b",
-      "./target/circuit.json",
-      "-w",
-      "./target/circuit.gz",
-      "-o",
-      "./target",
-      "--oracle_hash",
-      "keccak",
+      'prove',
+      '-s',
+      'ultra_honk',
+      '-b',
+      './target/circuit.json',
+      '-w',
+      './target/circuit.gz',
+      '-o',
+      './target',
+      '--oracle_hash',
+      'keccak',
     ],
     { cwd: noirCircuitDir },
   );
@@ -112,9 +106,9 @@ export async function runNoirProcessor(
     noirCircuitDir,
     proverTomlPath,
     targetDir,
-    vkPath: path.join(targetDir, "vk"),
-    proofPath: path.join(targetDir, "proof"),
-    publicInputsPath: path.join(targetDir, "public_inputs"),
+    vkPath: path.join(targetDir, 'vk'),
+    proofPath: path.join(targetDir, 'proof'),
+    publicInputsPath: path.join(targetDir, 'public_inputs'),
     compileStdout: compileResult.stdout,
     compileStderr: compileResult.stderr,
     executeStdout: executeResult.stdout,

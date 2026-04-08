@@ -1,6 +1,6 @@
-import { Job, Worker } from "bullmq";
-import type { ConnectionOptions } from "bullmq";
-import logger from "../logger.js";
+import { Job, Worker } from 'bullmq';
+import type { ConnectionOptions } from 'bullmq';
+import logger from '../logger.js';
 
 export interface MasterConfig<JobData> {
   queueName: string;
@@ -9,13 +9,8 @@ export interface MasterConfig<JobData> {
   workerCount: number;
   lockDurationMs: number;
   stalledIntervalMs: number;
-  processJob: (
-    workerId: number,
-    job: Job<JobData, void, string>,
-  ) => Promise<void>;
-  onJobFailed?: (
-    job: Job<JobData, void, string> | undefined,
-  ) => Promise<void>;
+  processJob: (workerId: number, job: Job<JobData, void, string>) => Promise<void>;
+  onJobFailed?: (job: Job<JobData, void, string> | undefined) => Promise<void>;
 }
 
 export abstract class Master<JobData> {
@@ -28,9 +23,7 @@ export abstract class Master<JobData> {
 
   protected abstract handleTask(): Promise<void>;
 
-  protected async createWorker(
-    workerId: number,
-  ): Promise<Worker<JobData, void, string>> {
+  protected async createWorker(workerId: number): Promise<Worker<JobData, void, string>> {
     const {
       queueName,
       workerLabel,
@@ -44,13 +37,9 @@ export abstract class Master<JobData> {
     const worker = new Worker<JobData, void, string>(
       queueName,
       async (job) => {
-        logger.info(  { jobId: job.id},
-          `${workerLabel} worker ${workerId} started job ${job.id}`,
-        );
+        logger.info({ jobId: job.id }, `${workerLabel} worker ${workerId} started job ${job.id}`);
         await processJob(workerId, job);
-        logger.info(  { jobId: job.id },
-          `${workerLabel} worker ${workerId} finished job ${job.id}`,
-        );
+        logger.info({ jobId: job.id }, `${workerLabel} worker ${workerId} finished job ${job.id}`);
       },
       {
         connection,
@@ -60,14 +49,11 @@ export abstract class Master<JobData> {
       },
     );
 
-    worker.on("completed", (job) => {
-      logger.info(
-        { jobId: job?.id },
-        `${workerLabel} worker ${workerId} completed job ${job.id}`,
-      );
+    worker.on('completed', (job) => {
+      logger.info({ jobId: job?.id }, `${workerLabel} worker ${workerId} completed job ${job.id}`);
     });
 
-    worker.on("failed", async (job, err) => {
+    worker.on('failed', async (job, err) => {
       if (onJobFailed && job) await onJobFailed(job);
       logger.error(
         { error: err, jobId: job?.id }, //data: job?.data
@@ -75,16 +61,12 @@ export abstract class Master<JobData> {
       );
     });
 
-    worker.on("error", (err) => {
-      logger.error({ error: err },
-        `${workerLabel} worker ${workerId} error`,
-      );
+    worker.on('error', (err) => {
+      logger.error({ error: err }, `${workerLabel} worker ${workerId} error`);
     });
 
-    worker.on("closed", async () => {
-      logger.warn(
-        `${workerLabel} worker ${workerId} closed, creating replacement`,
-      );
+    worker.on('closed', async () => {
+      logger.warn(`${workerLabel} worker ${workerId} closed, creating replacement`);
       const index = this.workers.indexOf(worker);
       if (index !== -1) this.workers.splice(index, 1);
       await this.createWorker(workerId);

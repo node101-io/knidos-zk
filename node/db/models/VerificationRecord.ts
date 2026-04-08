@@ -1,4 +1,4 @@
-import mongoose, { Schema, Types } from "mongoose";
+import mongoose, { Schema, Types } from 'mongoose';
 
 export interface VerificationRecordInterface {
   pipelineId: Types.ObjectId;
@@ -73,9 +73,8 @@ const VerificationRecordSchema = new Schema<VerificationRecordInterface>(
   },
 );
 
-const VerificationRecord = mongoose.models.VerificationRecord || mongoose.model<VerificationRecordInterface>(
-    "VerificationRecord",
-    VerificationRecordSchema,
-  );
+const VerificationRecord =
+  mongoose.models.VerificationRecord ||
+  mongoose.model<VerificationRecordInterface>('VerificationRecord', VerificationRecordSchema);
 
 export default VerificationRecord;

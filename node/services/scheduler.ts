@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import Task from '../db/models/Task.js';
 
 const START_TIME = 1769172979000; // For testing
-const END_TIME   = 1769172996000; // For testing
+const END_TIME = 1769172996000; // For testing
 
 export function startScheduler() {
   cron.schedule('*/3 * * * *', async () => {
@@ -15,13 +15,13 @@ export function startScheduler() {
 
     Task.createTask(
       {
-        type: "zkTLS",
-        pipelineId: new (mongoose.Types.ObjectId)(),
+        type: 'zkTLS',
+        pipelineId: new mongoose.Types.ObjectId(),
         input: {
-          startTime: START_TIME,  //fifteenMinutesAgo.toISOString()
-          endTime: END_TIME,      //now.toISOString()
+          startTime: START_TIME, //fifteenMinutesAgo.toISOString()
+          endTime: END_TIME, //now.toISOString()
           baseBalance: 100000000, //TODO: fetch these time info dynamically
-          threshold: 50000000
+          threshold: 50000000,
         },
       },
       (err, task) => {
@@ -30,7 +30,7 @@ export function startScheduler() {
         } else {
           console.log('[scheduler] zkTLS task created', task?._id);
         }
-      }
+      },
     );
   });
 }

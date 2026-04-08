@@ -1,4 +1,4 @@
-export type ProofType = "hyperliquid-fills-hourly";
+export type ProofType = 'hyperliquid-fills-hourly';
 
 export type PipelineJobData = {
   pipelineRunId: string;
@@ -8,9 +8,9 @@ export type PipelineJobData = {
   timeWindowEnd: string;
 };
 
-export type ZkTlsJobName = "zktls-process";
-export type NoirJobName = "noir-process";
-export type ZkVerifyJobName = "zkverify-process";
+export type ZkTlsJobName = 'zktls-process';
+export type NoirJobName = 'noir-process';
+export type ZkVerifyJobName = 'zkverify-process';
 
 export type ZkTLSJobInput = {
   startTime: number;
@@ -30,7 +30,6 @@ export type NoirJobInput = {
   circuitInput: string;
   noirCircuitDir: string;
 };
-
 
 export type NoirJobData = {
   taskId: string;

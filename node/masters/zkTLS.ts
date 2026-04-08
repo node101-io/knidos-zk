@@ -1,16 +1,16 @@
-import Task from "../db/models/Task.js";
-import logger from "../logger.js";
-import { zkTLSQueue } from "../queues/zkTLS.js";
-import { markTaskQueued } from "../services/taskLifeCycle.js";
-import { Master } from "./Master.js";
-import type { ZkTLSJobData } from "../types.js";
+import Task from '../db/models/Task.js';
+import logger from '../logger.js';
+import { zkTLSQueue } from '../queues/zkTLS.js';
+import { markTaskQueued } from '../services/taskLifeCycle.js';
+import { Master } from './Master.js';
+import type { ZkTLSJobData } from '../types.js';
 
 export class ZkTLSMaster extends Master<ZkTLSJobData> {
   protected async handleTask(): Promise<void> {
     try {
       const pendingTasks = await Task.find({
-        type: "zkTLS",
-        status: "PENDING",
+        type: 'zkTLS',
+        status: 'PENDING',
       }).limit(20);
 
       if (pendingTasks.length === 0) {
@@ -20,7 +20,7 @@ export class ZkTLSMaster extends Master<ZkTLSJobData> {
 
       for (const task of pendingTasks) {
         await zkTLSQueue.add(
-          "zkTLS-job",
+          'zkTLS-job',
           {
             taskId: task._id.toString(),
             input: task.input,
@@ -34,14 +34,10 @@ export class ZkTLSMaster extends Master<ZkTLSJobData> {
 
         await markTaskQueued(task._id.toString());
 
-        logger.info( { taskId: task._id.toString() },
-          `[zkTLS master] queued task ${task._id}`,
-        );
+        logger.info({ taskId: task._id.toString() }, `[zkTLS master] queued task ${task._id}`);
       }
     } catch (error) {
-      logger.error({  error },
-        "[zkTLS master] error"
-      )
+      logger.error({ error }, '[zkTLS master] error');
       await this.sleep(1000);
     }
   }
