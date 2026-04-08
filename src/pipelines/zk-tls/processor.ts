@@ -3,13 +3,13 @@ import { ethers } from 'ethers';
 
 import { env } from '../../env.js';
 import { fetchRawFills } from '../../utils/fetch-raw-fills.js';
-import { bytes32ToField2DecStrings } from '../../utils/bytes32ToField2DecStrings.js';
-import { hexToFixedBytes } from '../../utils/hexToFixedBytes.js';
-import { padRawFills } from '../../utils/padRawFills.js';
-import { attestHyperliquidUserFills } from '../../zktls/attestHyperliquid.js';
-import { getAddressCommitment } from '../../zktls/getAddressCommitment.js';
-import { getFillsCommitment } from '../../zktls/getFillsCommitment.js';
-import { getHyperliquidWitness } from '../../zktls/getHyperliquidWitness.js';
+import { bytes32ToField2DecStrings } from '../../utils/bytes32-to-field2-dec-strings.js';
+import { hexToFixedBytes } from '../../utils/hex-to-fixed-bytes.js';
+import { padRawFills } from '../../utils/pad-raw-fills.js';
+import { attestHyperliquidUserFills } from '../../zk-tls/attest-hyperliquid.js';
+import { getAddressCommitment } from '../../zk-tls/get-address-commitment.js';
+import { getFillsCommitment } from '../../zk-tls/get-fills-commitment.js';
+import { getHyperliquidWitness } from '../../zk-tls/get-hyperliquid-witness.js';
 
 export interface ZkTLSProcessorInput {
   startTime: number;

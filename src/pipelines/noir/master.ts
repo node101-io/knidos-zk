@@ -1,6 +1,6 @@
 import Task from '../../db/task.js';
 import logger from '../../shared/logger.js';
-import { Master } from '../Master.js';
+import { Master } from '../master.js';
 import type { NoirJobData } from '../types.js';
 import { noirQueue } from './worker.js';
 

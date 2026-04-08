@@ -1,6 +1,6 @@
 import Task from '../../db/task.js';
 import logger from '../../shared/logger.js';
-import { Master } from '../Master.js';
+import { Master } from '../master.js';
 import type { ZkVerifyJobData } from '../types.js';
 import { zkVerifyQueue } from './worker.js';
 
