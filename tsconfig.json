@@ -21,6 +21,6 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   },
-  "include": ["env.ts", "scripts/**/*.ts", "zktls/**/*.ts", "zkVerify/**/*.ts", "node/**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }
