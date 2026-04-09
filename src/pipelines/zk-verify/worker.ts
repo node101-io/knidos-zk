@@ -1,13 +1,13 @@
 import { Queue, type Job } from 'bullmq';
 import mongoose from 'mongoose';
-import fs from 'fs/promises';
-import path from 'path';
 
 import Task from '../../db/task.js';
 import VerificationRecord from '../../db/verification-record.js';
 import { redis } from '../../shared/redis.js';
 import logger from '../../shared/logger.js';
 import type { ZkVerifyJobData } from '../types.js';
+import type { NoirProcessorResult } from '../noir/processor.js';
+import { parseZkVerifyJobInput } from '../validation.js';
 import { runZkVerifyProcessor } from './processor.js';
 
 export const zkVerifyQueue = new Queue('zkVerify-queue', { connection: redis });
@@ -21,7 +21,7 @@ function sleep(ms: number): Promise<void> {
 
 export async function processZkVerifyJob(
   workerId: number,
-  job: Job<ZkVerifyJobData, void, string>,
+  job: Job<ZkVerifyJobData, void>,
 ): Promise<void> {
   const { taskId, input } = job.data;
 
@@ -38,12 +38,14 @@ export async function processZkVerifyJob(
   if (task.status === 'RUNNING') return;
 
   try {
+    const parsedInput = parseZkVerifyJobInput(input);
+
     await Task.updateTaskStatus({
       taskId,
       status: 'RUNNING',
     });
 
-    while (true) {
+    for (;;) {
       const previousCompletedTask = await Task.findOne({
         type: 'zkVerify',
         status: 'COMPLETED',
@@ -76,11 +78,27 @@ export async function processZkVerifyJob(
     }
 
     logger.info(
-      { taskId, workerId, targetDir: input.targetDir },
+      { taskId, workerId, noirTaskId: parsedInput.noirTaskId },
       '[zkVerify worker] starting zkVerify task',
     );
 
-    const result = await runZkVerifyProcessor(input);
+    const noirTask = await Task.findById(parsedInput.noirTaskId);
+    if (!noirTask) {
+      throw new Error(`[zkVerify worker] referenced noir task not found: ${parsedInput.noirTaskId}`);
+    }
+
+    const noirResult = noirTask.result as NoirProcessorResult | null | undefined;
+    if (!noirResult) {
+      throw new Error(
+        `[zkVerify worker] noir task ${parsedInput.noirTaskId} has no proof artifacts on result`,
+      );
+    }
+
+    const result = await runZkVerifyProcessor({
+      vk: noirResult.vkHex,
+      proof: noirResult.proofHex,
+      publicSignals: noirResult.publicInputs,
+    });
 
     const session = await mongoose.startSession();
 
@@ -100,7 +118,7 @@ export async function processZkVerifyJob(
             {
               pipelineId: task.pipelineId,
               zkVerifyTaskId: task._id,
-              noirTaskId: new mongoose.Types.ObjectId(input.noirTaskId),
+              noirTaskId: new mongoose.Types.ObjectId(parsedInput.noirTaskId),
 
               variant: result.variant,
 
@@ -122,25 +140,6 @@ export async function processZkVerifyJob(
       });
     } finally {
       await session.endSession();
-    }
-
-    const pipelineDir = path.dirname(path.resolve(input.targetDir));
-
-    try {
-      await fs.rm(pipelineDir, {
-        recursive: true,
-        force: true,
-      });
-
-      logger.info(
-        { taskId, workerId, pipelineDir },
-        '[zkVerify worker] deleted pipeline directory',
-      );
-    } catch (cleanupError) {
-      logger.warn(
-        { taskId, workerId, pipelineDir, cleanupError },
-        '[zkVerify worker] zkVerify succeeded but pipeline cleanup failed',
-      );
     }
 
     logger.info(

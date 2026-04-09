@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 import { env } from './env.js';
+import { NOIR_PROVING_SLOT_COUNT, warmupNoirRuntime } from './pipelines/noir/runtime.js';
 import { NoirMaster } from './pipelines/noir/master.js';
 import { noirQueue, processNoirJob } from './pipelines/noir/worker.js';
 import { ZkTLSMaster } from './pipelines/zk-tls/master.js';
@@ -14,6 +15,7 @@ import { redis } from './shared/redis.js';
 
 try {
   await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+  await warmupNoirRuntime();
   await runCleanupOnce();
   startScheduler();
 
@@ -31,7 +33,7 @@ try {
     queueName: noirQueue.name,
     workerLabel: 'noir',
     connection: redis,
-    workerCount: 4,
+    workerCount: NOIR_PROVING_SLOT_COUNT,
     lockDurationMs: 5 * 60 * 1000, // 5 minutes
     stalledIntervalMs: 60 * 1000, // check every 1 min
     processJob: processNoirJob,

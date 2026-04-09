@@ -4,6 +4,8 @@ dist
 proofs/*.json
 circuit/Prover.toml
 circuit/target
+circuit/archives
+circuit/libs
 zkVerify/aggregation.json
 .DS_Store
 circuit-runs

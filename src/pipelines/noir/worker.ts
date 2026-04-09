@@ -5,13 +5,14 @@ import Task from '../../db/task.js';
 import { redis } from '../../shared/redis.js';
 import logger from '../../shared/logger.js';
 import type { NoirJobData } from '../types.js';
+import { parseNoirJobInput } from '../validation.js';
 import { runNoirProcessor } from './processor.js';
 
 export const noirQueue = new Queue('noir-queue', { connection: redis });
 
 export async function processNoirJob(
   workerId: number,
-  job: Job<NoirJobData, void, string>,
+  job: Job<NoirJobData, void>,
 ): Promise<void> {
   const { taskId, input } = job.data;
 
@@ -28,17 +29,16 @@ export async function processNoirJob(
   if (task.status === 'RUNNING') return;
 
   try {
+    const parsedInput = parseNoirJobInput(input);
+
     await Task.updateTaskStatus({
       taskId,
       status: 'RUNNING',
     });
 
-    logger.info(
-      { taskId, workerId, noirProjectDir: input.noirCircuitDir },
-      '[noir worker] starting noir task',
-    );
+    logger.info({ taskId, workerId }, '[noir worker] starting noir task');
 
-    const result = await runNoirProcessor(input);
+    const result = await runNoirProcessor(workerId, parsedInput);
 
     const session = await mongoose.startSession();
 
@@ -53,18 +53,14 @@ export async function processNoirJob(
           { session },
         );
 
-        await Task.create(
-          [
-            {
-              type: 'zkVerify',
-              pipelineId: task.pipelineId,
-              input: {
-                noirTaskId: taskId,
-                targetDir: result.targetDir,
-              },
-              status: 'PENDING',
+        await Task.createTask(
+          {
+            type: 'zkVerify',
+            pipelineId: task.pipelineId,
+            input: {
+              noirTaskId: taskId,
             },
-          ],
+          },
           { session },
         );
       });

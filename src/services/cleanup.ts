@@ -1,21 +1,9 @@
-import fs from 'fs/promises';
-
 import Task from '../db/task.js';
 import logger from '../shared/logger.js';
 
 const ZKTLS_TIMEOUT_MS = 1 * 60 * 1000; // 5 min fot zkTLS
 const ZKVERIFY_TIMEOUT_MS = 1 * 60 * 1000; // 5 min for zkVerify
-const NOIR_TIMEOUT_MS = 6 * 60 * 1000; // 15 min for Noir proofs
-
-async function deleteNoirCircuitDir(noirCircuitDir: string): Promise<void> {
-  try {
-    await fs.rm(noirCircuitDir, { recursive: true, force: true });
-
-    logger.info({ noirCircuitDir }, '[cleanup] deleted noir circuit directory');
-  } catch (error) {
-    logger.error({ noirCircuitDir, error }, '[cleanup] failed to delete noir circuit directory');
-  }
-}
+const NOIR_TIMEOUT_MS = 20 * 60 * 1000; // 20 min for Noir proofs
 
 type TaskType = 'zkTLS' | 'noir' | 'zkVerify';
 
@@ -71,14 +59,6 @@ export async function runCleanupOnce(): Promise<void> {
         },
         '[cleanup] stuck task marked as FAILED',
       );
-
-      if (task.type === 'noir') {
-        const noirCircuitDir = task.input.noirCircuitDir;
-
-        if (typeof noirCircuitDir === 'string') {
-          await deleteNoirCircuitDir(noirCircuitDir);
-        }
-      }
 
       continue;
     }

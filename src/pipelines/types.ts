@@ -16,19 +16,32 @@ export interface ZkTLSJobInput {
   startTime: number;
   endTime: number;
   proofType?: string;
-  baseBalance?: number;
-  threshold?: number;
-  fillCount?: number;
+  baseBalance: number;
+  threshold: number;
 }
 export interface ZkTLSJobData {
   taskId: string;
   input: ZkTLSJobInput;
 }
 
+export interface NoirCircuitInput {
+  address: number[];
+  salt: number[];
+  addressCommitment: string[];
+  fillsCommitment: string[];
+  rawFills: number[];
+  rawFillsLength: number;
+  addressAndSaltLength: number;
+  fillCount: number;
+  startTime: number;
+  endTime: number;
+  baseBalance: number;
+  threshold: number;
+}
+
 export interface NoirJobInput {
   zkTLSTaskId: string;
-  circuitInput: string;
-  noirCircuitDir: string;
+  circuitInput: NoirCircuitInput;
 }
 
 export interface NoirJobData {
@@ -38,7 +51,6 @@ export interface NoirJobData {
 
 export interface ZkVerifyJobInput {
   noirTaskId: string;
-  targetDir: string;
 }
 
 export interface ZkVerifyJobData {

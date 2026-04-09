@@ -7,7 +7,7 @@ export default [
     ignores: ['dist/**', 'node_modules/**', 'noir/**', '*.config.js'],
   },
   js.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
   {
     languageOptions: {
@@ -15,6 +15,14 @@ export default [
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+  },
+  {
+    rules: {
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        { allowNumber: true },
+      ],
     },
   },
   prettier,

@@ -2,6 +2,8 @@ import mongoose, { Schema, Model, Types } from 'mongoose';
 import type { UpdateQuery } from 'mongoose';
 import { Buffer } from 'buffer';
 
+import { parseTaskInput } from '../pipelines/validation.js';
+
 const MAX_INPUT_SIZE = 1e5;
 const MAX_ATTEMPT_COUNT = 3;
 
@@ -31,6 +33,10 @@ interface CreateTaskBody {
   maxAttempt?: number;
 }
 
+interface CreateTaskOptions {
+  session?: mongoose.ClientSession;
+}
+
 interface FindTasksByPipelineIdBody {
   pipelineId: Types.ObjectId;
 }
@@ -47,7 +53,7 @@ interface UpdateTaskStatusOptions {
 }
 
 export interface TaskModel extends Model<TaskInterface> {
-  createTask(body: CreateTaskBody): Promise<TaskInterface>;
+  createTask(body: CreateTaskBody, options?: CreateTaskOptions): Promise<TaskInterface>;
 
   findTasksByPipelineId(body: FindTasksByPipelineIdBody): Promise<TaskInterface[]>;
 
@@ -109,15 +115,28 @@ const TaskSchema = new Schema<TaskInterface, TaskModel>({
   },
 });
 
-TaskSchema.statics.createTask = function (
+TaskSchema.statics.createTask = async function (
   body: CreateTaskBody,
-): ReturnType<TaskModel['createTask']> {
-  return Task.create({
-    type: body.type,
-    pipelineId: body.pipelineId,
-    input: body.input,
-    maxAttempt: body.maxAttempt ?? MAX_ATTEMPT_COUNT,
-  });
+  options?: CreateTaskOptions,
+): Promise<TaskInterface> {
+  const input = parseTaskInput(body.type, body.input);
+  const [task] = await Task.create(
+    [
+      {
+        type: body.type,
+        pipelineId: body.pipelineId,
+        input,
+        maxAttempt: body.maxAttempt ?? MAX_ATTEMPT_COUNT,
+      },
+    ],
+    options?.session ? { session: options.session } : undefined,
+  );
+
+  if (!task) {
+    throw new Error('[task] failed to create task document');
+  }
+
+  return task;
 };
 
 TaskSchema.statics.findTasksByPipelineId = function (
@@ -134,34 +153,35 @@ TaskSchema.statics.updateTaskStatus = async function (
   body: UpdateTaskStatusBody,
   options?: UpdateTaskStatusOptions,
 ): Promise<void> {
-  const update: UpdateQuery<TaskInterface> = { $set: { status: body.status } };
+  const $set: Record<string, unknown> = { status: body.status };
+  const update: UpdateQuery<TaskInterface> = { $set };
 
   if (body.status === 'PENDING') {
-    update.$set!.queuedAt = null;
-    update.$set!.attemptStartedAt = new Date();
+    $set.queuedAt = null;
+    $set.attemptStartedAt = new Date();
   }
 
   if (body.status === 'QUEUED') {
-    update.$set!.queuedAt = new Date();
+    $set.queuedAt = new Date();
   }
 
   if (body.status === 'RUNNING') {
-    update.$set!.attemptStartedAt = new Date();
+    $set.attemptStartedAt = new Date();
     update.$inc = { attemptCount: 1 };
   }
 
   if (body.status === 'COMPLETED') {
-    update.$set!.finishedAt = new Date();
-    update.$set!.result = body.result ?? null;
-    update.$set!.error = null;
+    $set.finishedAt = new Date();
+    $set.result = body.result ?? null;
+    $set.error = null;
   }
 
   if (body.status === 'FAILED') {
-    update.$set!.failedAt = new Date();
+    $set.failedAt = new Date();
   }
 
   if (body.error !== undefined) {
-    update.$set!.error = body.error;
+    $set.error = body.error;
   }
 
   if (options?.session) {

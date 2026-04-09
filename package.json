@@ -12,7 +12,9 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
-    "@primuslabs/network-core-sdk": "^0.1.11",
+    "@aztec/bb.js": "0.84.0",
+    "@noir-lang/noir_js": "1.0.0-beta.6",
+"@primuslabs/network-core-sdk": "^0.1.11",
     "@t3-oss/env-core": "^0.13.8",
     "bullmq": "^5.73.1",
     "dotenv": "^17.4.1",

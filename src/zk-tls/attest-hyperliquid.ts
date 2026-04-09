@@ -87,7 +87,7 @@ export async function attestHyperliquidUserFills(
   }
 
   const attestation = verified.attestation;
-  if (!attestation || typeof attestation.data !== 'string') {
+  if (typeof attestation.data !== 'string') {
     throw new Error('invalid_attestation_payload');
   }
 

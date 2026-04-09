@@ -9,13 +9,13 @@ export interface MasterConfig<JobData> {
   workerCount: number;
   lockDurationMs: number;
   stalledIntervalMs: number;
-  processJob: (workerId: number, job: Job<JobData, void, string>) => Promise<void>;
-  onJobFailed?: (job: Job<JobData, void, string> | undefined) => Promise<void>;
+  processJob: (workerId: number, job: Job<JobData, void>) => Promise<void>;
+  onJobFailed?: (job: Job<JobData, void> | undefined) => Promise<void>;
 }
 
 export abstract class Master<JobData> {
   protected readonly config: MasterConfig<JobData>;
-  protected readonly workers: Worker<JobData, void, string>[] = [];
+  protected readonly workers: Worker<JobData, void>[] = [];
 
   constructor(config: MasterConfig<JobData>) {
     this.config = config;
@@ -23,7 +23,7 @@ export abstract class Master<JobData> {
 
   protected abstract handleTask(): Promise<void>;
 
-  protected createWorker(workerId: number): Worker<JobData, void, string> {
+  protected createWorker(workerId: number): Worker<JobData, void> {
     const {
       queueName,
       workerLabel,
@@ -37,9 +37,9 @@ export abstract class Master<JobData> {
     const worker = new Worker<JobData, void, string>(
       queueName,
       async (job) => {
-        logger.info({ jobId: job.id }, `${workerLabel} worker ${workerId} started job ${job.id}`);
+        logger.info({ jobId: job.id }, `${workerLabel} worker ${workerId} started job ${job.id ?? 'unknown'}`);
         await processJob(workerId, job);
-        logger.info({ jobId: job.id }, `${workerLabel} worker ${workerId} finished job ${job.id}`);
+        logger.info({ jobId: job.id }, `${workerLabel} worker ${workerId} finished job ${job.id ?? 'unknown'}`);
       },
       {
         connection,
@@ -50,13 +50,13 @@ export abstract class Master<JobData> {
     );
 
     worker.on('completed', (job) => {
-      logger.info({ jobId: job?.id }, `${workerLabel} worker ${workerId} completed job ${job.id}`);
+      logger.info({ jobId: job.id }, `${workerLabel} worker ${workerId} completed job ${job.id ?? 'unknown'}`);
     });
 
     worker.on('failed', (job, err) => {
       logger.error(
         { error: err, jobId: job?.id }, //data: job?.data
-        `${workerLabel} worker ${workerId} failed job ${job?.id}`,
+        `${workerLabel} worker ${workerId} failed job ${job?.id ?? 'unknown'}`,
       );
     });
 
@@ -110,7 +110,7 @@ export abstract class Master<JobData> {
 
   async run(): Promise<never> {
     this.initializeWorkers();
-    while (true) {
+    for (;;) {
       await this.handleTask();
     }
   }

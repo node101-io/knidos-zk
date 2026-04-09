@@ -16,7 +16,7 @@ export async function fetchRawFills(
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+  const timeoutId = setTimeout(() => { controller.abort(); }, TIMEOUT);
 
   try {
     const response = await fetch(apiUrl, {

@@ -10,14 +10,14 @@ import { attestHyperliquidUserFills } from '../../zk-tls/attest-hyperliquid.js';
 import { getAddressCommitment } from '../../zk-tls/get-address-commitment.js';
 import { getFillsCommitment } from '../../zk-tls/get-fills-commitment.js';
 import { getHyperliquidWitness } from '../../zk-tls/get-hyperliquid-witness.js';
+import type { NoirCircuitInput } from '../types.js';
 
 export interface ZkTLSProcessorInput {
   startTime: number;
   endTime: number;
   proofType?: string;
-  baseBalance?: number;
-  threshold?: number;
-  fillCount?: number;
+  baseBalance: number;
+  threshold: number;
 }
 
 export interface ZkTLSProcessorResult {
@@ -40,7 +40,7 @@ export interface ZkTLSProcessorResult {
   };
 }
 
-export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<string> {
+export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<NoirCircuitInput> {
   const {
     // walletAddress,
     startTime,
@@ -66,6 +66,7 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
   const userAddress = env.HYPERLIQUID_USER_ADDRESS;
 
   const rawfillsResponse = await fetchRawFills(apiUrl, userAddress, startTime, endTime);
+  const fillCount = (JSON.parse(Buffer.from(rawfillsResponse).toString()) as unknown[]).length;
   const zktlsVerifiedResult = await attestHyperliquidUserFills(
     primus,
     CHAIN_ID,
@@ -93,18 +94,18 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<str
   const rawFillsBytes = rawFillsPadded.padded;
   const rawFillsLength = rawFillsPadded.length;
 
-  const output = `address = ${JSON.stringify(Array.from(addressStringBytes))}
-    salt = ${JSON.stringify(Array.from(saltBytes))}
-    addressCommitment = ${JSON.stringify(addressCommitmentField2)}
-    fillsCommitment = ${JSON.stringify(fillsCommitmentField2)}
-    rawFills = ${JSON.stringify(Array.from(rawFillsBytes))}
-    rawFillsLength = ${rawFillsLength}
-    addressAndSaltLength = 58
-    fillCount = 3
-    startTime = ${startTime}
-    endTime = ${endTime}
-    baseBalance = ${baseBalance}
-    threshold = ${threshold}
-    `;
-  return output;
+  return {
+    address: Array.from(addressStringBytes),
+    salt: Array.from(saltBytes),
+    addressCommitment: addressCommitmentField2,
+    fillsCommitment: fillsCommitmentField2,
+    rawFills: Array.from(rawFillsBytes),
+    rawFillsLength,
+    addressAndSaltLength: 58,
+    fillCount,
+    startTime,
+    endTime,
+    baseBalance,
+    threshold,
+  };
 }
