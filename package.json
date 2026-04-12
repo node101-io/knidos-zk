@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
+    "db:reset": "mongosh --eval 'db.dropDatabase()' node101-knidos-zk-trade && redis-cli FLUSHDB",
     "postinstall": "git submodule update --init && cd noir_json_parser && git apply --check ../patches/noir_json_parser.patch 2>/dev/null && git apply ../patches/noir_json_parser.patch || echo 'Patch already applied'"
   },
   "dependencies": {

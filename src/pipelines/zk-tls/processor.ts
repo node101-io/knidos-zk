@@ -39,27 +39,33 @@ export interface ZkTLSProcessorResult {
   };
 }
 
+// Singleton so ethers tracks nonce internally across tasks
+let primusInstance: PrimusNetwork | null = null;
+
+async function getPrimus(): Promise<PrimusNetwork> {
+  if (primusInstance) return primusInstance;
+
+  const provider = new ethers.providers.JsonRpcProvider(env.RPC_URL);
+  const wallet = new ethers.Wallet(env.PRIMUS_PRIVATE_KEY, provider);
+
+  const primus = new PrimusNetwork();
+  await primus.init(wallet, env.PRIMUS_CHAIN_ID);
+  primusInstance = primus;
+  return primus;
+}
+
 export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<NoirCircuitInput> {
   const {
-    // walletAddress,
     startTime,
     endTime,
-    // proofType,
     baseBalance,
     threshold,
   } = input;
 
-  const PRIVATE_KEY = env.PRIMUS_PRIVATE_KEY; // TODO: bu bilgileri db'den mi çekmeli sor
   const HYPERLIQUID_USER_ADDRESS = env.HYPERLIQUID_USER_ADDRESS;
-
   const CHAIN_ID = env.PRIMUS_CHAIN_ID;
-  const RPC_URL = env.RPC_URL;
 
-  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
-  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-
-  const primus = new PrimusNetwork();
-  await primus.init(wallet, CHAIN_ID);
+  const primus = await getPrimus();
 
   const apiUrl = env.HYPERLIQUID_API_URL;
   const userAddress = env.HYPERLIQUID_USER_ADDRESS;

@@ -196,10 +196,20 @@ async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
   const program = JSON.parse(await fs.readFile(artifactPath, 'utf8')) as CompiledProgram;
   const compileMs = Date.now() - compileStartedAt;
 
-  const vkDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-vk-'));
+  const vkDir = path.join(baseCircuitDir, 'target');
+  const vkPath = path.join(vkDir, 'vk');
+  const vkFieldsPath = path.join(vkDir, 'vk_fields.json');
   const vkStartedAt = Date.now();
+  // Reuse cached VK unless circuit.json was recompiled (newer mtime)
+  const [artifactStat, vkStat] = await Promise.all([
+    fs.stat(artifactPath).catch(() => null),
+    fs.stat(vkPath).catch(() => null),
+  ]);
+  const vkCached = vkStat !== null && artifactStat !== null && vkStat.mtimeMs >= artifactStat.mtimeMs;
 
-  try {
+  if (vkCached) {
+    logger.info('[noir runtime] warmup: vk cached, skipping write_vk');
+  } else {
     await runCommand(bbPath, [
       'write_vk',
       '-s',
@@ -213,40 +223,39 @@ async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
       '-o',
       vkDir,
     ]);
-
-    const [vk, vkFields] = await Promise.all([
-      fs.readFile(path.join(vkDir, 'vk')),
-      readJsonStringArray(path.join(vkDir, 'vk_fields.json'), 'vk fields'),
-    ]);
-    const numPublicInputs = parseNumPublicInputs(vkFields);
-    const vkMs = Date.now() - vkStartedAt;
-    const totalMs = Date.now() - startedAt;
-
-    logger.info(
-      {
-        bbPath,
-        compileMs,
-        numPublicInputs,
-        slotConcurrencyHint,
-        slotCount: NOIR_PROVING_SLOT_COUNT,
-        totalMs,
-        totalThreads,
-        vkBytes: vk.length,
-        vkMs,
-      },
-      '[noir runtime] warmup: shared compile + vk ready',
-    );
-
-    return {
-      program,
-      artifactPath,
-      vk: new Uint8Array(vk),
-      numPublicInputs,
-      bbPath,
-    };
-  } finally {
-    await cleanupDirectory(vkDir);
   }
+
+  const [vk, vkFields] = await Promise.all([
+    fs.readFile(vkPath),
+    readJsonStringArray(vkFieldsPath, 'vk fields'),
+  ]);
+  const numPublicInputs = parseNumPublicInputs(vkFields);
+  const vkMs = Date.now() - vkStartedAt;
+  const totalMs = Date.now() - startedAt;
+
+  logger.info(
+    {
+      bbPath,
+      compileMs,
+      numPublicInputs,
+      slotConcurrencyHint,
+      slotCount: NOIR_PROVING_SLOT_COUNT,
+      totalMs,
+      totalThreads,
+      vkBytes: vk.length,
+      vkCached,
+      vkMs,
+    },
+    '[noir runtime] warmup: shared compile + vk ready',
+  );
+
+  return {
+    program,
+    artifactPath,
+    vk: new Uint8Array(vk),
+    numPublicInputs,
+    bbPath,
+  };
 }
 
 export function getSharedNoirRuntime(): Promise<SharedNoirRuntime> {

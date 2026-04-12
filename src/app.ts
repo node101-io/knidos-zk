@@ -17,7 +17,7 @@ try {
   await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
   await warmupNoirRuntime();
   await runCleanupOnce();
-  startScheduler();
+  await startScheduler();
 
   const zkTLSMaster = new ZkTLSMaster({
     queueName: zkTLSQueue.name,
