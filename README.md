@@ -8,6 +8,8 @@ Zero-knowledge proof pipeline for verifying Hyperliquid trading data. Combines z
 - **pnpm** (pinned via `corepack`, see Setup)
 - **nargo** v1.0.0-beta.6 (Noir compiler)
 - **bb** v0.84.0 (native Barretenberg CLI)
+- **jq** (required by `bb` for `bytes_and_fields` output format)
+- **Redis** (used as the job queue / cache backend)
 
 ### Installing nargo & bb
 
