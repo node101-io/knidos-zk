@@ -5,6 +5,9 @@ const isProduction = env.NODE_ENV === 'production';
 
 const logger = pino({
   level: env.LOG_LEVEL,
+  serializers: {
+    error: pino.stdSerializers.err,
+  },
   ...(!isProduction && {
     transport: {
       target: 'pino-pretty',
