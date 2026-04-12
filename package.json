@@ -8,8 +8,8 @@
     "dev:node": "tsx watch src/app.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
     "test": "vitest run",
     "db:reset": "mongosh --eval 'db.dropDatabase()' node101-knidos-zk-trade && redis-cli FLUSHDB",
     "postinstall": "git submodule update --init && cd noir_json_parser && git apply --check ../patches/noir_json_parser.patch 2>/dev/null && git apply ../patches/noir_json_parser.patch || echo 'Patch already applied'"
@@ -30,16 +30,13 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@types/node": "^25.5.2",
-    "eslint": "^10.2.0",
-    "eslint-config-prettier": "^10.1.8",
     "node-gyp": "^12.2.0",
+    "oxlint": "^1.59.0",
     "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.58.1",
     "vitest": "^4.1.4"
   }
 }
