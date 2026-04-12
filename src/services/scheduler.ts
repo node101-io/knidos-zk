@@ -28,12 +28,19 @@ async function catchUpMissedSlots(): Promise<void> {
   const lastEndTime = (latest.input as { endTime: number }).endTime;
 
   if (lastEndTime >= currentSlotEnd) {
-    logger.info({ lastEndTime: new Date(lastEndTime).toISOString(), taskId: latest._id.toString() }, '[scheduler] catch-up: already up to date');
+    logger.info(
+      { lastEndTime: new Date(lastEndTime).toISOString(), taskId: latest._id.toString() },
+      '[scheduler] catch-up: already up to date',
+    );
     return;
   }
 
   let created = 0;
-  for (let endTime = lastEndTime + ZKTLS_WINDOW_MS; endTime <= currentSlotEnd; endTime += ZKTLS_WINDOW_MS) {
+  for (
+    let endTime = lastEndTime + ZKTLS_WINDOW_MS;
+    endTime <= currentSlotEnd;
+    endTime += ZKTLS_WINDOW_MS
+  ) {
     const startTime = endTime - ZKTLS_WINDOW_MS;
 
     const exists = await Task.findOne({ type: 'zkTLS', 'input.endTime': endTime }).lean();

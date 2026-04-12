@@ -55,12 +55,7 @@ async function getPrimus(): Promise<PrimusNetwork> {
 }
 
 export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<NoirCircuitInput> {
-  const {
-    startTime,
-    endTime,
-    baseBalance,
-    threshold,
-  } = input;
+  const { startTime, endTime, baseBalance, threshold } = input;
 
   const HYPERLIQUID_USER_ADDRESS = env.HYPERLIQUID_USER_ADDRESS;
   const CHAIN_ID = env.PRIMUS_CHAIN_ID;

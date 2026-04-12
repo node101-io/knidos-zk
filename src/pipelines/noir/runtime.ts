@@ -191,7 +191,9 @@ async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
   );
 
   const compileStartedAt = Date.now();
-  await runCommand('nargo', ['compile', '--skip-brillig-constraints-check'], { cwd: baseCircuitDir });
+  await runCommand('nargo', ['compile', '--skip-brillig-constraints-check'], {
+    cwd: baseCircuitDir,
+  });
   const artifactPath = path.join(baseCircuitDir, 'target', 'circuit.json');
   const program = JSON.parse(await fs.readFile(artifactPath, 'utf8')) as CompiledProgram;
   const compileMs = Date.now() - compileStartedAt;
@@ -205,7 +207,8 @@ async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
     fs.stat(artifactPath).catch(() => null),
     fs.stat(vkPath).catch(() => null),
   ]);
-  const vkCached = vkStat !== null && artifactStat !== null && vkStat.mtimeMs >= artifactStat.mtimeMs;
+  const vkCached =
+    vkStat !== null && artifactStat !== null && vkStat.mtimeMs >= artifactStat.mtimeMs;
 
   if (vkCached) {
     logger.info('[noir runtime] warmup: vk cached, skipping write_vk');
