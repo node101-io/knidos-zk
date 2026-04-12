@@ -5,17 +5,17 @@ Zero-knowledge proof pipeline for verifying Hyperliquid trading data. Combines z
 ## Prerequisites
 
 - **Node.js** >= 22
-- **pnpm** >= 10
+- **pnpm** (pinned via `corepack`, see Setup)
 - **nargo** v1.0.0-beta.6 (Noir compiler)
 - **bb** v0.84.0 (native Barretenberg CLI)
 
 ### Installing nargo & bb
 
 ```bash
-curl -L https://raw.githubusercontent.com/noir-lang/noirup/refs/heads/main/install | bash
+curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
 noirup -v 1.0.0-beta.6
 
-curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/barretenberg/cpp/installation/install | bash
+curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/next/barretenberg/bbup/install | bash
 bbup -v 0.84.0
 ```
 
@@ -31,8 +31,11 @@ By default the app expects the native prover at `~/.bb/bb`. You can override tha
 ## Setup
 
 ```bash
+corepack enable
 pnpm install
 ```
+
+`corepack enable` activates the pnpm version pinned in `package.json` (`packageManager` field). Only needed once per machine.
 
 `postinstall` will automatically init the `noir_json_parser` submodule and apply the local patch from `patches/`.
 

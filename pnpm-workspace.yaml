@@ -1,2 +1,3 @@
-onlyBuiltDependencies:
-  - '@primuslabs/network-core-sdk'
+allowBuilds:
+  '@primuslabs/network-core-sdk': true
+  esbuild: true
