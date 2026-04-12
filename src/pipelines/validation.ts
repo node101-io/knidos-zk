@@ -1,17 +1,11 @@
 import { z } from 'zod';
 
-import type {
-  NoirCircuitInput,
-  NoirJobInput,
-  ZkTLSJobInput,
-  ZkVerifyJobInput,
-} from './types.js';
+import type { NoirCircuitInput, NoirJobInput, ZkTLSJobInput, ZkVerifyJobInput } from './types.js';
 
 type PipelineTaskType = 'zkTLS' | 'noir' | 'zkVerify';
 type TaskInputRecord = Record<string, unknown>;
 
 const MAX_RAW_FILLS_LENGTH = 8192;
-const MAX_FILL_COUNT = 32;
 const ADDRESS_BYTE_LENGTH = 42;
 const SALT_BYTE_LENGTH = 16;
 const FIELD_PAIR_LENGTH = 2;
@@ -55,8 +49,11 @@ export const noirCircuitInputSchema = z
     fillsCommitment: z.array(fieldStringSchema).length(FIELD_PAIR_LENGTH),
     rawFills: z.array(byteSchema).length(MAX_RAW_FILLS_LENGTH),
     rawFillsLength: z.number().int().min(0).max(MAX_RAW_FILLS_LENGTH),
-    addressAndSaltLength: z.number().int().min(0).max(ADDRESS_BYTE_LENGTH + SALT_BYTE_LENGTH),
-    fillCount: z.number().int().min(0).max(MAX_FILL_COUNT),
+    addressAndSaltLength: z
+      .number()
+      .int()
+      .min(0)
+      .max(ADDRESS_BYTE_LENGTH + SALT_BYTE_LENGTH),
     startTime: z.number().int(),
     endTime: z.number().int(),
     baseBalance: z.number().int(),

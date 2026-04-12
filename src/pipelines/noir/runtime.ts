@@ -1,33 +1,33 @@
 import { execFile } from 'child_process';
-import { promises as fs } from 'fs';
+import { constants as fsConstants, promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 
-import { UltraHonkBackend } from '@aztec/bb.js';
 import { Noir, type InputMap } from '@noir-lang/noir_js';
 
 import logger from '../../shared/logger.js';
 
 const execFileAsync = promisify(execFile);
 
-const KECCAK_PROOF_OPTIONS = { keccak: true } as const;
+const DEFAULT_BB_PATH = path.join(os.homedir(), '.bb', 'bb');
+const DEFAULT_NOIR_PROVING_SLOT_COUNT = 1;
 
-export const NOIR_PROVING_SLOT_COUNT = 2;
+export const NOIR_PROVING_SLOT_COUNT = resolveNoirProvingSlotCount();
 
 type CompiledProgram = ConstructorParameters<typeof Noir>[0];
 
 interface SharedNoirRuntime {
   program: CompiledProgram;
+  artifactPath: string;
   vk: Uint8Array;
-  totalThreads: number;
-  slotThreads: number;
+  numPublicInputs: number;
+  bbPath: string;
 }
 
 interface NoirRuntimeSlot {
   slotId: number;
   noir: Noir;
-  backend: UltraHonkBackend;
 }
 
 let sharedRuntimePromise: Promise<SharedNoirRuntime> | null = null;
@@ -41,45 +41,194 @@ const slotRuntimeReadyAt: (number | null)[] = Array.from(
   () => null,
 );
 
-function getBackendThreadsPerSlot(): { totalThreads: number; slotThreads: number } {
+function resolveNoirProvingSlotCount(): number {
+  const rawValue = process.env.NOIR_PROVING_SLOT_COUNT;
+  if (rawValue === undefined || rawValue.trim() === '') {
+    return DEFAULT_NOIR_PROVING_SLOT_COUNT;
+  }
+
+  const parsedValue = Number.parseInt(rawValue, 10);
+  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
+    throw new Error(
+      `[noir runtime] invalid NOIR_PROVING_SLOT_COUNT: expected a positive integer, got "${rawValue}"`,
+    );
+  }
+
+  return parsedValue;
+}
+
+function resolveBbPath(): string {
+  const rawValue = process.env.BB_PATH;
+  if (rawValue === undefined || rawValue.trim() === '') {
+    return DEFAULT_BB_PATH;
+  }
+
+  return rawValue;
+}
+
+function getParallelismMetadata(): { totalThreads: number; slotConcurrencyHint: number } {
   const totalThreads = Math.max(1, os.availableParallelism());
-  const slotThreads = Math.max(1, Math.floor(totalThreads / NOIR_PROVING_SLOT_COUNT));
-  return { totalThreads, slotThreads };
+  const slotConcurrencyHint = Math.max(1, Math.floor(totalThreads / NOIR_PROVING_SLOT_COUNT));
+  return { totalThreads, slotConcurrencyHint };
 }
 
 function normalizeSlotId(workerId: number): number {
   return ((workerId % NOIR_PROVING_SLOT_COUNT) + NOIR_PROVING_SLOT_COUNT) % NOIR_PROVING_SLOT_COUNT;
 }
 
+async function ensureExecutable(filePath: string): Promise<void> {
+  try {
+    await fs.access(filePath, fsConstants.X_OK);
+  } catch (error) {
+    throw new Error(`[noir runtime] bb binary is missing or not executable at "${filePath}"`, {
+      cause: error,
+    });
+  }
+}
+
+function formatExecFileError(command: string, args: string[], error: unknown): Error {
+  if (error instanceof Error) {
+    const commandString = [command, ...args].join(' ');
+    const execError = error as Error & {
+      code?: number | string;
+      stderr?: string;
+      stdout?: string;
+    };
+    const stderr = execError.stderr?.trim();
+    const stdout = execError.stdout?.trim();
+    const details = [
+      `[noir runtime] command failed: ${commandString}`,
+      execError.code !== undefined ? `exit_code=${String(execError.code)}` : undefined,
+      stderr ? `stderr=${stderr}` : undefined,
+      stdout ? `stdout=${stdout}` : undefined,
+    ]
+      .filter((value): value is string => value !== undefined)
+      .join(' | ');
+
+    return new Error(details, { cause: error });
+  }
+
+  return new Error(`[noir runtime] command failed: ${command} ${args.join(' ')}`, { cause: error });
+}
+
+async function runCommand(
+  command: string,
+  args: string[],
+  options?: { cwd?: string },
+): Promise<{ stdout: string; stderr: string }> {
+  try {
+    const result = await execFileAsync(command, args, options);
+    return {
+      stdout: String(result.stdout),
+      stderr: String(result.stderr),
+    };
+  } catch (error) {
+    throw formatExecFileError(command, args, error);
+  }
+}
+
+async function readJsonStringArray(filePath: string, label: string): Promise<string[]> {
+  const rawValue = await fs.readFile(filePath, 'utf8');
+  const parsedValue = JSON.parse(rawValue) as unknown;
+
+  if (!Array.isArray(parsedValue) || !parsedValue.every((value) => typeof value === 'string')) {
+    throw new Error(`[noir runtime] invalid ${label}: expected a JSON string array`);
+  }
+
+  return parsedValue;
+}
+
+function parseFieldString(value: string, label: string): bigint {
+  if (value.startsWith('0x') || value.startsWith('0X')) {
+    return BigInt(value);
+  }
+
+  try {
+    return BigInt(value);
+  } catch (error) {
+    throw new Error(`[noir runtime] invalid ${label}: "${value}"`, { cause: error });
+  }
+}
+
+function parseNumPublicInputs(vkFields: string[]): number {
+  const rawValue = vkFields[1];
+  if (rawValue === undefined) {
+    throw new Error('[noir runtime] invalid vk_fields.json: missing num public inputs entry');
+  }
+
+  const value = parseFieldString(rawValue, 'vk public input count');
+  const parsedValue = Number(value);
+  if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+    throw new Error(
+      `[noir runtime] invalid public input count parsed from vk_fields.json: ${value}`,
+    );
+  }
+
+  return parsedValue;
+}
+
+async function cleanupDirectory(dirPath: string): Promise<void> {
+  await fs.rm(dirPath, { recursive: true, force: true }).catch(() => undefined);
+}
+
 async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
   const startedAt = Date.now();
   const baseCircuitDir = path.resolve('circuit');
-  const { totalThreads, slotThreads } = getBackendThreadsPerSlot();
+  const bbPath = resolveBbPath();
+  const { totalThreads, slotConcurrencyHint } = getParallelismMetadata();
+
+  await ensureExecutable(bbPath);
 
   logger.info(
-    { baseCircuitDir, slotCount: NOIR_PROVING_SLOT_COUNT, totalThreads, slotThreads },
+    {
+      baseCircuitDir,
+      bbPath,
+      slotConcurrencyHint,
+      slotCount: NOIR_PROVING_SLOT_COUNT,
+      totalThreads,
+    },
     '[noir runtime] warmup: compiling circuit',
   );
 
   const compileStartedAt = Date.now();
-  await execFileAsync('nargo', ['compile'], { cwd: baseCircuitDir });
+  await runCommand('nargo', ['compile', '--skip-brillig-constraints-check'], { cwd: baseCircuitDir });
   const artifactPath = path.join(baseCircuitDir, 'target', 'circuit.json');
   const program = JSON.parse(await fs.readFile(artifactPath, 'utf8')) as CompiledProgram;
   const compileMs = Date.now() - compileStartedAt;
 
-  const vkBackend = new UltraHonkBackend(program.bytecode, { threads: slotThreads });
+  const vkDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-vk-'));
   const vkStartedAt = Date.now();
 
   try {
-    const vk = await vkBackend.getVerificationKey(KECCAK_PROOF_OPTIONS);
+    await runCommand(bbPath, [
+      'write_vk',
+      '-s',
+      'ultra_honk',
+      '-b',
+      artifactPath,
+      '--oracle_hash',
+      'keccak',
+      '--output_format',
+      'bytes_and_fields',
+      '-o',
+      vkDir,
+    ]);
+
+    const [vk, vkFields] = await Promise.all([
+      fs.readFile(path.join(vkDir, 'vk')),
+      readJsonStringArray(path.join(vkDir, 'vk_fields.json'), 'vk fields'),
+    ]);
+    const numPublicInputs = parseNumPublicInputs(vkFields);
     const vkMs = Date.now() - vkStartedAt;
     const totalMs = Date.now() - startedAt;
 
     logger.info(
       {
+        bbPath,
         compileMs,
+        numPublicInputs,
+        slotConcurrencyHint,
         slotCount: NOIR_PROVING_SLOT_COUNT,
-        slotThreads,
         totalMs,
         totalThreads,
         vkBytes: vk.length,
@@ -88,13 +237,15 @@ async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
       '[noir runtime] warmup: shared compile + vk ready',
     );
 
-    return { program, vk, totalThreads, slotThreads };
+    return {
+      program,
+      artifactPath,
+      vk: new Uint8Array(vk),
+      numPublicInputs,
+      bbPath,
+    };
   } finally {
-    try {
-      await vkBackend.destroy();
-    } catch (error) {
-      logger.warn({ error }, '[noir runtime] warmup: failed to destroy shared vk backend');
-    }
+    await cleanupDirectory(vkDir);
   }
 }
 
@@ -117,40 +268,19 @@ async function initNoirRuntimeSlot(slotId: number): Promise<NoirRuntimeSlot> {
   const startedAt = Date.now();
   const sharedRuntime = await getSharedNoirRuntime();
   const noir = new Noir(sharedRuntime.program);
-  const backend = new UltraHonkBackend(sharedRuntime.program.bytecode, {
-    threads: sharedRuntime.slotThreads,
-  });
 
-  try {
-    await Promise.all([noir.init(), backend.instantiate()]);
-    const initMs = Date.now() - startedAt;
+  await noir.init();
+  const initMs = Date.now() - startedAt;
 
-    logger.info(
-      { initMs, slotId, slotThreads: sharedRuntime.slotThreads },
-      '[noir runtime] slot ready',
-    );
+  logger.info({ initMs, slotId }, '[noir runtime] slot ready');
 
-    return { slotId, noir, backend };
-  } catch (error) {
-    try {
-      await backend.destroy();
-    } catch (destroyError) {
-      logger.warn(
-        { destroyError, slotId },
-        '[noir runtime] failed to destroy slot backend after init error',
-      );
-    }
-
-    throw error;
-  }
+  return { slotId, noir };
 }
 
 export function getNoirRuntimeSlot(workerId: number): Promise<NoirRuntimeSlot> {
   const slotId = normalizeSlotId(workerId);
 
-  const slotRuntimePromise =
-    slotRuntimePromises[slotId] ??=
-      initNoirRuntimeSlot(slotId)
+  const slotRuntimePromise = (slotRuntimePromises[slotId] ??= initNoirRuntimeSlot(slotId)
     .then((slotRuntime) => {
       slotRuntimeReadyAt[slotId] = Date.now();
       return slotRuntime;
@@ -159,7 +289,7 @@ export function getNoirRuntimeSlot(workerId: number): Promise<NoirRuntimeSlot> {
       slotRuntimePromises[slotId] = null;
       slotRuntimeReadyAt[slotId] = null;
       throw error;
-    });
+    }));
 
   return slotRuntimePromise;
 }
@@ -175,20 +305,8 @@ async function resetNoirRuntimeSlot(workerId: number, reason: string): Promise<v
     return;
   }
 
-  const slotRuntime = await slotRuntimePromise.catch(() => null);
-  if (!slotRuntime) {
-    return;
-  }
-
-  try {
-    await slotRuntime.backend.destroy();
-    logger.warn({ reason, slotId }, '[noir runtime] slot reset');
-  } catch (error) {
-    logger.warn(
-      { error, reason, slotId },
-      '[noir runtime] slot reset failed during backend destroy',
-    );
-  }
+  await slotRuntimePromise.catch(() => null);
+  logger.warn({ reason, slotId }, '[noir runtime] slot reset');
 }
 
 export async function warmupNoirRuntime(): Promise<void> {
@@ -217,7 +335,8 @@ export async function runProofPipeline(
 ): Promise<ProofPipelineResult> {
   const slotId = normalizeSlotId(workerId);
   const startedAt = Date.now();
-  const path = sharedRuntimeReadyAt !== null && slotRuntimeReadyAt[slotId] !== null ? 'warm' : 'cold';
+  const pathType =
+    sharedRuntimeReadyAt !== null && slotRuntimeReadyAt[slotId] !== null ? 'warm' : 'cold';
 
   const sharedRuntime = await getSharedNoirRuntime();
   const slotRuntime = await getNoirRuntimeSlot(workerId);
@@ -237,19 +356,55 @@ export async function runProofPipeline(
 
   const witnessMs = Date.now() - witnessStartedAt;
   const proveStartedAt = Date.now();
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-prove-'));
 
   try {
-    const { proof, publicInputs } = await slotRuntime.backend.generateProof(
-      witness,
-      KECCAK_PROOF_OPTIONS,
-    );
+    const witnessPath = path.join(tmpDir, 'witness.gz');
+    await fs.writeFile(witnessPath, witness);
+
+    await runCommand(sharedRuntime.bbPath, [
+      'prove',
+      '-s',
+      'ultra_honk',
+      '-b',
+      sharedRuntime.artifactPath,
+      '-w',
+      witnessPath,
+      '--oracle_hash',
+      'keccak',
+      '--output_format',
+      'bytes_and_fields',
+      '-o',
+      tmpDir,
+    ]);
+
+    const [proof, publicInputs] = await Promise.all([
+      fs.readFile(path.join(tmpDir, 'proof')),
+      readJsonStringArray(path.join(tmpDir, 'public_inputs_fields.json'), 'public inputs fields'),
+    ]);
+
+    if (proof.length === 0) {
+      throw new Error('[noir runtime] generated proof is empty');
+    }
+
+    if (publicInputs.length === 0) {
+      throw new Error('[noir runtime] generated public input list is empty');
+    }
+
+    if (publicInputs.length !== sharedRuntime.numPublicInputs) {
+      throw new Error(
+        `[noir runtime] generated public input count mismatch: expected ${sharedRuntime.numPublicInputs}, got ${publicInputs.length}`,
+      );
+    }
+
     const proveMs = Date.now() - proveStartedAt;
     const totalMs = Date.now() - startedAt;
 
     logger.info(
       {
-        path,
+        path: pathType,
         proveMs,
+        publicInputCount: publicInputs.length,
         slotId,
         totalMs,
         vkBytes: sharedRuntime.vk.length,
@@ -259,22 +414,28 @@ export async function runProofPipeline(
       '[noir runtime] proof completed',
     );
 
-    return { proof, publicInputs, vk: sharedRuntime.vk };
+    return {
+      proof: new Uint8Array(proof),
+      publicInputs,
+      vk: sharedRuntime.vk,
+    };
   } catch (error) {
     logger.error(
       {
         error,
-        path,
+        path: pathType,
         proveMs: Date.now() - proveStartedAt,
         slotId,
         totalMs: Date.now() - startedAt,
         witnessMs,
         workerId,
       },
-      '[noir runtime] backend prove failed',
+      '[noir runtime] native bb prove failed',
     );
 
-    await resetNoirRuntimeSlot(workerId, 'generateProof failed');
+    await resetNoirRuntimeSlot(workerId, 'bb prove failed');
     throw error;
+  } finally {
+    await cleanupDirectory(tmpDir);
   }
 }

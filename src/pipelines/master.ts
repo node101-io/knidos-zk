@@ -37,9 +37,15 @@ export abstract class Master<JobData> {
     const worker = new Worker<JobData, void, string>(
       queueName,
       async (job) => {
-        logger.info({ jobId: job.id }, `${workerLabel} worker ${workerId} started job ${job.id ?? 'unknown'}`);
+        logger.info(
+          { jobId: job.id },
+          `${workerLabel} worker ${workerId} started job ${job.id ?? 'unknown'}`,
+        );
         await processJob(workerId, job);
-        logger.info({ jobId: job.id }, `${workerLabel} worker ${workerId} finished job ${job.id ?? 'unknown'}`);
+        logger.info(
+          { jobId: job.id },
+          `${workerLabel} worker ${workerId} finished job ${job.id ?? 'unknown'}`,
+        );
       },
       {
         connection,
@@ -50,7 +56,10 @@ export abstract class Master<JobData> {
     );
 
     worker.on('completed', (job) => {
-      logger.info({ jobId: job.id }, `${workerLabel} worker ${workerId} completed job ${job.id ?? 'unknown'}`);
+      logger.info(
+        { jobId: job.id },
+        `${workerLabel} worker ${workerId} completed job ${job.id ?? 'unknown'}`,
+      );
     });
 
     worker.on('failed', (job, err) => {

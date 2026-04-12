@@ -32,7 +32,6 @@ export interface ZkTLSProcessorResult {
   publicInputs: {
     startTime: number;
     endTime: number;
-    fillCount: number;
     baseBalance: number;
     threshold: number;
     rawFillsLength: number;
@@ -66,7 +65,6 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<Noi
   const userAddress = env.HYPERLIQUID_USER_ADDRESS;
 
   const rawfillsResponse = await fetchRawFills(apiUrl, userAddress, startTime, endTime);
-  const fillCount = (JSON.parse(Buffer.from(rawfillsResponse).toString()) as unknown[]).length;
   const zktlsVerifiedResult = await attestHyperliquidUserFills(
     primus,
     CHAIN_ID,
@@ -102,7 +100,6 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<Noi
     rawFills: Array.from(rawFillsBytes),
     rawFillsLength,
     addressAndSaltLength: 58,
-    fillCount,
     startTime,
     endTime,
     baseBalance,

@@ -10,10 +10,7 @@ import { runNoirProcessor } from './processor.js';
 
 export const noirQueue = new Queue('noir-queue', { connection: redis });
 
-export async function processNoirJob(
-  workerId: number,
-  job: Job<NoirJobData, void>,
-): Promise<void> {
+export async function processNoirJob(workerId: number, job: Job<NoirJobData, void>): Promise<void> {
   const { taskId, input } = job.data;
 
   const task = await Task.findById(taskId);

@@ -1,0 +1,13 @@
+diff --git a/src/json.nr b/src/json.nr
+index 2cb0041..eaafc27 100644
+--- a/src/json.nr
++++ b/src/json.nr
+@@ -653,7 +653,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
+             let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
+ 
+             if token == LITERAL_TOKEN as Field {
+-                index.assert_max_bit_size::<8>();
++                index.assert_max_bit_size::<13>();
+                 let index_as_u32 = index as u32;
+                 let first_char = self.json[index_as_u32];
+                 let second_char = self.json[index_as_u32 + 1];

@@ -11,7 +11,6 @@ fn main(
     rawFills: [u8; 8192],
     rawFillsLength: u32,
     addressAndSaltLength: u32,
-    fillCount: u32,
     startTime: u64,
     endTime: u64,
     baseBalance: i64,
@@ -30,6 +29,6 @@ fn main(
     let addrHashField2 = helpers::hash32ToFieldTwo(addrHashBytes);
     helpers::aseertFieldTwoEqual(addrHashField2, addressCommitment);
     if(rawFillsLength != 0) {
-        parser::validateFills(rawFills, rawFillsLength, fillCount, startTime, endTime, baseBalance, threshold);
+        parser::validateFills(rawFills, rawFillsLength, startTime, endTime, baseBalance, threshold);
     }
 }

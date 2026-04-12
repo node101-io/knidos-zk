@@ -84,7 +84,9 @@ export async function processZkVerifyJob(
 
     const noirTask = await Task.findById(parsedInput.noirTaskId);
     if (!noirTask) {
-      throw new Error(`[zkVerify worker] referenced noir task not found: ${parsedInput.noirTaskId}`);
+      throw new Error(
+        `[zkVerify worker] referenced noir task not found: ${parsedInput.noirTaskId}`,
+      );
     }
 
     const noirResult = noirTask.result as NoirProcessorResult | null | undefined;

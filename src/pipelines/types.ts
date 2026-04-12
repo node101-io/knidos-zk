@@ -32,7 +32,6 @@ export interface NoirCircuitInput {
   rawFills: number[];
   rawFillsLength: number;
   addressAndSaltLength: number;
-  fillCount: number;
   startTime: number;
   endTime: number;
   baseBalance: number;
