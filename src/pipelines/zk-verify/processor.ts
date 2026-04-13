@@ -6,6 +6,15 @@ type VerifyTransactionInfo = zkv.VerifyTransactionInfo;
 
 import { env } from '../../env.js';
 
+// Singleton — reuse across jobs (same as Primus pattern in zk-tls)
+let sessionInstance: zkv.zkVerifySession | null = null;
+
+async function getSession(): Promise<zkv.zkVerifySession> {
+  if (sessionInstance) return sessionInstance;
+  sessionInstance = await zkVerifySession.start().Volta().withAccount(env.ZKVERIFY_SEED_PHRASE);
+  return sessionInstance;
+}
+
 export interface ZkVerifyProcessorInput {
   vk: string;
   proof: string;
@@ -29,7 +38,7 @@ export async function runZkVerifyProcessor(
 
   const { vk, proof, publicSignals } = input;
 
-  const session = await zkVerifySession.start().Volta().withAccount(env.ZKVERIFY_SEED_PHRASE);
+  const session = await getSession();
   const { transactionResult } = await session.verify().ultrahonk({ variant }).execute({
     proofData: { vk, proof, publicSignals },
     domainId: 0,

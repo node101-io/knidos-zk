@@ -2,4 +2,4 @@ dist
 node_modules
 noir_json_parser
 *.log
-package-lock.json
+pnpm-lock.yaml
