@@ -15,9 +15,9 @@ export interface VerificationRecordInterface {
   endTime: Date;
 
   // zkVerify outputs
-  statement?: string;
-  aggregationId?: number;
-  includedInBlock?: VerifyTransactionInfo;
+  statement: string;
+  aggregationId: number;
+  includedInBlock: VerifyTransactionInfo;
 
   variant: string;
 

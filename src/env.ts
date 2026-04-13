@@ -34,6 +34,7 @@ export const env = createEnv({
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
+    PORT: z.coerce.number().int().positive().default(3000),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

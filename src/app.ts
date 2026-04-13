@@ -8,6 +8,7 @@ import { ZkTLSMaster } from './pipelines/zk-tls/master.js';
 import { zkTLSQueue, processZkTLSJob } from './pipelines/zk-tls/worker.js';
 import { ZkVerifyMaster } from './pipelines/zk-verify/master.js';
 import { zkVerifyQueue, processZkVerifyJob } from './pipelines/zk-verify/worker.js';
+import { startHttpServer } from './server.js';
 import { runCleanupOnce } from './services/cleanup.js';
 import { startScheduler } from './services/scheduler.js';
 import logger from './shared/logger.js';
@@ -23,6 +24,7 @@ try {
   await resetPipelineQueues();
   await runCleanupOnce();
   await startScheduler();
+  startHttpServer();
 
   const zkTLSMaster = new ZkTLSMaster({
     queueName: zkTLSQueue.name,

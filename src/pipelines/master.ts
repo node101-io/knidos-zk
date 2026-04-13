@@ -27,14 +27,8 @@ export abstract class Master<JobData extends { taskId: string }> {
   protected abstract handleTask(): Promise<void>;
 
   protected createWorker(workerId: number): Worker<JobData, void> {
-    const {
-      queueName,
-      workerLabel,
-      connection,
-      lockDurationMs,
-      stalledIntervalMs,
-      processJob,
-    } = this.config;
+    const { queueName, workerLabel, connection, lockDurationMs, stalledIntervalMs, processJob } =
+      this.config;
 
     const worker = new Worker<JobData, void, string>(
       queueName,
