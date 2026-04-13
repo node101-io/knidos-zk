@@ -23,8 +23,9 @@ function toCompactFixture(input: NoirCircuitInput) {
 }
 
 const input = await runZkTLSProcessor({
-  startTime: START_TIME,
-  endTime: END_TIME,
+  startTime: new Date(START_TIME),
+  endTime: new Date(END_TIME),
+  symbol: 'BTCUSDT',
   baseBalance: 100000000,
   threshold: 50000000,
 });

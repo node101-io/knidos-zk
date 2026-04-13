@@ -56,6 +56,9 @@ export async function processZkTLSJob(
             pipelineId: task.pipelineId,
             input: {
               zkTLSTaskId: taskId,
+              symbol: parsedInput.symbol,
+              startTime: parsedInput.startTime,
+              endTime: parsedInput.endTime,
               circuitInput: result,
             },
           },

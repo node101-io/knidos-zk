@@ -66,6 +66,9 @@ describe('ZK proof pipeline', () => {
     const input = await loadFixture();
     noirResult = await runNoirProcessor(0, {
       zkTLSTaskId: 'test',
+      symbol: 'BTCUSDT',
+      startTime: new Date(input.startTime),
+      endTime: new Date(input.endTime),
       circuitInput: input,
     });
 
@@ -79,6 +82,9 @@ describe('ZK proof pipeline', () => {
       const input = await loadFixture();
       noirResult = await runNoirProcessor(0, {
         zkTLSTaskId: 'test',
+        symbol: 'BTCUSDT',
+        startTime: new Date(input.startTime),
+        endTime: new Date(input.endTime),
         circuitInput: input,
       });
     }

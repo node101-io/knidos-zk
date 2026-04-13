@@ -4,8 +4,12 @@ import { createEnv } from '@t3-oss/env-core';
 import { utils as ethersUtils } from 'ethers';
 import { z } from 'zod';
 
+import {
+  DEFAULT_BINANCE_SYMBOLS,
+  binanceSymbolsSchema,
+} from './shared/binance-symbols.js';
+
 const DEFAULT_BINANCE_API_URL = 'https://fapi.binance.com';
-const DEFAULT_BINANCE_SYMBOL = 'BTCUSDT';
 const DEFAULT_RPC_URL = 'https://sepolia.base.org';
 const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017/node101-knidos-zk-trade';
 const DEFAULT_REDIS_HOST = '127.0.0.1';
@@ -22,7 +26,7 @@ export const env = createEnv({
     BINANCE_API_URL: z.url().default(DEFAULT_BINANCE_API_URL),
     BINANCE_API_KEY: z.string().min(1, 'BINANCE_API_KEY cannot be empty'),
     BINANCE_API_SECRET: z.string().min(1, 'BINANCE_API_SECRET cannot be empty'),
-    BINANCE_SYMBOL: z.string().min(1, 'BINANCE_SYMBOL cannot be empty').default(DEFAULT_BINANCE_SYMBOL),
+    BINANCE_SYMBOLS: binanceSymbolsSchema.default(DEFAULT_BINANCE_SYMBOLS),
     ZKVERIFY_SEED_PHRASE: z.string().min(1, 'ZKVERIFY_SEED_PHRASE cannot be empty'),
     RPC_URL: z.url().default(DEFAULT_RPC_URL),
     PRIMUS_CHAIN_ID: z.coerce.number().int().positive().default(84532),

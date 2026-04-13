@@ -115,6 +115,16 @@ const TaskSchema = new Schema<TaskInterface, TaskModel>({
   },
 });
 
+TaskSchema.index(
+  { type: 1, 'input.startTime': 1, 'input.endTime': 1, 'input.symbol': 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      type: 'zkTLS',
+    },
+  },
+);
+
 TaskSchema.statics.createTask = async function (
   body: CreateTaskBody,
   options?: CreateTaskOptions,

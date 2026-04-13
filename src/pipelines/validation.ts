@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { SUPPORTED_BINANCE_SYMBOLS } from '../shared/binance-symbols.js';
+import { normalizeDateInput } from '../shared/date-utils.js';
+import { PROOF_TYPE } from './types.js';
 import type { NoirCircuitInput, NoirJobInput, ZkTLSJobInput, ZkVerifyJobInput } from './types.js';
 
 type PipelineTaskType = 'zkTLS' | 'noir' | 'zkVerify';
@@ -10,6 +13,8 @@ const FIELD_PAIR_LENGTH = 2;
 
 const byteSchema = z.number().int().min(0).max(255);
 const fieldStringSchema = z.string().min(1);
+const symbolSchema = z.enum(SUPPORTED_BINANCE_SYMBOLS);
+const dateInputSchema = z.preprocess((value) => normalizeDateInput(value) ?? value, z.date());
 
 function formatZodError(error: z.ZodError): string {
   return error.issues
@@ -31,9 +36,10 @@ function parseWithSchema<T>(schema: z.ZodType<T>, input: unknown, label: string)
 
 export const zkTLSJobInputSchema = z
   .object({
-    startTime: z.number().int(),
-    endTime: z.number().int(),
-    proofType: z.string().min(1).optional(),
+    startTime: dateInputSchema,
+    endTime: dateInputSchema,
+    symbol: symbolSchema,
+    proofType: z.literal(PROOF_TYPE).optional(),
     baseBalance: z.number().int(),
     threshold: z.number().int(),
   })
@@ -54,6 +60,9 @@ export const noirCircuitInputSchema = z
 export const noirJobInputSchema = z
   .object({
     zkTLSTaskId: z.string().min(1),
+    symbol: symbolSchema,
+    startTime: dateInputSchema,
+    endTime: dateInputSchema,
     circuitInput: noirCircuitInputSchema,
   })
   .strict();
@@ -61,15 +70,20 @@ export const noirJobInputSchema = z
 export const zkVerifyJobInputSchema = z
   .object({
     noirTaskId: z.string().min(1),
+    symbol: symbolSchema,
+    startTime: dateInputSchema,
+    endTime: dateInputSchema,
   })
   .strict();
 
 export function parseZkTLSJobInput(input: unknown): ZkTLSJobInput {
   const parsedInput = parseWithSchema(zkTLSJobInputSchema, input, 'zkTLS job input');
+
   if (parsedInput.proofType === undefined) {
     return {
       startTime: parsedInput.startTime,
       endTime: parsedInput.endTime,
+      symbol: parsedInput.symbol,
       baseBalance: parsedInput.baseBalance,
       threshold: parsedInput.threshold,
     };
@@ -78,6 +92,7 @@ export function parseZkTLSJobInput(input: unknown): ZkTLSJobInput {
   return {
     startTime: parsedInput.startTime,
     endTime: parsedInput.endTime,
+    symbol: parsedInput.symbol,
     proofType: parsedInput.proofType,
     baseBalance: parsedInput.baseBalance,
     threshold: parsedInput.threshold,

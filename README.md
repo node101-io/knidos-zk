@@ -47,7 +47,7 @@ Copy the environment template and fill in the required values:
 cp .env.example .env
 ```
 
-The runtime expects Binance Futures API credentials and a symbol in `.env`. The scheduler runs the proof pipeline on 15-minute windows, and the internal proof type for that flow is `binance-fills-15m`.
+The runtime expects Binance Futures API credentials and a `BINANCE_SYMBOLS` CSV list in `.env`. The scheduler runs once per hour, always proofs the previous full hour window, and fans out one independent proof pipeline per configured symbol. The internal proof type for that flow is `binance-fills-1h`.
 
 ## Build & Run
 
@@ -78,4 +78,4 @@ npx tsc --noEmit
 pnpm test
 ```
 
-`pnpm test` runs circuit compilation, proof generation and local verification.
+`pnpm test` runs circuit compilation, proof generation and local verification. It uses the same runtime env contract, so the required Binance and zkVerify variables must be present before running it.

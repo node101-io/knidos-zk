@@ -121,6 +121,9 @@ export async function processZkVerifyJob(
               pipelineId: task.pipelineId,
               zkVerifyTaskId: task._id,
               noirTaskId: new mongoose.Types.ObjectId(parsedInput.noirTaskId),
+              symbol: parsedInput.symbol,
+              startTime: parsedInput.startTime,
+              endTime: parsedInput.endTime,
 
               variant: result.variant,
 

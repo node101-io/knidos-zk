@@ -8,12 +8,14 @@ import { hexToFixedBytes } from '../../utils/hex-to-fixed-bytes.js';
 import { padRawFills } from '../../utils/pad-raw-fills.js';
 import { attestHyperliquidUserFills } from '../../zk-tls/attest-hyperliquid.js';
 import { getFillsCommitment } from '../../zk-tls/get-fills-commitment.js';
+import type { SupportedBinanceSymbol } from '../../shared/binance-symbols.js';
+import { toTimestampMs } from '../../shared/date-utils.js';
 import type { NoirCircuitInput } from '../types.js';
 
 export interface ZkTLSProcessorInput {
-  startTime: number;
-  endTime: number;
-  proofType?: string;
+  startTime: Date;
+  endTime: Date;
+  symbol: SupportedBinanceSymbol;
   baseBalance: number;
   threshold: number;
 }
@@ -34,22 +36,30 @@ async function getPrimus(): Promise<PrimusNetwork> {
 }
 
 export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<NoirCircuitInput> {
-  const { startTime, endTime, baseBalance, threshold } = input;
+  const { startTime, endTime, symbol, baseBalance, threshold } = input;
+  const startTimeMs = toTimestampMs(startTime);
+  const endTimeMs = toTimestampMs(endTime);
 
   const CHAIN_ID = env.PRIMUS_CHAIN_ID;
   const apiUrl = env.BINANCE_API_URL;
   const apiKey = env.BINANCE_API_KEY;
   const apiSecret = env.BINANCE_API_SECRET;
-  const symbol = env.BINANCE_SYMBOL;
 
   const primus = await getPrimus();
-  const rawfillsResponse = await fetchRawFills(apiUrl, apiKey, apiSecret, symbol, startTime, endTime);
+  const rawfillsResponse = await fetchRawFills(
+    apiUrl,
+    apiKey,
+    apiSecret,
+    symbol,
+    startTimeMs,
+    endTimeMs,
+  );
   const zktlsVerifiedResult = await attestHyperliquidUserFills(
     primus,
     CHAIN_ID,
     symbol,
-    startTime,
-    endTime,
+    startTimeMs,
+    endTimeMs,
   );
   const fillsCommitment = getFillsCommitment(zktlsVerifiedResult);
   const fillsCommitmentBytes = hexToFixedBytes(fillsCommitment, 32);
@@ -60,8 +70,8 @@ export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<Noi
     fillsCommitment: fillsCommitmentField2,
     rawFills: rawFillsPadded.padded,
     rawFillsLength: rawFillsPadded.length,
-    startTime,
-    endTime,
+    startTime: startTimeMs,
+    endTime: endTimeMs,
     baseBalance,
     threshold,
   };

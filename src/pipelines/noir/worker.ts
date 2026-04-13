@@ -56,6 +56,9 @@ export async function processNoirJob(workerId: number, job: Job<NoirJobData, voi
             pipelineId: task.pipelineId,
             input: {
               noirTaskId: taskId,
+              symbol: parsedInput.symbol,
+              startTime: parsedInput.startTime,
+              endTime: parsedInput.endTime,
             },
           },
           { session },

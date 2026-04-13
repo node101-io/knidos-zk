@@ -1,4 +1,8 @@
-export type ProofType = 'binance-fills-15m';
+import type { SupportedBinanceSymbol } from '../shared/binance-symbols.js';
+
+export const PROOF_TYPE = 'binance-fills-1h';
+
+export type ProofType = typeof PROOF_TYPE;
 
 export interface PipelineJobData {
   pipelineRunId: string;
@@ -13,9 +17,10 @@ export type NoirJobName = 'noir-process';
 export type ZkVerifyJobName = 'zkverify-process';
 
 export interface ZkTLSJobInput {
-  startTime: number;
-  endTime: number;
-  proofType?: string;
+  startTime: Date;
+  endTime: Date;
+  symbol: SupportedBinanceSymbol;
+  proofType?: ProofType;
   baseBalance: number;
   threshold: number;
 }
@@ -36,6 +41,9 @@ export interface NoirCircuitInput {
 
 export interface NoirJobInput {
   zkTLSTaskId: string;
+  symbol: SupportedBinanceSymbol;
+  startTime: Date;
+  endTime: Date;
   circuitInput: NoirCircuitInput;
 }
 
@@ -46,6 +54,9 @@ export interface NoirJobData {
 
 export interface ZkVerifyJobInput {
   noirTaskId: string;
+  symbol: SupportedBinanceSymbol;
+  startTime: Date;
+  endTime: Date;
 }
 
 export interface ZkVerifyJobData {
