@@ -36,7 +36,7 @@ function makeRecord(txHash: string) {
   return {
     settlement_time: '2026-01-01T00:00:00.000Z',
     tx_hash: txHash,
-    proof_url: `https://volta-explorer.zkverify.io/extrinsic/${txHash}`,
+    proof_url: `https://zkverify-testnet.subscan.io/extrinsic/${txHash}`,
     verification_key: 'vk-1',
     public_inputs: ['0x1'],
   };
@@ -121,7 +121,7 @@ describe('GET /api/verifications', () => {
     const body = await res.json();
 
     expect(body.data[0].proof_url).toBe(
-      `https://volta-explorer.zkverify.io/extrinsic/${txHash}`,
+      `https://zkverify-testnet.subscan.io/extrinsic/${txHash}`,
     );
   });
 });

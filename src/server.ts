@@ -10,7 +10,7 @@ import logger from './shared/logger.js';
 import { redisRateLimitClient } from './shared/redis.js';
 
 const PAGE_SIZE = 20;
-const ZKVERIFY_EXPLORER_BASE = 'https://volta-explorer.zkverify.io/extrinsic';
+const ZKVERIFY_EXPLORER_BASE = 'https://zkverify-testnet.subscan.io/extrinsic';
 
 const cursorSchema = z
   .string()
