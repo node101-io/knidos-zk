@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import mongoose, { Schema, Types } from 'mongoose';
 import type { VerifyTransactionInfo } from 'zkverifyjs';
 
@@ -23,6 +24,7 @@ export interface VerificationRecordInterface {
 
   // proof artifacts
   vk: string;
+  vkHash: string;
   proof: string;
   publicSignals: string[];
 
@@ -77,6 +79,10 @@ const VerificationRecordSchema = new Schema<VerificationRecordInterface>(
       type: String,
       required: true,
     },
+    vkHash: {
+      type: String,
+      index: true,
+    },
     proof: {
       type: String,
       required: true,
@@ -91,6 +97,12 @@ const VerificationRecordSchema = new Schema<VerificationRecordInterface>(
     timestamps: true,
   },
 );
+
+VerificationRecordSchema.pre('save', function () {
+  if (this.isModified('vk') || !this.vkHash) {
+    this.vkHash = createHash('sha256').update(this.vk).digest('hex');
+  }
+});
 
 const VerificationRecord = mongoose.model<VerificationRecordInterface>(
   'VerificationRecord',

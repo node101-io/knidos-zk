@@ -7,7 +7,7 @@ import { z } from 'zod';
 import VerificationRecord from './db/verification-record.js';
 import { env } from './env.js';
 import logger from './shared/logger.js';
-import { redisRateLimitClient } from './shared/redis.js';
+import { redis, redisRateLimitClient } from './shared/redis.js';
 
 const PAGE_SIZE = 20;
 const ZKVERIFY_EXPLORER_BASE = 'https://zkverify-testnet.subscan.io/extrinsic';
@@ -56,7 +56,7 @@ app.get('/api/verifications', async (c) => {
                 settlement_time: { $dateToString: { date: '$createdAt' } },
                 tx_hash: '$includedInBlock.txHash',
                 proof_url: { $concat: [ZKVERIFY_EXPLORER_BASE, '/', '$includedInBlock.txHash'] },
-                verification_key: '$vk',
+                vk_hash: '$vkHash',
                 public_inputs: '$publicSignals',
               },
             },
@@ -71,6 +71,33 @@ app.get('/api/verifications', async (c) => {
     return c.json({ data: result.data, next_cursor: nextCursor });
   } catch (error) {
     logger.error({ error }, '[http] GET /api/verifications failed');
+    return c.json({ error: 'Internal Server Error' }, 500);
+  }
+});
+
+const VK_CACHE_PREFIX = 'vk:';
+
+app.get('/api/vk/:hash', async (c) => {
+  try {
+    const hash = c.req.param('hash');
+
+    const cached = await redis.get(`${VK_CACHE_PREFIX}${hash}`);
+    if (cached) {
+      c.header('Cache-Control', 'public, max-age=31536000, immutable');
+      return c.json({ vk_hash: hash, verification_key: cached });
+    }
+
+    const record = await VerificationRecord.findOne({ vkHash: hash }, { vk: 1, vkHash: 1 });
+    if (!record) {
+      return c.json({ error: 'Not Found' }, 404);
+    }
+
+    await redis.set(`${VK_CACHE_PREFIX}${hash}`, record.vk);
+
+    c.header('Cache-Control', 'public, max-age=31536000, immutable');
+    return c.json({ vk_hash: hash, verification_key: record.vk });
+  } catch (error) {
+    logger.error({ error }, '[http] GET /api/vk/:hash failed');
     return c.json({ error: 'Internal Server Error' }, 500);
   }
 });
