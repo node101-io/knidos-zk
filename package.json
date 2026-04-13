@@ -5,6 +5,7 @@
     "clean": "rm -rf dist",
     "prebuild": "rm -rf dist",
     "node": "node dist/src/app.js",
+    "tasks:retry": "tsx src/scripts/retry-failed-tasks.ts",
     "dev:node": "tsx watch src/app.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
