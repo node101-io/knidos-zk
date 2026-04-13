@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "typescript/restrict-template-expressions": ["error", { "allowNumber": true }]
+  },
+  "ignorePatterns": ["dist/**", "node_modules/**", "noir/**", "noir_json_parser/**", "*.config.js"]
+}

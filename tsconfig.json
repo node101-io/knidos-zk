@@ -21,13 +21,6 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   },
-  "include": [
-    "scripts/**/*.ts",
-    "zktls/**/*.ts",
-    "zkVerify/**/*.ts"
-  ],
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
+  "exclude": ["dist", "node_modules"]
 }

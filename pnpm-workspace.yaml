@@ -1,0 +1,3 @@
+allowBuilds:
+  '@primuslabs/network-core-sdk': true
+  esbuild: true

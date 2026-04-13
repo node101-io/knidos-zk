@@ -1,0 +1,4 @@
+[submodule "noir_json_parser"]
+	path = noir_json_parser
+	url = https://github.com/noir-lang/noir_json_parser.git
+	ignore = dirty

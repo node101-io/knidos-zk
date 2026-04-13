@@ -1,0 +1,11 @@
+{
+  "fillsCommitment": [
+    "226345047160745407523763562492156530121",
+    "64042172667681873123305099080239835444"
+  ],
+  "rawFillsText": "[{\"symbol\":\"BTCUSDT\",\"time\":1769172980321,\"realizedPnl\":\"125.500000\",\"commission\":\"0.500000\"},{\"symbol\":\"BTCUSDT\",\"time\":1769172986270,\"realizedPnl\":\"-5.250000\",\"commission\":\"0.250000\"},{\"symbol\":\"BTCUSDT\",\"time\":1769172994989,\"realizedPnl\":\"12.750000\",\"commission\":\"0.125000\"}]",
+  "startTime": 1769172979000,
+  "endTime": 1769172996000,
+  "baseBalance": 100000000,
+  "threshold": 50000000
+}
