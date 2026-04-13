@@ -7,9 +7,7 @@ import { bytes32ToField2DecStrings } from '../../utils/bytes32-to-field2-dec-str
 import { hexToFixedBytes } from '../../utils/hex-to-fixed-bytes.js';
 import { padRawFills } from '../../utils/pad-raw-fills.js';
 import { attestHyperliquidUserFills } from '../../zk-tls/attest-hyperliquid.js';
-import { getAddressCommitment } from '../../zk-tls/get-address-commitment.js';
 import { getFillsCommitment } from '../../zk-tls/get-fills-commitment.js';
-import { getHyperliquidWitness } from '../../zk-tls/get-hyperliquid-witness.js';
 import type { NoirCircuitInput } from '../types.js';
 
 export interface ZkTLSProcessorInput {
@@ -18,25 +16,6 @@ export interface ZkTLSProcessorInput {
   proofType?: string;
   baseBalance: number;
   threshold: number;
-}
-
-export interface ZkTLSProcessorResult {
-  proofType: string | null;
-  taskId: string;
-  rawFillsResponseHash: string;
-  addressCommitment: string;
-  fillsCommitment: string;
-  salt: string;
-  recomputedAddressHash: string;
-  proverTomlPath: string;
-  publicInputs: {
-    startTime: number;
-    endTime: number;
-    baseBalance: number;
-    threshold: number;
-    rawFillsLength: number;
-    addressAndSaltLength: number;
-  };
 }
 
 // Singleton so ethers tracks nonce internally across tasks
@@ -57,50 +36,30 @@ async function getPrimus(): Promise<PrimusNetwork> {
 export async function runZkTLSProcessor(input: ZkTLSProcessorInput): Promise<NoirCircuitInput> {
   const { startTime, endTime, baseBalance, threshold } = input;
 
-  const HYPERLIQUID_USER_ADDRESS = env.HYPERLIQUID_USER_ADDRESS;
   const CHAIN_ID = env.PRIMUS_CHAIN_ID;
+  const apiUrl = env.BINANCE_API_URL;
+  const apiKey = env.BINANCE_API_KEY;
+  const apiSecret = env.BINANCE_API_SECRET;
+  const symbol = env.BINANCE_SYMBOL;
 
   const primus = await getPrimus();
-
-  const apiUrl = env.HYPERLIQUID_API_URL;
-  const userAddress = env.HYPERLIQUID_USER_ADDRESS;
-
-  const rawfillsResponse = await fetchRawFills(apiUrl, userAddress, startTime, endTime);
+  const rawfillsResponse = await fetchRawFills(apiUrl, apiKey, apiSecret, symbol, startTime, endTime);
   const zktlsVerifiedResult = await attestHyperliquidUserFills(
     primus,
     CHAIN_ID,
+    symbol,
     startTime,
     endTime,
-  ); // Public input
-  const addressCommitment = getAddressCommitment(zktlsVerifiedResult);
-  const fillsCommitment = getFillsCommitment(zktlsVerifiedResult);
-
-  const hyperliquidWitness = getHyperliquidWitness(
-    primus,
-    zktlsVerifiedResult.taskId,
-    HYPERLIQUID_USER_ADDRESS,
   );
-  const _salt = hyperliquidWitness.salt;
-
-  const addressCommitmentBytes = hexToFixedBytes(addressCommitment, 32);
+  const fillsCommitment = getFillsCommitment(zktlsVerifiedResult);
   const fillsCommitmentBytes = hexToFixedBytes(fillsCommitment, 32);
-
-  const addressCommitmentField2 = bytes32ToField2DecStrings(addressCommitmentBytes);
   const fillsCommitmentField2 = bytes32ToField2DecStrings(fillsCommitmentBytes);
-  const addressStringBytes = Buffer.from(HYPERLIQUID_USER_ADDRESS, 'utf8');
-  const saltBytes = hexToFixedBytes(_salt, 16);
   const rawFillsPadded = padRawFills(rawfillsResponse);
-  const rawFillsBytes = rawFillsPadded.padded;
-  const rawFillsLength = rawFillsPadded.length;
 
   return {
-    address: Array.from(addressStringBytes),
-    salt: Array.from(saltBytes),
-    addressCommitment: addressCommitmentField2,
     fillsCommitment: fillsCommitmentField2,
-    rawFills: Array.from(rawFillsBytes),
-    rawFillsLength,
-    addressAndSaltLength: 58,
+    rawFills: rawFillsPadded.padded,
+    rawFillsLength: rawFillsPadded.length,
     startTime,
     endTime,
     baseBalance,

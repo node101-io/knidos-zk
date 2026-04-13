@@ -17,9 +17,41 @@ const itWithFixture = hasFixture ? it : it.skip;
 
 let noirResult: NoirProcessorResult | undefined;
 
+function normalizeFixture(rawFixture: unknown): unknown {
+  if (
+    rawFixture !== null &&
+    typeof rawFixture === 'object' &&
+    'rawFillsText' in rawFixture &&
+    typeof (rawFixture as { rawFillsText: unknown }).rawFillsText === 'string'
+  ) {
+    const fixture = rawFixture as {
+      fillsCommitment: unknown;
+      rawFillsText: string;
+      startTime: unknown;
+      endTime: unknown;
+      baseBalance: unknown;
+      threshold: unknown;
+    };
+    const rawFills = Array.from(Buffer.from(fixture.rawFillsText, 'utf8'));
+    const paddedRawFills = rawFills.concat(Array(8192 - rawFills.length).fill(0));
+
+    return {
+      fillsCommitment: fixture.fillsCommitment,
+      rawFills: paddedRawFills,
+      rawFillsLength: rawFills.length,
+      startTime: fixture.startTime,
+      endTime: fixture.endTime,
+      baseBalance: fixture.baseBalance,
+      threshold: fixture.threshold,
+    };
+  }
+
+  return rawFixture;
+}
+
 async function loadFixture() {
   const raw = await fs.readFile(FIXTURE_PATH, 'utf8');
-  return parseNoirCircuitInput(JSON.parse(raw));
+  return parseNoirCircuitInput(normalizeFixture(JSON.parse(raw)));
 }
 
 describe('ZK proof pipeline', () => {

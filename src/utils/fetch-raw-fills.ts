@@ -1,19 +1,27 @@
+import { createHmac } from 'crypto';
+
 export type RawFills = Uint8Array;
 
 const TIMEOUT = 30_000;
 
 export async function fetchRawFills(
   apiUrl: string,
-  userAddress: string,
+  apiKey: string,
+  apiSecret: string,
+  symbol: string,
   startTime: number,
   endTime: number,
 ): Promise<RawFills> {
-  const body = {
-    type: 'userFillsByTime',
-    user: userAddress,
-    startTime: startTime,
-    endTime: endTime,
-  };
+  const timestamp = Date.now();
+  const queryString = new URLSearchParams({
+    symbol,
+    startTime: String(startTime),
+    endTime: String(endTime),
+    recvWindow: '60000',
+    timestamp: String(timestamp),
+  }).toString();
+  const signature = createHmac('sha256', apiSecret).update(queryString).digest('hex');
+  const url = `${apiUrl}/fapi/v1/userTrades?${queryString}&signature=${signature}`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
@@ -21,22 +29,20 @@ export async function fetchRawFills(
   }, TIMEOUT);
 
   try {
-    const response = await fetch(apiUrl, {
-      method: 'POST',
+    const response = await fetch(url, {
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        'X-MBX-APIKEY': apiKey,
         Accept: 'application/json',
       },
-      body: JSON.stringify(body),
       signal: controller.signal,
     });
 
     if (!response.ok) {
-      throw new Error(`Hyperliquid request failed: ${response.status} ${response.statusText}`);
+      throw new Error(`Binance request failed: ${response.status} ${response.statusText}`);
     }
 
-    const rawBuffer = new Uint8Array(await response.arrayBuffer());
-    return rawBuffer; // TODO: you can also return the metada like timestamp etc.
+    return new Uint8Array(await response.arrayBuffer());
   } finally {
     clearTimeout(timeoutId);
   }

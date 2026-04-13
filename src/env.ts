@@ -4,7 +4,8 @@ import { createEnv } from '@t3-oss/env-core';
 import { utils as ethersUtils } from 'ethers';
 import { z } from 'zod';
 
-const DEFAULT_HYPERLIQUID_API_URL = 'https://api.hyperliquid-testnet.xyz/info';
+const DEFAULT_BINANCE_API_URL = 'https://fapi.binance.com';
+const DEFAULT_BINANCE_SYMBOL = 'BTCUSDT';
 const DEFAULT_RPC_URL = 'https://sepolia.base.org';
 const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017/node101-knidos-zk-trade';
 const DEFAULT_REDIS_HOST = '127.0.0.1';
@@ -18,11 +19,11 @@ export const env = createEnv({
     PRIMUS_USER_ADDRESS: z
       .string()
       .refine(ethersUtils.isAddress, 'PRIMUS_USER_ADDRESS must be a valid EVM address'),
-    HYPERLIQUID_USER_ADDRESS: z
-      .string()
-      .refine(ethersUtils.isAddress, 'HYPERLIQUID_USER_ADDRESS must be a valid EVM address'),
+    BINANCE_API_URL: z.url().default(DEFAULT_BINANCE_API_URL),
+    BINANCE_API_KEY: z.string().min(1, 'BINANCE_API_KEY cannot be empty'),
+    BINANCE_API_SECRET: z.string().min(1, 'BINANCE_API_SECRET cannot be empty'),
+    BINANCE_SYMBOL: z.string().min(1, 'BINANCE_SYMBOL cannot be empty').default(DEFAULT_BINANCE_SYMBOL),
     ZKVERIFY_SEED_PHRASE: z.string().min(1, 'ZKVERIFY_SEED_PHRASE cannot be empty'),
-    HYPERLIQUID_API_URL: z.url().default(DEFAULT_HYPERLIQUID_API_URL),
     RPC_URL: z.url().default(DEFAULT_RPC_URL),
     PRIMUS_CHAIN_ID: z.coerce.number().int().positive().default(84532),
     MONGO_URI: z.string().min(1, 'MONGO_URI cannot be empty').default(DEFAULT_MONGO_URI),

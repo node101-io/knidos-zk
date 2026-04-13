@@ -6,8 +6,6 @@ type PipelineTaskType = 'zkTLS' | 'noir' | 'zkVerify';
 type TaskInputRecord = Record<string, unknown>;
 
 const MAX_RAW_FILLS_LENGTH = 8192;
-const ADDRESS_BYTE_LENGTH = 42;
-const SALT_BYTE_LENGTH = 16;
 const FIELD_PAIR_LENGTH = 2;
 
 const byteSchema = z.number().int().min(0).max(255);
@@ -43,17 +41,9 @@ export const zkTLSJobInputSchema = z
 
 export const noirCircuitInputSchema = z
   .object({
-    address: z.array(byteSchema).length(ADDRESS_BYTE_LENGTH),
-    salt: z.array(byteSchema).length(SALT_BYTE_LENGTH),
-    addressCommitment: z.array(fieldStringSchema).length(FIELD_PAIR_LENGTH),
     fillsCommitment: z.array(fieldStringSchema).length(FIELD_PAIR_LENGTH),
     rawFills: z.array(byteSchema).length(MAX_RAW_FILLS_LENGTH),
     rawFillsLength: z.number().int().min(0).max(MAX_RAW_FILLS_LENGTH),
-    addressAndSaltLength: z
-      .number()
-      .int()
-      .min(0)
-      .max(ADDRESS_BYTE_LENGTH + SALT_BYTE_LENGTH),
     startTime: z.number().int(),
     endTime: z.number().int(),
     baseBalance: z.number().int(),

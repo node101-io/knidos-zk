@@ -1,17 +1,3 @@
-pub fn concatAddressAndSalt(address: [u8; 42],salt: [u8; 16],) -> [u8; 58] {
-  let mut out: [u8; 58] = [0; 58];
-
-  for i in 0..42 {
-    out[i] = address[i];
-  }
-
-  for j in 0..16 {
-    out[42 + j] = salt[j];
-  }
-
-  out
-}
-
 pub fn enforceZeroPadding(
   raw: [u8; 8192],
   actual_len: u32,

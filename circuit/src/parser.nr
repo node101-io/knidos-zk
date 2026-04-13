@@ -3,24 +3,22 @@ use json_parser::JSON8kb;
 global MAX_FILLS: u32 = 32;
 global MAX_STRING_LENGHT: u32 = 16;
 
-fn isAllowedCoin(coin: BoundedVec<u8, 16>) -> bool {
-  let btc = BoundedVec::from_array("BTC".as_bytes());
-  let eth = BoundedVec::from_array("ETH".as_bytes());
-  let sol = BoundedVec::from_array("SOL".as_bytes());
-  let xrp = BoundedVec::from_array("XRP".as_bytes());
-  let bnb = BoundedVec::from_array("BNB".as_bytes());
-  let link = BoundedVec::from_array("LINK".as_bytes());
-  let hype = BoundedVec::from_array("@1035".as_bytes()); // TODO: this is for testing remove it
+fn isAllowedSymbol(symbol: BoundedVec<u8, 16>) -> bool {
+  let btc = BoundedVec::from_array("BTCUSDT".as_bytes());
+  let eth = BoundedVec::from_array("ETHUSDT".as_bytes());
+  let sol = BoundedVec::from_array("SOLUSDT".as_bytes());
+  let xrp = BoundedVec::from_array("XRPUSDT".as_bytes());
+  let bnb = BoundedVec::from_array("BNBUSDT".as_bytes());
+  let link = BoundedVec::from_array("LINKUSDT".as_bytes());
 
-  let is_btc: bool = coin == btc;
-  let is_eth: bool = coin == eth;
-  let is_sol: bool = coin == sol;
-  let is_xrp: bool = coin == xrp;
-  let is_bnb: bool = coin == bnb;
-  let is_link: bool = coin == link;
-  let is_hype: bool = coin == hype;
+  let is_btc: bool = symbol == btc;
+  let is_eth: bool = symbol == eth;
+  let is_sol: bool = symbol == sol;
+  let is_xrp: bool = symbol == xrp;
+  let is_bnb: bool = symbol == bnb;
+  let is_link: bool = symbol == link;
 
-  is_btc | is_eth | is_sol | is_xrp | is_bnb | is_link | is_hype
+  is_btc | is_eth | is_sol | is_xrp | is_bnb | is_link
 }
 
 fn isValidTime(time: u64, min_time: u64, max_time: u64) -> bool {
@@ -131,15 +129,15 @@ pub fn stringToSignedInteger1e6(string: BoundedVec<u8, 16>) -> (i64, bool) {
 }
 
 pub fn calculateChecksum(fill: JSON8kb) -> (i64, bool){
-  let closedPnlString: Option<BoundedVec<u8, 16>> = fill.get_string("closedPnl".as_bytes());
-  let feeString: Option<BoundedVec<u8, 16>> = fill.get_string("fee".as_bytes());
-  let hasClosedPnl = closedPnlString.is_some();
-  let hasFee = feeString.is_some();
+  let realizedPnlString: Option<BoundedVec<u8, 16>> = fill.get_string("realizedPnl".as_bytes());
+  let commissionString: Option<BoundedVec<u8, 16>> = fill.get_string("commission".as_bytes());
+  let hasRealizedPnl = realizedPnlString.is_some();
+  let hasCommission = commissionString.is_some();
 
-  let (closedPnlNumber, closedPnlValid) = stringToSignedInteger1e6(closedPnlString.unwrap_unchecked());
-  let (feeNumber, feeValid) = stringToSignedInteger1e6(feeString.unwrap_unchecked());
-  let profit = closedPnlNumber - feeNumber;
-  let valid = hasClosedPnl & hasFee & closedPnlValid & feeValid;
+  let (realizedPnlNumber, realizedPnlValid) = stringToSignedInteger1e6(realizedPnlString.unwrap_unchecked());
+  let (commissionNumber, commissionValid) = stringToSignedInteger1e6(commissionString.unwrap_unchecked());
+  let profit = realizedPnlNumber - commissionNumber;
+  let valid = hasRealizedPnl & hasCommission & realizedPnlValid & commissionValid;
   (profit, valid)
 }
 
@@ -148,18 +146,18 @@ pub fn validateChecksum (baseBalance:i64, totalProfit: i64, threshold: i64) {
   assert(finalBalance > threshold);
 }
 
-pub fn validateTimeAndCoinOneFill (fill: JSON8kb, min_time: u64, max_time: u64) -> bool {
-  let coin: Option<BoundedVec<u8, 16>> = fill.get_string("coin".as_bytes());
+pub fn validateTimeAndSymbolOneFill (fill: JSON8kb, min_time: u64, max_time: u64) -> bool {
+  let symbol: Option<BoundedVec<u8, 16>> = fill.get_string("symbol".as_bytes());
   let time: Option<u64> = fill.get_number("time".as_bytes());
 
-  let hasCoin = coin.is_some();
+  let hasSymbol = symbol.is_some();
   let hasTime = time.is_some();
-  let coinValue = coin.unwrap_unchecked();
+  let symbolValue = symbol.unwrap_unchecked();
   let timeValue = time.unwrap_unchecked();
-  let coinAllowed = isAllowedCoin(coinValue);
+  let symbolAllowed = isAllowedSymbol(symbolValue);
   let timeValid = isValidTime(timeValue, min_time, max_time);
 
-  hasCoin & hasTime & coinAllowed & timeValid
+  hasSymbol & hasTime & symbolAllowed & timeValid
 }
 
 pub fn validateFills(
@@ -183,9 +181,9 @@ pub fn validateFills(
     let maybe_fill = json.get_object_from_array(i as Field);
     assert(maybe_fill.is_some() == slot_active);
     let fill = maybe_fill.unwrap_unchecked();
-    let timeAndCoinValid = validateTimeAndCoinOneFill(fill, min_time, max_time);
+    let timeAndSymbolValid = validateTimeAndSymbolOneFill(fill, min_time, max_time);
     let (oneFillChecksum, checksumValid) = calculateChecksum(fill);
-    let slotValid = timeAndCoinValid & checksumValid;
+    let slotValid = timeAndSymbolValid & checksumValid;
 
     assert((!slot_active) | slotValid);
     totalProfit += oneFillChecksum * (slot_active as u32 as i64);

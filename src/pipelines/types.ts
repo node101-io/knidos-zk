@@ -1,4 +1,4 @@
-export type ProofType = 'hyperliquid-fills-hourly';
+export type ProofType = 'binance-fills-15m';
 
 export interface PipelineJobData {
   pipelineRunId: string;
@@ -25,13 +25,9 @@ export interface ZkTLSJobData {
 }
 
 export interface NoirCircuitInput {
-  address: number[];
-  salt: number[];
-  addressCommitment: string[];
   fillsCommitment: string[];
   rawFills: number[];
   rawFillsLength: number;
-  addressAndSaltLength: number;
   startTime: number;
   endTime: number;
   baseBalance: number;

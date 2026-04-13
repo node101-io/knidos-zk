@@ -1,3 +1,5 @@
+import { createHmac } from 'crypto';
+
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 
 import { env } from '../env.js';
@@ -6,26 +8,33 @@ import type { VerifiedHyperliquidAttestation } from './types.js';
 export async function attestHyperliquidUserFills(
   primus: PrimusNetwork,
   CHAIN_ID: number,
+  symbol: string,
   startTime: number,
   endTime: number,
 ): Promise<VerifiedHyperliquidAttestation> {
   const PRIMUS_USER_ADDRESS = env.PRIMUS_USER_ADDRESS;
-  const HYPERLIQUID_USER_ADDRESS = env.HYPERLIQUID_USER_ADDRESS;
-  const HYPERLIQUID_API_URL = env.HYPERLIQUID_API_URL;
+  const BINANCE_API_URL = env.BINANCE_API_URL;
+  const BINANCE_API_KEY = env.BINANCE_API_KEY;
+  const BINANCE_API_SECRET = env.BINANCE_API_SECRET;
+  const timestamp = Date.now();
+  const queryString = new URLSearchParams({
+    symbol,
+    startTime: String(startTime),
+    endTime: String(endTime),
+    recvWindow: '60000',
+    timestamp: String(timestamp),
+  }).toString();
+  const signature = createHmac('sha256', BINANCE_API_SECRET).update(queryString).digest('hex');
+  const url = `${BINANCE_API_URL}/fapi/v1/userTrades?${queryString}&signature=${signature}`;
 
   const requests = [
     {
-      url: HYPERLIQUID_API_URL,
-      method: 'POST',
+      url,
+      method: 'GET',
       header: {
-        'Content-Type': 'application/json',
+        'X-MBX-APIKEY': BINANCE_API_KEY,
       },
-      body: {
-        type: 'userFillsByTime',
-        user: HYPERLIQUID_USER_ADDRESS,
-        startTime: startTime,
-        endTime: endTime,
-      },
+      body: {},
     },
   ];
 
@@ -36,12 +45,6 @@ export async function attestHyperliquidUserFills(
         parseType: 'json',
         parsePath: '$',
         op: 'SHA256',
-      },
-      {
-        keyName: 'user_commitment',
-        parseType: 'json',
-        parsePath: '^.user',
-        op: 'SHA256_WITH_SALT',
       },
     ],
   ];
@@ -65,7 +68,7 @@ export async function attestHyperliquidUserFills(
     extendedParams: JSON.stringify({ attUrlOptimization: true }),
     getAllJsonResponse: 'true',
     attMode: {
-      algorithmType: 'proxytls',
+      algorithmType: 'mpctls',
       resultType: 'plain',
     },
   });
@@ -92,11 +95,10 @@ export async function attestHyperliquidUserFills(
   }
 
   const attData = JSON.parse(attestation.data) as Record<string, unknown>;
-  const addressCommitment = attData.user_commitment;
   const fillsCommitment = attData['SHA256($)'];
 
-  if (typeof addressCommitment !== 'string' || typeof fillsCommitment !== 'string') {
-    throw new Error('invalid_attestation_commitments');
+  if (typeof fillsCommitment !== 'string') {
+    throw new Error('invalid_fills_commitment');
   }
 
   const verifiedHyperliquidAttestationResult = {
@@ -106,7 +108,6 @@ export async function attestHyperliquidUserFills(
     recipient: attestation.recipient,
     chainId: CHAIN_ID,
 
-    addressCommitment,
     fillsCommitment,
 
     verifiedResult: JSON.stringify(verifiedResultraw, null),

@@ -1,6 +1,6 @@
 # knidos-zk
 
-Zero-knowledge proof pipeline for verifying Hyperliquid trading data. Combines zkTLS attestation, Noir circuit proving, and on-chain verification via zkVerify.
+Zero-knowledge proof pipeline for verifying Binance Futures trading data. Combines zkTLS attestation, Noir circuit proving, and on-chain verification via zkVerify.
 
 ## Prerequisites
 
@@ -46,6 +46,8 @@ Copy the environment template and fill in the required values:
 ```bash
 cp .env.example .env
 ```
+
+The runtime expects Binance Futures API credentials and a symbol in `.env`. The scheduler runs the proof pipeline on 15-minute windows, and the internal proof type for that flow is `binance-fills-15m`.
 
 ## Build & Run
 
