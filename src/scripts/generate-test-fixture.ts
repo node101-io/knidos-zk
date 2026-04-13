@@ -1,8 +1,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
-import { runZkTLSProcessor } from '../src/pipelines/zk-tls/processor.js';
-import type { NoirCircuitInput } from '../src/pipelines/types.js';
+import { runZkTLSProcessor } from '../pipelines/zk-tls/processor.js';
+import type { NoirCircuitInput } from '../pipelines/types.js';
 
 const FIXTURE_PATH = path.resolve('tests', 'fixtures', 'noir-circuit-input.json');
 

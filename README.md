@@ -79,3 +79,17 @@ pnpm test
 ```
 
 `pnpm test` runs circuit compilation, proof generation and local verification. It uses the same runtime env contract, so the required Binance and zkVerify variables must be present before running it.
+
+## Scripts
+
+```bash
+# Retry all failed tasks (resets them to PENDING)
+pnpm tasks:retry
+
+# Retry only specific pipeline types
+pnpm tasks:retry --type=zkTLS
+pnpm tasks:retry --type=zkTLS,noir
+
+# Drop the MongoDB database and flush Redis
+pnpm db:reset
+```
