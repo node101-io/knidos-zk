@@ -4,10 +4,7 @@ import { createEnv } from '@t3-oss/env-core';
 import { utils as ethersUtils } from 'ethers';
 import { z } from 'zod';
 
-import {
-  DEFAULT_BINANCE_SYMBOLS,
-  binanceSymbolsSchema,
-} from './shared/binance-symbols.js';
+import { DEFAULT_BINANCE_SYMBOLS, binanceSymbolsSchema } from './shared/binance-symbols.js';
 
 const DEFAULT_BINANCE_API_URL = 'https://fapi.binance.com';
 const DEFAULT_RPC_URL = 'https://sepolia.base.org';

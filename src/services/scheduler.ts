@@ -9,11 +9,7 @@ import type { SupportedBinanceSymbol } from '../shared/binance-symbols.js';
 import { normalizeDateInput } from '../shared/date-utils.js';
 import logger from '../shared/logger.js';
 import { runCleanupOnce } from './cleanup.js';
-import {
-  getHourlyWindowBounds,
-  getMissingSymbols,
-  getWindowsToEnsure,
-} from './scheduler-utils.js';
+import { getHourlyWindowBounds, getMissingSymbols, getWindowsToEnsure } from './scheduler-utils.js';
 
 const CLEANUP_CRON = '* * * * *';
 const ZKTLS_SCHEDULE_CRON = '0 * * * *';

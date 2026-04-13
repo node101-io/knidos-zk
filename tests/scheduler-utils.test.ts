@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  DEFAULT_BINANCE_SYMBOLS,
-  binanceSymbolsSchema,
-} from '../src/shared/binance-symbols.js';
+import { DEFAULT_BINANCE_SYMBOLS, binanceSymbolsSchema } from '../src/shared/binance-symbols.js';
 import {
   ZKTLS_WINDOW_MS,
   getHourlyWindowBounds,
@@ -92,8 +89,11 @@ describe('scheduler-utils', () => {
   });
 
   it('returns the configured symbols that do not have tasks yet', () => {
-    expect(
-      getMissingSymbols(['BTCUSDT', 'XRPUSDT'], DEFAULT_BINANCE_SYMBOLS),
-    ).toEqual(['ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'LINKUSDT']);
+    expect(getMissingSymbols(['BTCUSDT', 'XRPUSDT'], DEFAULT_BINANCE_SYMBOLS)).toEqual([
+      'ETHUSDT',
+      'SOLUSDT',
+      'BNBUSDT',
+      'LINKUSDT',
+    ]);
   });
 });
