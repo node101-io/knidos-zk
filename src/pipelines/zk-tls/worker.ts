@@ -24,59 +24,45 @@ export async function processZkTLSJob(
 
   if (task.status === 'COMPLETED') return;
 
-  if (task.status === 'FAILED' && task.attemptCount >= task.maxAttempt) return;
-
   if (task.status === 'RUNNING') return;
 
+  const parsedInput = parseZkTLSJobInput(input);
+
+  await Task.updateTaskStatus({
+    taskId,
+    status: 'RUNNING',
+  });
+
+  const result = await runZkTLSProcessor(parsedInput);
+
+  const session = await mongoose.startSession();
+
   try {
-    const parsedInput = parseZkTLSJobInput(input);
+    await session.withTransaction(async () => {
+      await Task.updateTaskStatus(
+        {
+          taskId,
+          status: 'COMPLETED',
+        },
+        { session },
+      );
 
-    await Task.updateTaskStatus({
-      taskId,
-      status: 'RUNNING',
-    });
-
-    const result = await runZkTLSProcessor(parsedInput);
-
-    const session = await mongoose.startSession();
-
-    try {
-      await session.withTransaction(async () => {
-        await Task.updateTaskStatus(
-          {
-            taskId,
-            status: 'COMPLETED',
+      await Task.createTask(
+        {
+          type: 'noir',
+          pipelineId: task.pipelineId,
+          input: {
+            zkTLSTaskId: taskId,
+            symbol: parsedInput.symbol,
+            startTime: parsedInput.startTime,
+            endTime: parsedInput.endTime,
+            circuitInput: result,
           },
-          { session },
-        );
-
-        await Task.createTask(
-          {
-            type: 'noir',
-            pipelineId: task.pipelineId,
-            input: {
-              zkTLSTaskId: taskId,
-              symbol: parsedInput.symbol,
-              startTime: parsedInput.startTime,
-              endTime: parsedInput.endTime,
-              circuitInput: result,
-            },
-          },
-          { session },
-        );
-      });
-    } finally {
-      await session.endSession();
-    }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
-    await Task.updateTaskStatus({
-      taskId,
-      status: 'FAILED',
-      error: errorMessage,
+        },
+        { session },
+      );
     });
-
-    throw error;
+  } finally {
+    await session.endSession();
   }
 }

@@ -7,6 +7,7 @@ import { zkVerifyQueue } from './worker.js';
 export class ZkVerifyMaster extends Master<ZkVerifyJobData> {
   protected async handleTask(): Promise<void> {
     try {
+      const { retryAttempts, retryBackoffMs } = this.config;
       const pendingTasks = await Task.find({
         type: 'zkVerify',
         status: 'PENDING',
@@ -26,6 +27,11 @@ export class ZkVerifyMaster extends Master<ZkVerifyJobData> {
           },
           {
             jobId: task._id.toString(),
+            attempts: retryAttempts,
+            backoff: {
+              type: 'fixed',
+              delay: retryBackoffMs,
+            },
             removeOnComplete: 100,
             removeOnFail: 100,
           },

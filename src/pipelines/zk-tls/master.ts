@@ -7,6 +7,7 @@ import { zkTLSQueue } from './worker.js';
 export class ZkTLSMaster extends Master<ZkTLSJobData> {
   protected async handleTask(): Promise<void> {
     try {
+      const { retryAttempts, retryBackoffMs } = this.config;
       const pendingTasks = await Task.find({
         type: 'zkTLS',
         status: 'PENDING',
@@ -26,6 +27,11 @@ export class ZkTLSMaster extends Master<ZkTLSJobData> {
           },
           {
             jobId: task._id.toString(),
+            attempts: retryAttempts,
+            backoff: {
+              type: 'fixed',
+              delay: retryBackoffMs,
+            },
             removeOnComplete: 100,
             removeOnFail: 100,
           },

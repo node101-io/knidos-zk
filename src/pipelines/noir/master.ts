@@ -7,6 +7,7 @@ import { noirQueue } from './worker.js';
 export class NoirMaster extends Master<NoirJobData> {
   protected async handleTask(): Promise<void> {
     try {
+      const { retryAttempts, retryBackoffMs } = this.config;
       const pendingTasks = await Task.find({
         type: 'noir',
         status: 'PENDING',
@@ -26,6 +27,11 @@ export class NoirMaster extends Master<NoirJobData> {
           },
           {
             jobId: task._id.toString(),
+            attempts: retryAttempts,
+            backoff: {
+              type: 'fixed',
+              delay: retryBackoffMs,
+            },
             removeOnComplete: 100,
             removeOnFail: 100,
           },

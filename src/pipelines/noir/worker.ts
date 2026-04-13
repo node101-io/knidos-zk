@@ -21,70 +21,51 @@ export async function processNoirJob(workerId: number, job: Job<NoirJobData, voi
 
   if (task.status === 'COMPLETED') return;
 
-  if (task.status === 'FAILED' && task.attemptCount >= task.maxAttempt) return;
-
   if (task.status === 'RUNNING') return;
 
+  const parsedInput = parseNoirJobInput(input);
+
+  await Task.updateTaskStatus({
+    taskId,
+    status: 'RUNNING',
+  });
+
+  logger.info({ taskId, workerId }, '[noir worker] starting noir task');
+
+  const result = await runNoirProcessor(workerId, parsedInput);
+
+  const session = await mongoose.startSession();
+
   try {
-    const parsedInput = parseNoirJobInput(input);
+    await session.withTransaction(async () => {
+      await Task.updateTaskStatus(
+        {
+          taskId,
+          status: 'COMPLETED',
+          result,
+        },
+        { session },
+      );
 
-    await Task.updateTaskStatus({
-      taskId,
-      status: 'RUNNING',
-    });
-
-    logger.info({ taskId, workerId }, '[noir worker] starting noir task');
-
-    const result = await runNoirProcessor(workerId, parsedInput);
-
-    const session = await mongoose.startSession();
-
-    try {
-      await session.withTransaction(async () => {
-        await Task.updateTaskStatus(
-          {
-            taskId,
-            status: 'COMPLETED',
-            result,
+      await Task.createTask(
+        {
+          type: 'zkVerify',
+          pipelineId: task.pipelineId,
+          input: {
+            noirTaskId: taskId,
+            symbol: parsedInput.symbol,
+            startTime: parsedInput.startTime,
+            endTime: parsedInput.endTime,
           },
-          { session },
-        );
-
-        await Task.createTask(
-          {
-            type: 'zkVerify',
-            pipelineId: task.pipelineId,
-            input: {
-              noirTaskId: taskId,
-              symbol: parsedInput.symbol,
-              startTime: parsedInput.startTime,
-              endTime: parsedInput.endTime,
-            },
-          },
-          { session },
-        );
-      });
-    } finally {
-      await session.endSession();
-    }
-
-    logger.info({ taskId, workerId }, '[noir worker] completed noir task');
-
-    logger.info({ taskId, workerId }, '[noir worker] created zkVerify task');
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
-    await Task.updateTaskStatus({
-      taskId,
-      status: 'FAILED',
-      error: errorMessage,
+        },
+        { session },
+      );
     });
-
-    logger.error(
-      { taskId, workerId, pipelineId: task.pipelineId, error: errorMessage },
-      '[noir worker] failed noir task',
-    );
-
-    throw error;
+  } finally {
+    await session.endSession();
   }
+
+  logger.info({ taskId, workerId }, '[noir worker] completed noir task');
+
+  logger.info({ taskId, workerId }, '[noir worker] created zkVerify task');
 }

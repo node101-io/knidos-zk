@@ -8,10 +8,8 @@ import { PROOF_TYPE } from '../pipelines/types.js';
 import type { SupportedBinanceSymbol } from '../shared/binance-symbols.js';
 import { normalizeDateInput } from '../shared/date-utils.js';
 import logger from '../shared/logger.js';
-import { runCleanupOnce } from './cleanup.js';
 import { getHourlyWindowBounds, getMissingSymbols, getWindowsToEnsure } from './scheduler-utils.js';
 
-const CLEANUP_CRON = '* * * * *';
 const ZKTLS_SCHEDULE_CRON = '0 * * * *';
 const DEFAULT_BASE_BALANCE = 100000000;
 const DEFAULT_THRESHOLD = 50000000;
@@ -42,7 +40,6 @@ async function ensureZkTLSTask(
         type: 'zkTLS',
         pipelineId: new mongoose.Types.ObjectId(),
         input,
-        maxAttempt: 3,
       },
     },
     { upsert: true },
@@ -115,14 +112,6 @@ async function catchUpMissedSlots(): Promise<void> {
 export async function startScheduler(): Promise<void> {
   await catchUpMissedSlots();
 
-  cron.schedule(CLEANUP_CRON, async () => {
-    try {
-      await runCleanupOnce();
-    } catch (error) {
-      logger.error({ error }, '[scheduler] periodic cleanup failed');
-    }
-  });
-
   cron.schedule(ZKTLS_SCHEDULE_CRON, async () => {
     const { startTime, endTime } = getHourlyWindowBounds(Date.now());
 
@@ -142,7 +131,7 @@ export async function startScheduler(): Promise<void> {
   });
 
   logger.info(
-    { cleanupCron: CLEANUP_CRON, zkTLSCron: ZKTLS_SCHEDULE_CRON, proofType: PROOF_TYPE },
-    '[scheduler] cron jobs registered',
+    { zkTLSCron: ZKTLS_SCHEDULE_CRON, proofType: PROOF_TYPE },
+    '[scheduler] cron job registered',
   );
 }

@@ -1,19 +1,22 @@
 import { Job, Worker } from 'bullmq';
 import type { ConnectionOptions } from 'bullmq';
+
+import Task from '../db/task.js';
 import logger from '../shared/logger.js';
 
-export interface MasterConfig<JobData> {
+export interface MasterConfig<JobData extends { taskId: string }> {
   queueName: string;
   workerLabel: string;
   connection: ConnectionOptions;
   workerCount: number;
+  retryAttempts: number;
+  retryBackoffMs: number;
   lockDurationMs: number;
   stalledIntervalMs: number;
   processJob: (workerId: number, job: Job<JobData, void>) => Promise<void>;
-  onJobFailed?: (job: Job<JobData, void> | undefined) => Promise<void>;
 }
 
-export abstract class Master<JobData> {
+export abstract class Master<JobData extends { taskId: string }> {
   protected readonly config: MasterConfig<JobData>;
   protected readonly workers: Worker<JobData, void>[] = [];
 
@@ -31,7 +34,6 @@ export abstract class Master<JobData> {
       lockDurationMs,
       stalledIntervalMs,
       processJob,
-      onJobFailed,
     } = this.config;
 
     const worker = new Worker<JobData, void, string>(
@@ -62,25 +64,45 @@ export abstract class Master<JobData> {
       );
     });
 
-    worker.on('failed', (job, err) => {
-      logger.error(
-        { error: err, jobId: job?.id }, //data: job?.data
-        `${workerLabel} worker ${workerId} failed job ${job?.id ?? 'unknown'}`,
-      );
-    });
+    worker.on('failed', async (job, err) => {
+      if (!job) {
+        logger.warn(
+          { error: err },
+          `${workerLabel} worker ${workerId} received failed event without job`,
+        );
+        return;
+      }
 
-    if (onJobFailed) {
-      worker.on('failed', (job) => {
-        if (!job) return;
+      const attempts = typeof job.opts.attempts === 'number' ? Math.max(job.opts.attempts, 1) : 1;
+      const willRetry = job.attemptsMade < attempts;
+      const errorMessage = err instanceof Error ? err.message : String(err);
 
-        void onJobFailed(job).catch((error: unknown) => {
-          logger.error(
-            { error, jobId: job.id },
-            `${workerLabel} worker ${workerId} failed to run onJobFailed hook`,
-          );
+      try {
+        await Task.updateTaskStatus({
+          taskId: job.data.taskId,
+          status: willRetry ? 'QUEUED' : 'FAILED',
+          error: errorMessage,
         });
-      });
-    }
+
+        if (willRetry) {
+          logger.warn(
+            { error: err, jobId: job.id },
+            `${workerLabel} worker ${workerId} failed job ${job.id ?? 'unknown'} and BullMQ will retry`,
+          );
+          return;
+        }
+
+        logger.error(
+          { error: err, jobId: job.id },
+          `${workerLabel} worker ${workerId} failed job ${job.id ?? 'unknown'}`,
+        );
+      } catch (error: unknown) {
+        logger.error(
+          { error, jobId: job.id },
+          `${workerLabel} worker ${workerId} failed to update task state after job failure`,
+        );
+      }
+    });
 
     worker.on('error', (err) => {
       logger.error({ error: err }, `${workerLabel} worker ${workerId} error`);

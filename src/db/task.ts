@@ -5,7 +5,6 @@ import { Buffer } from 'buffer';
 import { parseTaskInput } from '../pipelines/validation.js';
 
 const MAX_INPUT_SIZE = 1e5;
-const MAX_ATTEMPT_COUNT = 3;
 
 export type TaskType = 'zkTLS' | 'noir' | 'zkVerify';
 export type TaskStatus = 'PENDING' | 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
@@ -22,15 +21,12 @@ interface TaskInterface {
   input: Record<string, unknown>;
   result?: unknown;
   error?: unknown;
-  attemptCount: number;
-  maxAttempt: number;
 }
 
 interface CreateTaskBody {
   type: TaskType;
   pipelineId: Types.ObjectId;
   input: Record<string, unknown>;
-  maxAttempt?: number;
 }
 
 interface CreateTaskOptions {
@@ -105,14 +101,6 @@ const TaskSchema = new Schema<TaskInterface, TaskModel>({
     type: Schema.Types.Mixed,
     default: null,
   },
-  attemptCount: {
-    type: Number,
-    default: 0,
-  },
-  maxAttempt: {
-    type: Number,
-    default: MAX_ATTEMPT_COUNT,
-  },
 });
 
 TaskSchema.index(
@@ -136,7 +124,6 @@ TaskSchema.statics.createTask = async function (
         type: body.type,
         pipelineId: body.pipelineId,
         input,
-        maxAttempt: body.maxAttempt ?? MAX_ATTEMPT_COUNT,
       },
     ],
     options?.session ? { session: options.session } : undefined,
@@ -168,16 +155,16 @@ TaskSchema.statics.updateTaskStatus = async function (
 
   if (body.status === 'PENDING') {
     $set.queuedAt = null;
-    $set.attemptStartedAt = new Date();
+    $set.attemptStartedAt = null;
   }
 
   if (body.status === 'QUEUED') {
     $set.queuedAt = new Date();
+    $set.attemptStartedAt = null;
   }
 
   if (body.status === 'RUNNING') {
     $set.attemptStartedAt = new Date();
-    update.$inc = { attemptCount: 1 };
   }
 
   if (body.status === 'COMPLETED') {

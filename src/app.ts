@@ -12,10 +12,15 @@ import { runCleanupOnce } from './services/cleanup.js';
 import { startScheduler } from './services/scheduler.js';
 import logger from './shared/logger.js';
 import { redis } from './shared/redis.js';
+import { resetPipelineQueues } from './utils/reset-pipeline-queues.js';
+
+const RETRY_ATTEMPTS = 3;
+const RETRY_BACKOFF_MS = 5000;
 
 try {
   await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
   await warmupNoirRuntime();
+  await resetPipelineQueues();
   await runCleanupOnce();
   await startScheduler();
 
@@ -23,7 +28,9 @@ try {
     queueName: zkTLSQueue.name,
     workerLabel: 'zkTLS',
     connection: redis,
-    workerCount: 2,
+    workerCount: 1,
+    retryAttempts: RETRY_ATTEMPTS,
+    retryBackoffMs: RETRY_BACKOFF_MS,
     lockDurationMs: 2 * 60 * 1000, // 2 minutes
     stalledIntervalMs: 60 * 1000, // check every 1 min
     processJob: processZkTLSJob,
@@ -34,6 +41,8 @@ try {
     workerLabel: 'noir',
     connection: redis,
     workerCount: NOIR_PROVING_SLOT_COUNT,
+    retryAttempts: RETRY_ATTEMPTS,
+    retryBackoffMs: RETRY_BACKOFF_MS,
     lockDurationMs: 5 * 60 * 1000, // 5 minutes
     stalledIntervalMs: 60 * 1000, // check every 1 min
     processJob: processNoirJob,
@@ -44,6 +53,8 @@ try {
     workerLabel: 'zkVerify',
     connection: redis,
     workerCount: 1, // we can only have 1 tx in a block (~8sec) with one address
+    retryAttempts: RETRY_ATTEMPTS,
+    retryBackoffMs: RETRY_BACKOFF_MS,
     lockDurationMs: 2 * 60 * 1000, // 2 minutes
     stalledIntervalMs: 1 * 60 * 1000, // check every 1 min
     processJob: processZkVerifyJob,
