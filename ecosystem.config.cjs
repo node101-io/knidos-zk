@@ -4,8 +4,7 @@ module.exports = {
   apps: [
     {
       name: 'knidos-server',
-      script: 'pnpm',
-      args: 'server',
+      script: 'dist/src/server.js',
       cwd: '/root/knidos-zk',
       env: {
         NODE_ENV: 'production',
@@ -13,8 +12,7 @@ module.exports = {
     },
     {
       name: 'knidos-node',
-      script: 'pnpm',
-      args: 'node',
+      script: 'dist/src/app.js',
       cwd: '/root/knidos-zk',
       env: {
         NODE_ENV: 'production',

@@ -242,8 +242,9 @@ app.get('/api/docs', Scalar({ url: '/api/openapi' }));
 
 try {
   await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+  logger.info('[server] connected to mongodb');
   serve({ fetch: app.fetch, port: env.PORT }, () => {
-    logger.info({ port: env.PORT }, '[http] server listening');
+    logger.info({ port: env.PORT }, '[server] listening');
   });
 } catch (error) {
   logger.error({ error }, '[server] fatal error');
