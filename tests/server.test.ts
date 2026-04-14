@@ -3,20 +3,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // --- mocks (before importing server) ---
 
-vi.mock('hono-rate-limiter', () => ({
-  rateLimiter: () => async (_c: unknown, next: () => Promise<void>) => next(),
-  RedisStore: vi.fn(),
-}));
-
 const mockRedisGet = vi.fn();
 const mockRedisSet = vi.fn();
 vi.mock('../src/shared/redis.js', () => ({
-  redis: { get: (...args: unknown[]) => mockRedisGet(...args), set: (...args: unknown[]) => mockRedisSet(...args) },
-  redisRateLimitClient: {},
+  redis: {
+    get: (...args: unknown[]) => mockRedisGet(...args),
+    set: (...args: unknown[]) => mockRedisSet(...args),
+  },
 }));
 
+const TEST_API_KEY = 'test-key-123';
 vi.mock('../src/env.js', () => ({
-  env: { PORT: 3000 },
+  env: { PORT: 3000, API_KEY: TEST_API_KEY },
 }));
 
 const mockAggregate = vi.fn();
@@ -36,7 +34,10 @@ const { app } = await import('../src/server.js');
 
 // --- helpers ---
 
-const get = (path: string) => app.request(path);
+const get = (path: string, headers?: Record<string, string>) =>
+  app.request(path, { headers: { 'x-api-key': TEST_API_KEY, ...headers } });
+
+const getNoAuth = (path: string) => app.request(path);
 
 function makeRecord(txHash: string) {
   return {
@@ -104,12 +105,12 @@ describe('GET /api/verifications', () => {
     expect(body.next_cursor).toBeNull();
   });
 
-  it('returns 500 for invalid cursor (transform throws before safeParse catches)', async () => {
+  it('returns 400 for invalid cursor', async () => {
     const res = await get('/api/verifications?cursor=not-an-objectid');
     const body = await res.json();
 
-    expect(res.status).toBe(500);
-    expect(body.error).toBe('Internal Server Error');
+    expect(res.status).toBe(400);
+    expect(body.error).toBe('Bad Request');
   });
 
   it('returns 500 when aggregate throws', async () => {
@@ -189,5 +190,53 @@ describe('GET /api/vk/:hash', () => {
 
     expect(res.status).toBe(500);
     expect(body.error).toBe('Internal Server Error');
+  });
+});
+
+describe('API key authentication', () => {
+  it('returns 401 when x-api-key header is missing', async () => {
+    const res = await getNoAuth('/api/verifications');
+    const body = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(body.error).toBe('Unauthorized');
+  });
+
+  it('returns 401 when x-api-key is wrong', async () => {
+    const res = await get('/api/vk/abc123', { 'x-api-key': 'wrong-key' });
+    const body = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(body.error).toBe('Unauthorized');
+  });
+
+  it('does not require auth for /api/docs', async () => {
+    const res = await getNoAuth('/api/docs');
+    expect(res.status).toBe(200);
+  });
+
+  it('does not require auth for /api/openapi.json', async () => {
+    const res = await getNoAuth('/api/openapi.json');
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('OpenAPI documentation', () => {
+  it('serves OpenAPI spec at /api/openapi.json', async () => {
+    const res = await get('/api/openapi.json');
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.openapi).toBe('3.1.0');
+    expect(body.info.title).toBe('Knidos ZK Verification API');
+    expect(body.paths['/api/verifications']).toBeDefined();
+    expect(body.paths['/api/vk/{hash}']).toBeDefined();
+  });
+
+  it('serves Scalar docs UI at /api/docs', async () => {
+    const res = await get('/api/docs');
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
   });
 });

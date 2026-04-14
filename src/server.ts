@@ -1,49 +1,167 @@
 import { serve } from '@hono/node-server';
-import { Hono } from 'hono';
-import { RedisStore, rateLimiter } from 'hono-rate-limiter';
+import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import { Scalar } from '@scalar/hono-api-reference';
+import { createMiddleware } from 'hono/factory';
 import { Types } from 'mongoose';
-import { z } from 'zod';
 
 import VerificationRecord from './db/verification-record.js';
 import { env } from './env.js';
 import logger from './shared/logger.js';
-import { redis, redisRateLimitClient } from './shared/redis.js';
+import { redis } from './shared/redis.js';
+
+// --- schemas ---
+
+const CursorQuerySchema = z
+  .object({
+    cursor: z
+      .string()
+      .regex(/^[a-f\d]{24}$/i, 'Must be a valid 24-character hex ObjectId')
+      .optional()
+      .openapi({
+        description: 'Pagination cursor (MongoDB ObjectId)',
+        example: '507f1f77bcf86cd799439011',
+      }),
+  })
+  .openapi('CursorQuery');
+
+const VkPathParamsSchema = z
+  .object({
+    hash: z
+      .string()
+      .openapi({ description: 'SHA-256 hash of the verification key', example: 'abc123' }),
+  })
+  .openapi('VkPathParams');
+
+const VerificationItemSchema = z
+  .object({
+    settlement_time: z
+      .string()
+      .openapi({
+        description: 'ISO 8601 settlement timestamp',
+        example: '2026-01-01T00:00:00.000Z',
+      }),
+    tx_hash: z.string().openapi({ description: 'On-chain transaction hash' }),
+    proof_url: z.string().url().openapi({ description: 'Link to zkVerify explorer' }),
+    vk_hash: z.string().openapi({ description: 'SHA-256 hash of the verification key' }),
+    public_inputs: z.array(z.string()).openapi({ description: 'Public signals for the proof' }),
+  })
+  .openapi('VerificationItem');
+
+const VerificationsResponseSchema = z
+  .object({
+    data: z.array(VerificationItemSchema),
+    next_cursor: z
+      .string()
+      .nullable()
+      .openapi({ description: 'Cursor for the next page, null if no more pages' }),
+  })
+  .openapi('VerificationsResponse');
+
+const VkResponseSchema = z
+  .object({
+    vk_hash: z.string().openapi({ description: 'SHA-256 hash of the verification key' }),
+    verification_key: z.string().openapi({ description: 'The full verification key' }),
+  })
+  .openapi('VkResponse');
+
+const ErrorResponseSchema = z
+  .object({
+    error: z.string().openapi({ description: 'Error message', example: 'Bad Request' }),
+  })
+  .openapi('ErrorResponse');
+
+// --- routes ---
+
+const getVerificationsRoute = createRoute({
+  method: 'get',
+  path: '/api/verifications',
+  tags: ['Verifications'],
+  summary: 'List verification records',
+  description:
+    'Returns a paginated list of zero-knowledge proof verifications settled on zkVerify.',
+  security: [{ ApiKeyAuth: [] }],
+  request: { query: CursorQuerySchema },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: VerificationsResponseSchema } },
+      description: 'Paginated list of verifications',
+    },
+    400: {
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+      description: 'Invalid cursor parameter',
+    },
+    401: {
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+      description: 'Missing or invalid API key',
+    },
+    500: {
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+      description: 'Internal server error',
+    },
+  },
+});
+
+const getVkRoute = createRoute({
+  method: 'get',
+  path: '/api/vk/{hash}',
+  tags: ['Verification Keys'],
+  summary: 'Get verification key by hash',
+  description:
+    'Retrieves a verification key by its SHA-256 hash. Responses are cached with immutable headers for one year.',
+  security: [{ ApiKeyAuth: [] }],
+  request: { params: VkPathParamsSchema },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: VkResponseSchema } },
+      description: 'Verification key found',
+    },
+    401: {
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+      description: 'Missing or invalid API key',
+    },
+    404: {
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+      description: 'Verification key not found',
+    },
+    500: {
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+      description: 'Internal server error',
+    },
+  },
+});
+
+// --- app ---
 
 const PAGE_SIZE = 20;
 const ZKVERIFY_EXPLORER_BASE = 'https://zkverify-testnet.subscan.io/extrinsic';
+const VK_CACHE_PREFIX = 'vk:';
 
-const cursorSchema = z
-  .string()
-  .optional()
-  .transform((val) => {
-    if (!val) return undefined;
-    if (!Types.ObjectId.isValid(val)) throw new Error('Invalid cursor');
-    return new Types.ObjectId(val);
-  });
+const apiKeyAuth = createMiddleware(async (c, next) => {
+  const key = c.req.header('x-api-key');
+  if (key !== env.API_KEY) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  await next();
+});
 
-export const app = new Hono();
-
-app.use(
-  rateLimiter({
-    windowMs: 60 * 1000,
-    limit: 30,
-    standardHeaders: 'draft-6',
-    keyGenerator: (c) => c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown',
-    store: new RedisStore({ client: redisRateLimitClient }),
-    message: { error: 'Too Many Requests' },
-  }),
-);
-
-app.get('/api/verifications', async (c) => {
-  try {
-    const parsed = cursorSchema.safeParse(c.req.query('cursor'));
-
-    if (!parsed.success) {
-      return c.json({ error: 'Bad Request', details: parsed.error.issues }, 400);
+export const app = new OpenAPIHono({
+  defaultHook: (result, c) => {
+    if (!result.success) {
+      return c.json({ error: 'Bad Request', details: result.error.issues }, 400);
     }
+  },
+});
+
+app.use('/api/verifications', apiKeyAuth);
+app.use('/api/vk/*', apiKeyAuth);
+
+app.openapi(getVerificationsRoute, async (c) => {
+  try {
+    const { cursor } = c.req.valid('query');
+    const cursorId = cursor ? new Types.ObjectId(cursor) : undefined;
 
     const [result] = await VerificationRecord.aggregate([
-      ...(parsed.data ? [{ $match: { _id: { $lt: parsed.data } } }] : []),
+      ...(cursorId ? [{ $match: { _id: { $lt: cursorId } } }] : []),
       { $sort: { _id: -1 as const } },
       { $limit: PAGE_SIZE + 1 },
       {
@@ -68,23 +186,21 @@ app.get('/api/verifications', async (c) => {
 
     const nextCursor = result.next[0]?._id?.toHexString() ?? null;
 
-    return c.json({ data: result.data, next_cursor: nextCursor });
-  } catch (error) {
-    logger.error({ error }, '[http] GET /api/verifications failed');
+    return c.json({ data: result.data, next_cursor: nextCursor }, 200);
+  } catch {
+    logger.error('[http] GET /api/verifications failed');
     return c.json({ error: 'Internal Server Error' }, 500);
   }
 });
 
-const VK_CACHE_PREFIX = 'vk:';
-
-app.get('/api/vk/:hash', async (c) => {
+app.openapi(getVkRoute, async (c) => {
   try {
-    const hash = c.req.param('hash');
+    const { hash } = c.req.valid('param');
 
     const cached = await redis.get(`${VK_CACHE_PREFIX}${hash}`);
     if (cached) {
       c.header('Cache-Control', 'public, max-age=31536000, immutable');
-      return c.json({ vk_hash: hash, verification_key: cached });
+      return c.json({ vk_hash: hash, verification_key: cached }, 200);
     }
 
     const record = await VerificationRecord.findOne({ vkHash: hash }, { vk: 1, vkHash: 1 });
@@ -95,12 +211,29 @@ app.get('/api/vk/:hash', async (c) => {
     await redis.set(`${VK_CACHE_PREFIX}${hash}`, record.vk);
 
     c.header('Cache-Control', 'public, max-age=31536000, immutable');
-    return c.json({ vk_hash: hash, verification_key: record.vk });
-  } catch (error) {
-    logger.error({ error }, '[http] GET /api/vk/:hash failed');
+    return c.json({ vk_hash: hash, verification_key: record.vk }, 200);
+  } catch {
+    logger.error('[http] GET /api/vk/:hash failed');
     return c.json({ error: 'Internal Server Error' }, 500);
   }
 });
+
+app.openAPIRegistry.registerComponent('securitySchemes', 'ApiKeyAuth', {
+  type: 'apiKey',
+  in: 'header',
+  name: 'x-api-key',
+});
+
+app.doc('/api/openapi.json', {
+  openapi: '3.1.0',
+  info: {
+    title: 'Knidos ZK Verification API',
+    version: '1.0.0',
+    description: 'API for querying zero-knowledge proof verifications settled on zkVerify.',
+  },
+});
+
+app.get('/api/docs', Scalar({ url: '/api/openapi.json' }));
 
 export function startHttpServer(): void {
   serve({ fetch: app.fetch, port: env.PORT }, () => {
