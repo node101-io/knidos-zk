@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 import { createEnv } from '@t3-oss/env-core';
 import { utils as ethersUtils } from 'ethers';
 import { z } from 'zod';
@@ -35,6 +33,7 @@ export const env = createEnv({
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
     PORT: z.coerce.number().int().positive().default(3000),
+    API_KEY: z.string().min(1, 'API_KEY cannot be empty'),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,
