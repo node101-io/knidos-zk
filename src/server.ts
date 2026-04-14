@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server';
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
-import { Scalar } from '@scalar/hono-api-reference';
+import { swaggerUI } from '@hono/swagger-ui';
 import { createMiddleware } from 'hono/factory';
 import mongoose from 'mongoose';
 import { Types } from 'mongoose';
@@ -238,7 +238,7 @@ const openApiDoc = {
 app.doc('/api/openapi', openApiDoc);
 app.doc('/api/openapi.json', openApiDoc);
 
-app.get('/api/docs', Scalar({ url: '/api/openapi' }));
+app.get('/api/docs', swaggerUI({ url: '/api/openapi' }));
 
 try {
   await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
