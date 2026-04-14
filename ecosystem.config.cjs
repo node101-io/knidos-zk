@@ -6,6 +6,7 @@ module.exports = {
       name: 'knidos-server',
       script: 'dist/src/server.js',
       cwd: '/root/knidos-zk',
+      node_args: '--env-file=.env',
       env: {
         NODE_ENV: 'production',
       },
@@ -14,6 +15,7 @@ module.exports = {
       name: 'knidos-node',
       script: 'dist/src/app.js',
       cwd: '/root/knidos-zk',
+      node_args: '--env-file=.env',
       env: {
         NODE_ENV: 'production',
         PATH: `${home}/.nargo/bin:${home}/.bb:${process.env.PATH}`,

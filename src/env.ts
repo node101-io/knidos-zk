@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 import { createEnv } from '@t3-oss/env-core';
 import { utils as ethersUtils } from 'ethers';
 import { z } from 'zod';
