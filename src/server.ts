@@ -224,16 +224,19 @@ app.openAPIRegistry.registerComponent('securitySchemes', 'ApiKeyAuth', {
   name: 'x-api-key',
 });
 
-app.doc('/api/openapi.json', {
+const openApiDoc = {
   openapi: '3.1.0',
   info: {
     title: 'Knidos ZK Verification API',
     version: '1.0.0',
     description: 'API for querying zero-knowledge proof verifications settled on zkVerify.',
   },
-});
+};
 
-app.get('/api/docs', Scalar({ url: '/api/openapi.json' }));
+app.doc('/api/openapi', openApiDoc);
+app.doc('/api/openapi.json', openApiDoc);
+
+app.get('/api/docs', Scalar({ url: '/api/openapi' }));
 
 export function startHttpServer(): void {
   serve({ fetch: app.fetch, port: env.PORT }, () => {

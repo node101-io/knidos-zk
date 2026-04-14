@@ -215,15 +215,15 @@ describe('API key authentication', () => {
     expect(res.status).toBe(200);
   });
 
-  it('does not require auth for /api/openapi.json', async () => {
-    const res = await getNoAuth('/api/openapi.json');
+  it('does not require auth for /api/openapi', async () => {
+    const res = await getNoAuth('/api/openapi');
     expect(res.status).toBe(200);
   });
 });
 
 describe('OpenAPI documentation', () => {
-  it('serves OpenAPI spec at /api/openapi.json', async () => {
-    const res = await get('/api/openapi.json');
+  it('serves OpenAPI spec at /api/openapi', async () => {
+    const res = await get('/api/openapi');
     const body = await res.json();
 
     expect(res.status).toBe(200);
