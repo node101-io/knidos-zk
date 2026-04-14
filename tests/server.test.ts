@@ -14,7 +14,16 @@ vi.mock('../src/shared/redis.js', () => ({
 
 const TEST_API_KEY = 'test-key-123';
 vi.mock('../src/env.js', () => ({
-  env: { PORT: 3000, API_KEY: TEST_API_KEY },
+  env: { PORT: 3000, API_KEY: TEST_API_KEY, MONGO_URI: 'mongodb://localhost/test' },
+}));
+
+vi.mock('mongoose', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('mongoose')>();
+  return { ...actual, default: { ...actual.default, connect: vi.fn() } };
+});
+
+vi.mock('@hono/node-server', () => ({
+  serve: vi.fn(),
 }));
 
 const mockAggregate = vi.fn();

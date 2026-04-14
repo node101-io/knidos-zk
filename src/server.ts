@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { Scalar } from '@scalar/hono-api-reference';
 import { createMiddleware } from 'hono/factory';
+import mongoose from 'mongoose';
 import { Types } from 'mongoose';
 
 import VerificationRecord from './db/verification-record.js';
@@ -238,8 +239,12 @@ app.doc('/api/openapi.json', openApiDoc);
 
 app.get('/api/docs', Scalar({ url: '/api/openapi' }));
 
-export function startHttpServer(): void {
+try {
+  await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
   serve({ fetch: app.fetch, port: env.PORT }, () => {
     logger.info({ port: env.PORT }, '[http] server listening');
   });
+} catch (error) {
+  logger.error({ error }, '[server] fatal error');
+  process.exit(1);
 }
