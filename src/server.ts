@@ -200,7 +200,8 @@ app.openapi(getVkRoute, async (c) => {
 
     const cached = await redis.get(`${VK_CACHE_PREFIX}${hash}`);
     if (cached) {
-      c.header('Cache-Control', 'public, max-age=31536000, immutable');
+      c.header('Cache-Control', 'no-store');
+      c.header('CDN-Cache-Control', 'public, max-age=31536000, immutable');
       return c.json({ vk_hash: hash, verification_key: cached }, 200);
     }
 
