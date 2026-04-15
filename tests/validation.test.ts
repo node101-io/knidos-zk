@@ -12,7 +12,7 @@ describe('pipeline validation', () => {
       startTime: 1,
       endTime: 2,
       symbol: 'BTCUSDT',
-      proofType: 'binance-fills-1h',
+      proofType: 'binance-fills',
       baseBalance: 100,
       threshold: 50,
     });

@@ -1,6 +1,6 @@
 import type { SupportedBinanceSymbol } from '../shared/binance-symbols.js';
 
-export const PROOF_TYPE = 'binance-fills-1h';
+export const PROOF_TYPE = 'binance-fills';
 
 export type ProofType = typeof PROOF_TYPE;
 

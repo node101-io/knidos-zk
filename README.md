@@ -47,7 +47,7 @@ Copy the environment template and fill in the required values:
 cp .env.example .env
 ```
 
-The runtime expects Binance Futures API credentials and a `BINANCE_SYMBOLS` CSV list in `.env`. The scheduler runs once per hour, always proofs the previous full hour window, and fans out one independent proof pipeline per configured symbol. The internal proof type for that flow is `binance-fills-1h`.
+The runtime expects Binance Futures API credentials and a `BINANCE_SYMBOLS` CSV list in `.env`. The scheduler runs on a configurable interval (default every 15 minutes via `ZKTLS_WINDOW_MINUTES`), always proofs the previous full window, and fans out one independent proof pipeline per configured symbol. The internal proof type for that flow is `binance-fills`.
 
 ## Build & Run
 
