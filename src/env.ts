@@ -34,6 +34,12 @@ export const env = createEnv({
       .default('info'),
     PORT: z.coerce.number().int().positive().default(3000),
     API_KEY: z.string().min(1, 'API_KEY cannot be empty'),
+    ZKTLS_WINDOW_MINUTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .refine((n) => 60 % n === 0, 'ZKTLS_WINDOW_MINUTES must divide 60 evenly')
+      .default(15),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

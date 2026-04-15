@@ -1,7 +1,8 @@
+import { env } from '../env.js';
 import type { SupportedBinanceSymbol } from '../shared/binance-symbols.js';
 import { parseDateInput, toTimestampMs } from '../shared/date-utils.js';
 
-export const ZKTLS_WINDOW_MS = 60 * 60 * 1000;
+export const ZKTLS_WINDOW_MS = env.ZKTLS_WINDOW_MINUTES * 60 * 1000;
 
 export interface WindowBounds {
   startTime: Date;
@@ -16,7 +17,7 @@ export function getWindowBoundsFromEnd(endTime: Date | number): WindowBounds {
   };
 }
 
-export function getHourlyWindowBounds(now: Date | number): WindowBounds {
+export function getWindowBounds(now: Date | number): WindowBounds {
   const normalizedNow = parseDateInput(now, 'now');
   const nowTimestamp = toTimestampMs(normalizedNow);
   const endTime = new Date(nowTimestamp - (nowTimestamp % ZKTLS_WINDOW_MS));

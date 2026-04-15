@@ -8,9 +8,8 @@ import { PROOF_TYPE } from '../pipelines/types.js';
 import type { SupportedBinanceSymbol } from '../shared/binance-symbols.js';
 import { normalizeDateInput } from '../shared/date-utils.js';
 import logger from '../shared/logger.js';
-import { getHourlyWindowBounds, getMissingSymbols, getWindowsToEnsure } from './scheduler-utils.js';
+import { getWindowBounds, getMissingSymbols, getWindowsToEnsure } from './scheduler-utils.js';
 
-const ZKTLS_SCHEDULE_CRON = '0 * * * *';
 const DEFAULT_BASE_BALANCE = 100000000;
 const DEFAULT_THRESHOLD = 50000000;
 
@@ -82,7 +81,7 @@ async function ensureWindowTasks(startTime: Date, endTime: Date): Promise<number
 }
 
 async function catchUpMissedSlots(): Promise<void> {
-  const { endTime: currentWindowEnd } = getHourlyWindowBounds(Date.now());
+  const { endTime: currentWindowEnd } = getWindowBounds(Date.now());
   const latestTask = await Task.findOne({ type: 'zkTLS' })
     .sort({ 'input.endTime': -1, _id: -1 })
     .lean();
@@ -112,8 +111,10 @@ async function catchUpMissedSlots(): Promise<void> {
 export async function startScheduler(): Promise<void> {
   await catchUpMissedSlots();
 
-  cron.schedule(ZKTLS_SCHEDULE_CRON, async () => {
-    const { startTime, endTime } = getHourlyWindowBounds(Date.now());
+  const cronExpr = `*/${env.ZKTLS_WINDOW_MINUTES} * * * *`;
+
+  cron.schedule(cronExpr, async () => {
+    const { startTime, endTime } = getWindowBounds(Date.now());
 
     try {
       const createdTasks = await ensureWindowTasks(startTime, endTime);
@@ -123,15 +124,15 @@ export async function startScheduler(): Promise<void> {
           endTime,
           createdTasks,
         },
-        '[scheduler] hourly window ensured',
+        '[scheduler] window ensured',
       );
     } catch (error) {
-      logger.error({ error, windowEnd: endTime }, '[scheduler] failed to ensure hourly window');
+      logger.error({ error, windowEnd: endTime }, '[scheduler] failed to ensure window');
     }
   });
 
   logger.info(
-    { zkTLSCron: ZKTLS_SCHEDULE_CRON, proofType: PROOF_TYPE },
+    { zkTLSCron: cronExpr, windowMinutes: env.ZKTLS_WINDOW_MINUTES, proofType: PROOF_TYPE },
     '[scheduler] cron job registered',
   );
 }
