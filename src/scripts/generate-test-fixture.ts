@@ -1,6 +1,10 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
+import mongoose from 'mongoose';
+
+import Task from '../db/task.js';
+import { env } from '../env.js';
 import { runZkTLSProcessor } from '../pipelines/zk-tls/processor.js';
 import type { NoirCircuitInput } from '../pipelines/types.js';
 
@@ -22,7 +26,22 @@ function toCompactFixture(input: NoirCircuitInput) {
   };
 }
 
-const input = await runZkTLSProcessor({
+await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+
+const task = await Task.createTask({
+  type: 'zkTLS',
+  pipelineId: new mongoose.Types.ObjectId(),
+  input: {
+    startTime: new Date(START_TIME),
+    endTime: new Date(END_TIME),
+    symbol: 'BTCUSDT',
+    proofType: 'binance-fills',
+    baseBalance: 100000000,
+    threshold: 50000000,
+  },
+});
+
+const input = await runZkTLSProcessor(task._id.toString(), {
   startTime: new Date(START_TIME),
   endTime: new Date(END_TIME),
   symbol: 'BTCUSDT',
@@ -32,5 +51,7 @@ const input = await runZkTLSProcessor({
 
 await fs.mkdir(path.dirname(FIXTURE_PATH), { recursive: true });
 await fs.writeFile(FIXTURE_PATH, JSON.stringify(toCompactFixture(input), null, 2));
+
+await mongoose.disconnect();
 
 console.log(`Fixture written to ${FIXTURE_PATH}`);

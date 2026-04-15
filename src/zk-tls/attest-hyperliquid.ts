@@ -5,17 +5,45 @@ import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 import { env } from '../env.js';
 import type { VerifiedHyperliquidAttestation } from './types.js';
 
-export async function attestHyperliquidUserFills(
+export const TASK_TIMEOUT_MS = 900_000;
+
+export interface PrimusSubmit {
+  taskId: string;
+  taskTxHash: string;
+  taskAttestors: string[];
+  submittedAt: number;
+}
+
+export interface PrimusAttest {
+  reportTxHash: string;
+}
+
+export interface PrimusCheckpoint {
+  submit: PrimusSubmit;
+  attest?: PrimusAttest;
+  verified?: VerifiedHyperliquidAttestation;
+}
+
+export async function primusSubmit(primus: PrimusNetwork): Promise<PrimusSubmit> {
+  const result = (await primus.submitTask({
+    address: env.PRIMUS_USER_ADDRESS,
+  })) as { taskId: string; taskTxHash: string; taskAttestors: string[] };
+
+  return {
+    taskId: result.taskId,
+    taskTxHash: result.taskTxHash,
+    taskAttestors: result.taskAttestors,
+    submittedAt: Date.now(),
+  };
+}
+
+export async function primusAttest(
   primus: PrimusNetwork,
-  CHAIN_ID: number,
+  submit: PrimusSubmit,
   symbol: string,
   startTime: number,
   endTime: number,
-): Promise<VerifiedHyperliquidAttestation> {
-  const PRIMUS_USER_ADDRESS = env.PRIMUS_USER_ADDRESS;
-  const BINANCE_API_URL = env.BINANCE_API_URL;
-  const BINANCE_API_KEY = env.BINANCE_API_KEY;
-  const BINANCE_API_SECRET = env.BINANCE_API_SECRET;
+): Promise<PrimusAttest> {
   const timestamp = Date.now();
   const queryString = new URLSearchParams({
     symbol,
@@ -24,67 +52,58 @@ export async function attestHyperliquidUserFills(
     recvWindow: '60000',
     timestamp: String(timestamp),
   }).toString();
-  const signature = createHmac('sha256', BINANCE_API_SECRET).update(queryString).digest('hex');
-  const url = `${BINANCE_API_URL}/fapi/v1/userTrades?${queryString}&signature=${signature}`;
+  const signature = createHmac('sha256', env.BINANCE_API_SECRET)
+    .update(queryString)
+    .digest('hex');
+  const url = `${env.BINANCE_API_URL}/fapi/v1/userTrades?${queryString}&signature=${signature}`;
 
-  const requests = [
-    {
-      url,
-      method: 'GET',
-      header: {
-        'X-MBX-APIKEY': BINANCE_API_KEY,
-      },
-      body: {},
-    },
-  ];
-
-  const responseResolves = [
-    [
+  const result = await primus.attest({
+    address: env.PRIMUS_USER_ADDRESS,
+    taskId: submit.taskId,
+    taskTxHash: submit.taskTxHash,
+    taskAttestors: submit.taskAttestors,
+    requests: [
       {
-        keyName: 'fills_commitment',
-        parseType: 'json',
-        parsePath: '$',
-        op: 'SHA256',
+        url,
+        method: 'GET',
+        header: { 'X-MBX-APIKEY': env.BINANCE_API_KEY },
+        body: {},
       },
     ],
-  ];
-
-  const submitTaskResult = await primus.submitTask({
-    address: PRIMUS_USER_ADDRESS,
-  });
-
-  const { taskId, taskTxHash, taskAttestors } = submitTaskResult as {
-    taskId: string;
-    taskTxHash: string;
-    taskAttestors: string[];
-  };
-  const attestResult = await primus.attest({
-    address: PRIMUS_USER_ADDRESS,
-    taskId,
-    taskTxHash,
-    taskAttestors,
-    requests,
-    responseResolves,
+    responseResolves: [
+      [
+        {
+          keyName: 'fills_commitment',
+          parseType: 'json',
+          parsePath: '$',
+          op: 'SHA256',
+        },
+      ],
+    ],
     extendedParams: JSON.stringify({ attUrlOptimization: true }),
     getAllJsonResponse: 'true',
-    attMode: {
-      algorithmType: 'mpctls',
-      resultType: 'plain',
-    },
+    attMode: { algorithmType: 'mpctls', resultType: 'plain' },
   });
 
-  const firstAttestResult = attestResult[0];
-  if (!firstAttestResult?.reportTxHash) {
+  const reportTxHash = result[0]?.reportTxHash;
+  if (!reportTxHash) {
     throw new Error('attestation_report_missing');
   }
-  const reportTxHash = firstAttestResult.reportTxHash;
+  return { reportTxHash };
+}
 
-  const verifiedResultraw = await primus.verifyAndPollTaskResult({
-    taskId,
-    reportTxHash,
+export async function primusVerify(
+  primus: PrimusNetwork,
+  submit: PrimusSubmit,
+  attest: PrimusAttest,
+  chainId: number,
+): Promise<VerifiedHyperliquidAttestation> {
+  const raw = await primus.verifyAndPollTaskResult({
+    taskId: submit.taskId,
+    reportTxHash: attest.reportTxHash,
   });
 
-  const verified = verifiedResultraw[0];
+  const verified = raw[0];
   if (!verified) {
     throw new Error('verified_result_missing');
   }
@@ -96,22 +115,17 @@ export async function attestHyperliquidUserFills(
 
   const attData = JSON.parse(attestation.data) as Record<string, unknown>;
   const fillsCommitment = attData['SHA256($)'];
-
   if (typeof fillsCommitment !== 'string') {
     throw new Error('invalid_fills_commitment');
   }
 
-  const verifiedHyperliquidAttestationResult = {
-    taskId,
-    reportTxHash,
+  return {
+    taskId: submit.taskId,
+    reportTxHash: attest.reportTxHash,
     attestor: verified.attestor,
     recipient: attestation.recipient,
-    chainId: CHAIN_ID,
-
+    chainId,
     fillsCommitment,
-
-    verifiedResult: JSON.stringify(verifiedResultraw, null),
+    verifiedResult: JSON.stringify(raw),
   };
-
-  return verifiedHyperliquidAttestationResult;
 }

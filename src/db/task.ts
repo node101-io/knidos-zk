@@ -21,6 +21,7 @@ interface TaskInterface {
   input: Record<string, unknown>;
   result?: unknown;
   error?: unknown;
+  primus?: unknown;
 }
 
 interface CreateTaskBody {
@@ -56,6 +57,8 @@ export interface TaskModel extends Model<TaskInterface> {
   markTaskQueued(taskId: string): Promise<void>;
 
   updateTaskStatus(body: UpdateTaskStatusBody, options?: UpdateTaskStatusOptions): Promise<void>;
+
+  setPrimusCheckpoint(taskId: string, checkpoint: unknown): Promise<void>;
 }
 
 const TaskSchema = new Schema<TaskInterface, TaskModel>({
@@ -98,6 +101,10 @@ const TaskSchema = new Schema<TaskInterface, TaskModel>({
     default: null,
   },
   error: {
+    type: Schema.Types.Mixed,
+    default: null,
+  },
+  primus: {
     type: Schema.Types.Mixed,
     default: null,
   },
@@ -187,6 +194,13 @@ TaskSchema.statics.updateTaskStatus = async function (
   }
 
   await Task.updateOne({ _id: body.taskId }, update);
+};
+
+TaskSchema.statics.setPrimusCheckpoint = async function (
+  taskId: string,
+  checkpoint: unknown,
+): Promise<void> {
+  await Task.updateOne({ _id: taskId }, { $set: { primus: checkpoint } });
 };
 
 const Task = mongoose.model<TaskInterface, TaskModel>('Task', TaskSchema);

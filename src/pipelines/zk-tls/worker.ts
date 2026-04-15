@@ -33,7 +33,7 @@ export async function processZkTLSJob(
     status: 'RUNNING',
   });
 
-  const result = await runZkTLSProcessor(parsedInput);
+  const result = await runZkTLSProcessor(taskId, parsedInput);
 
   const session = await mongoose.startSession();
 
