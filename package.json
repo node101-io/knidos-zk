@@ -10,6 +10,7 @@
     "node": "node --env-file=.env dist/src/app.js",
     "server": "node --env-file=.env dist/src/server.js",
     "tasks:retry": "tsx --env-file=.env src/scripts/retry-failed-tasks.ts",
+    "queue:status": "tsx --env-file=.env src/scripts/queue-status.ts",
     "dev:node": "tsx watch --env-file=.env src/app.ts",
     "dev:server": "tsx watch --env-file=.env src/server.ts",
     "format": "prettier --write .",
