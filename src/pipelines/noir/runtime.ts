@@ -6,14 +6,12 @@ import { promisify } from 'util';
 
 import { Noir, type InputMap } from '@noir-lang/noir_js';
 
+import { env } from '../../env.js';
 import logger from '../../shared/logger.js';
 
 const execFileAsync = promisify(execFile);
 
 const DEFAULT_BB_PATH = path.join(os.homedir(), '.bb', 'bb');
-const DEFAULT_NOIR_PROVING_SLOT_COUNT = 1;
-
-export const NOIR_PROVING_SLOT_COUNT = resolveNoirProvingSlotCount();
 
 type CompiledProgram = ConstructorParameters<typeof Noir>[0];
 
@@ -33,29 +31,13 @@ interface NoirRuntimeSlot {
 let sharedRuntimePromise: Promise<SharedNoirRuntime> | null = null;
 let sharedRuntimeReadyAt: number | null = null;
 const slotRuntimePromises: (Promise<NoirRuntimeSlot> | null)[] = Array.from(
-  { length: NOIR_PROVING_SLOT_COUNT },
+  { length: env.NOIR_PROVING_SLOT_COUNT },
   () => null,
 );
 const slotRuntimeReadyAt: (number | null)[] = Array.from(
-  { length: NOIR_PROVING_SLOT_COUNT },
+  { length: env.NOIR_PROVING_SLOT_COUNT },
   () => null,
 );
-
-function resolveNoirProvingSlotCount(): number {
-  const rawValue = process.env.NOIR_PROVING_SLOT_COUNT;
-  if (rawValue === undefined || rawValue.trim() === '') {
-    return DEFAULT_NOIR_PROVING_SLOT_COUNT;
-  }
-
-  const parsedValue = Number.parseInt(rawValue, 10);
-  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
-    throw new Error(
-      `[noir runtime] invalid NOIR_PROVING_SLOT_COUNT: expected a positive integer, got "${rawValue}"`,
-    );
-  }
-
-  return parsedValue;
-}
 
 function resolveBbPath(): string {
   const rawValue = process.env.BB_PATH;
@@ -68,12 +50,12 @@ function resolveBbPath(): string {
 
 function getParallelismMetadata(): { totalThreads: number; slotConcurrencyHint: number } {
   const totalThreads = Math.max(1, os.availableParallelism());
-  const slotConcurrencyHint = Math.max(1, Math.floor(totalThreads / NOIR_PROVING_SLOT_COUNT));
+  const slotConcurrencyHint = Math.max(1, Math.floor(totalThreads / env.NOIR_PROVING_SLOT_COUNT));
   return { totalThreads, slotConcurrencyHint };
 }
 
 function normalizeSlotId(workerId: number): number {
-  return ((workerId % NOIR_PROVING_SLOT_COUNT) + NOIR_PROVING_SLOT_COUNT) % NOIR_PROVING_SLOT_COUNT;
+  return ((workerId % env.NOIR_PROVING_SLOT_COUNT) + env.NOIR_PROVING_SLOT_COUNT) % env.NOIR_PROVING_SLOT_COUNT;
 }
 
 async function ensureExecutable(filePath: string): Promise<void> {
@@ -184,7 +166,7 @@ async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
       baseCircuitDir,
       bbPath,
       slotConcurrencyHint,
-      slotCount: NOIR_PROVING_SLOT_COUNT,
+      slotCount: env.NOIR_PROVING_SLOT_COUNT,
       totalThreads,
     },
     '[noir runtime] warmup: compiling circuit',
@@ -242,7 +224,7 @@ async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
       compileMs,
       numPublicInputs,
       slotConcurrencyHint,
-      slotCount: NOIR_PROVING_SLOT_COUNT,
+      slotCount: env.NOIR_PROVING_SLOT_COUNT,
       totalMs,
       totalThreads,
       vkBytes: vk.length,
@@ -326,11 +308,11 @@ export async function warmupNoirRuntime(): Promise<void> {
 
   await getSharedNoirRuntime();
   await Promise.all(
-    Array.from({ length: NOIR_PROVING_SLOT_COUNT }, (_, slotId) => getNoirRuntimeSlot(slotId)),
+    Array.from({ length: env.NOIR_PROVING_SLOT_COUNT }, (_, slotId) => getNoirRuntimeSlot(slotId)),
   );
 
   logger.info(
-    { slotCount: NOIR_PROVING_SLOT_COUNT, totalMs: Date.now() - startedAt },
+    { slotCount: env.NOIR_PROVING_SLOT_COUNT, totalMs: Date.now() - startedAt },
     '[noir runtime] warmup completed',
   );
 }

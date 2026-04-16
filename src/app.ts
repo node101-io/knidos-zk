@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 import { env } from './env.js';
-import { NOIR_PROVING_SLOT_COUNT, warmupNoirRuntime } from './pipelines/noir/runtime.js';
+import { warmupNoirRuntime } from './pipelines/noir/runtime.js';
 import { NoirMaster } from './pipelines/noir/master.js';
 import { noirQueue, processNoirJob } from './pipelines/noir/worker.js';
 import { ZkTLSMaster } from './pipelines/zk-tls/master.js';
@@ -40,7 +40,7 @@ try {
     queueName: noirQueue.name,
     workerLabel: 'noir',
     connection: redis,
-    workerCount: NOIR_PROVING_SLOT_COUNT,
+    workerCount: env.NOIR_PROVING_SLOT_COUNT,
     retryAttempts: RETRY_ATTEMPTS,
     retryBackoffMs: RETRY_BACKOFF_MS,
     lockDurationMs: 5 * 60 * 1000, // 5 minutes
