@@ -4,6 +4,17 @@ import type { ConnectionOptions } from 'bullmq';
 import Task from '../db/task.js';
 import logger from '../shared/logger.js';
 
+function extractErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'object' && err !== null) {
+    if ('message' in err && typeof (err as Record<string, unknown>).message === 'string') {
+      return (err as Record<string, unknown>).message as string;
+    }
+    return JSON.stringify(err);
+  }
+  return String(err);
+}
+
 export interface MasterConfig<JobData extends { taskId: string }> {
   queueName: string;
   workerLabel: string;
@@ -69,7 +80,7 @@ export abstract class Master<JobData extends { taskId: string }> {
 
       const attempts = typeof job.opts.attempts === 'number' ? Math.max(job.opts.attempts, 1) : 1;
       const willRetry = job.attemptsMade < attempts;
-      const errorMessage = err instanceof Error ? err.message : String(err);
+      const errorMessage = extractErrorMessage(err);
 
       try {
         await Task.updateTaskStatus({
