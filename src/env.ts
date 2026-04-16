@@ -38,6 +38,7 @@ export const env = createEnv({
       .default('info'),
     PORT: z.coerce.number().int().positive().default(3000),
     API_KEY: z.string().min(1, 'API_KEY cannot be empty'),
+    STATUS_PASSWORD: z.string().min(1, 'STATUS_PASSWORD cannot be empty'),
     BB_PATH: z.string().min(1).default(DEFAULT_BB_PATH),
     NOIR_PROVING_SLOT_COUNT: z.coerce.number().int().positive().default(1),
     ZKTLS_WINDOW_MINUTES: z.coerce

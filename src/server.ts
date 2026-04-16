@@ -1,12 +1,15 @@
 import { serve } from '@hono/node-server';
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { swaggerUI } from '@hono/swagger-ui';
+import { basicAuth } from 'hono/basic-auth';
 import { createMiddleware } from 'hono/factory';
 import mongoose from 'mongoose';
 import { Types } from 'mongoose';
 
 import VerificationRecord from './db/verification-record.js';
 import { env } from './env.js';
+import { renderNodeStatus } from './pages/node-status.js';
+import { getQueueStatus } from './services/queue-status.js';
 import logger from './shared/logger.js';
 import { redis } from './shared/redis.js';
 
@@ -216,6 +219,13 @@ app.openapi(getVkRoute, async (c) => {
     logger.error('[http] GET /api/vk/:hash failed');
     return c.json({ error: 'Internal Server Error' }, 500);
   }
+});
+
+app.use('/status', basicAuth({ username: 'admin', password: env.STATUS_PASSWORD }));
+
+app.get('/status', async (c) => {
+  const status = await getQueueStatus();
+  return c.html(renderNodeStatus(status));
 });
 
 app.openAPIRegistry.registerComponent('securitySchemes', 'ApiKeyAuth', {
