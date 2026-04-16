@@ -1,3 +1,6 @@
+import os from 'os';
+import path from 'path';
+
 import { createEnv } from '@t3-oss/env-core';
 import { utils as ethersUtils } from 'ethers';
 import { z } from 'zod';
@@ -9,6 +12,7 @@ const DEFAULT_RPC_URL = 'https://sepolia.base.org';
 const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017/node101-knidos-zk-trade';
 const DEFAULT_REDIS_HOST = '127.0.0.1';
 const DEFAULT_REDIS_PORT = 6379;
+const DEFAULT_BB_PATH = path.join(os.homedir(), '.bb', 'bb');
 
 export const env = createEnv({
   server: {
@@ -34,6 +38,7 @@ export const env = createEnv({
       .default('info'),
     PORT: z.coerce.number().int().positive().default(3000),
     API_KEY: z.string().min(1, 'API_KEY cannot be empty'),
+    BB_PATH: z.string().min(1).default(DEFAULT_BB_PATH),
     NOIR_PROVING_SLOT_COUNT: z.coerce.number().int().positive().default(1),
     ZKTLS_WINDOW_MINUTES: z.coerce
       .number()

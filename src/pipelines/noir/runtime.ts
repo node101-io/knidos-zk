@@ -11,8 +11,6 @@ import logger from '../../shared/logger.js';
 
 const execFileAsync = promisify(execFile);
 
-const DEFAULT_BB_PATH = path.join(os.homedir(), '.bb', 'bb');
-
 type CompiledProgram = ConstructorParameters<typeof Noir>[0];
 
 interface SharedNoirRuntime {
@@ -20,7 +18,6 @@ interface SharedNoirRuntime {
   artifactPath: string;
   vk: Uint8Array;
   numPublicInputs: number;
-  bbPath: string;
 }
 
 interface NoirRuntimeSlot {
@@ -38,15 +35,6 @@ const slotRuntimeReadyAt: (number | null)[] = Array.from(
   { length: env.NOIR_PROVING_SLOT_COUNT },
   () => null,
 );
-
-function resolveBbPath(): string {
-  const rawValue = process.env.BB_PATH;
-  if (rawValue === undefined || rawValue.trim() === '') {
-    return DEFAULT_BB_PATH;
-  }
-
-  return rawValue;
-}
 
 function getParallelismMetadata(): { totalThreads: number; slotConcurrencyHint: number } {
   const totalThreads = Math.max(1, os.availableParallelism());
@@ -156,15 +144,14 @@ async function cleanupDirectory(dirPath: string): Promise<void> {
 async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
   const startedAt = Date.now();
   const baseCircuitDir = path.resolve('circuit');
-  const bbPath = resolveBbPath();
   const { totalThreads, slotConcurrencyHint } = getParallelismMetadata();
 
-  await ensureExecutable(bbPath);
+  await ensureExecutable(env.BB_PATH);
 
   logger.info(
     {
       baseCircuitDir,
-      bbPath,
+      bbPath: env.BB_PATH,
       slotConcurrencyHint,
       slotCount: env.NOIR_PROVING_SLOT_COUNT,
       totalThreads,
@@ -195,7 +182,7 @@ async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
   if (vkCached) {
     logger.info('[noir runtime] warmup: vk cached, skipping write_vk');
   } else {
-    await runCommand(bbPath, [
+    await runCommand(env.BB_PATH, [
       'write_vk',
       '-s',
       'ultra_honk',
@@ -220,7 +207,7 @@ async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
 
   logger.info(
     {
-      bbPath,
+      bbPath: env.BB_PATH,
       compileMs,
       numPublicInputs,
       slotConcurrencyHint,
@@ -239,7 +226,6 @@ async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
     artifactPath,
     vk: new Uint8Array(vk),
     numPublicInputs,
-    bbPath,
   };
 }
 
@@ -356,7 +342,7 @@ export async function runProofPipeline(
     const witnessPath = path.join(tmpDir, 'witness.gz');
     await fs.writeFile(witnessPath, witness);
 
-    await runCommand(sharedRuntime.bbPath, [
+    await runCommand(env.BB_PATH, [
       'prove',
       '-s',
       'ultra_honk',
