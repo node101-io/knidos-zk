@@ -35,12 +35,10 @@ const VkPathParamsSchema = z
 
 const VerificationItemSchema = z
   .object({
-    settlement_time: z
-      .string()
-      .openapi({
-        description: 'ISO 8601 settlement timestamp',
-        example: '2026-01-01T00:00:00.000Z',
-      }),
+    settlement_time: z.string().openapi({
+      description: 'ISO 8601 settlement timestamp',
+      example: '2026-01-01T00:00:00.000Z',
+    }),
     tx_hash: z.string().openapi({ description: 'On-chain transaction hash' }),
     proof_url: z.string().url().openapi({ description: 'Link to zkVerify explorer' }),
     vk_hash: z.string().openapi({ description: 'SHA-256 hash of the verification key' }),

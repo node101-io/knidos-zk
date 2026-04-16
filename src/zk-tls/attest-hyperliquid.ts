@@ -52,9 +52,7 @@ export async function primusAttest(
     recvWindow: '60000',
     timestamp: String(timestamp),
   }).toString();
-  const signature = createHmac('sha256', env.BINANCE_API_SECRET)
-    .update(queryString)
-    .digest('hex');
+  const signature = createHmac('sha256', env.BINANCE_API_SECRET).update(queryString).digest('hex');
   const url = `${env.BINANCE_API_URL}/fapi/v1/userTrades?${queryString}&signature=${signature}`;
 
   const result = await primus.attest({

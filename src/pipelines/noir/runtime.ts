@@ -43,7 +43,10 @@ function getParallelismMetadata(): { totalThreads: number; slotConcurrencyHint: 
 }
 
 function normalizeSlotId(workerId: number): number {
-  return ((workerId % env.NOIR_PROVING_SLOT_COUNT) + env.NOIR_PROVING_SLOT_COUNT) % env.NOIR_PROVING_SLOT_COUNT;
+  return (
+    ((workerId % env.NOIR_PROVING_SLOT_COUNT) + env.NOIR_PROVING_SLOT_COUNT) %
+    env.NOIR_PROVING_SLOT_COUNT
+  );
 }
 
 async function ensureExecutable(filePath: string): Promise<void> {
