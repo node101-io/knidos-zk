@@ -1,5 +1,8 @@
 import mongoose, { Schema } from 'mongoose';
+import * as zkv from 'zkverifyjs';
 import type { zkVerifySession } from 'zkverifyjs';
+
+const { UltrahonkVariant } = zkv;
 
 import logger from '../shared/logger.js';
 import { computeVkHash } from '../shared/vk-hash.js';
@@ -53,7 +56,7 @@ RegisteredVkSchema.statics.findOrRegister = async function (args: {
   logger.info({ vkHash, network }, '[registered-vk] registering verification key on zkverify');
   const { transactionResult } = await session
     .registerVerificationKey()
-    .ultrahonk()
+    .ultrahonk({ variant: UltrahonkVariant.Plain })
     .execute(vk);
 
   const registration = await transactionResult;
