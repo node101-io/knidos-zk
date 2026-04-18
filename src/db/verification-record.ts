@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import mongoose, { Schema, Types } from 'mongoose';
 import type { VerifyTransactionInfo } from 'zkverifyjs';
 
@@ -6,6 +5,7 @@ import {
   SUPPORTED_BINANCE_SYMBOLS,
   type SupportedBinanceSymbol,
 } from '../shared/binance-symbols.js';
+import { computeVkHash } from '../shared/vk-hash.js';
 
 export interface VerificationRecordInterface {
   pipelineId: Types.ObjectId;
@@ -100,7 +100,7 @@ const VerificationRecordSchema = new Schema<VerificationRecordInterface>(
 
 VerificationRecordSchema.pre('save', function () {
   if (this.isModified('vk') || !this.vkHash) {
-    this.vkHash = createHash('sha256').update(this.vk).digest('hex');
+    this.vkHash = computeVkHash(this.vk);
   }
 });
 

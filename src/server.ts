@@ -6,6 +6,7 @@ import { createMiddleware } from 'hono/factory';
 import mongoose from 'mongoose';
 import { Types } from 'mongoose';
 
+import RegisteredVk from './db/registered-vk.js';
 import VerificationRecord from './db/verification-record.js';
 import { env } from './env.js';
 import { renderNodeStatus } from './pages/node-status.js';
@@ -143,7 +144,10 @@ const getVkRoute = createRoute({
 // --- app ---
 
 const PAGE_SIZE = 20;
-const ZKVERIFY_EXPLORER_BASE = 'https://zkverify-testnet.subscan.io/extrinsic';
+const ZKVERIFY_EXPLORER_BASE =
+  env.ZKVERIFY_NETWORK === 'mainnet'
+    ? 'https://zkverify.subscan.io/extrinsic'
+    : 'https://zkverify-testnet.subscan.io/extrinsic';
 const VK_CACHE_PREFIX = 'vk:';
 
 const apiKeyAuth = createMiddleware(async (c, next) => {
@@ -216,7 +220,7 @@ app.openapi(getVkRoute, async (c) => {
       return c.json({ vk_hash: hash, verification_key: cached }, 200);
     }
 
-    const record = await VerificationRecord.findOne({ vkHash: hash }, { vk: 1, vkHash: 1 });
+    const record = await RegisteredVk.findOne({ vkHash: hash }, { vk: 1 });
     if (!record) {
       return c.json({ error: 'Not Found' }, 404);
     }

@@ -27,6 +27,8 @@ export const env = createEnv({
     BINANCE_API_SECRET: z.string().min(1, 'BINANCE_API_SECRET cannot be empty'),
     BINANCE_SYMBOLS: binanceSymbolsSchema.default(DEFAULT_BINANCE_SYMBOLS),
     ZKVERIFY_SEED_PHRASE: z.string().min(1, 'ZKVERIFY_SEED_PHRASE cannot be empty'),
+    ZKVERIFY_NETWORK: z.enum(['volta', 'mainnet']).default('volta'),
+    ZKVERIFY_DOMAIN_ID: z.coerce.number().int().nonnegative().optional(),
     RPC_URL: z.url().default(DEFAULT_RPC_URL),
     PRIMUS_CHAIN_ID: z.coerce.number().int().positive().default(84532),
     MONGO_URI: z.string().min(1, 'MONGO_URI cannot be empty').default(DEFAULT_MONGO_URI),

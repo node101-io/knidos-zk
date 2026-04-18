@@ -35,6 +35,13 @@ vi.mock('../src/db/verification-record.js', () => ({
   },
 }));
 
+const mockRegisteredVkFindOne = vi.fn();
+vi.mock('../src/db/registered-vk.js', () => ({
+  default: {
+    findOne: (...args: unknown[]) => mockRegisteredVkFindOne(...args),
+  },
+}));
+
 vi.mock('../src/shared/logger.js', () => ({
   default: { info: vi.fn(), error: vi.fn() },
 }));
@@ -65,6 +72,7 @@ function makeRecord(txHash: string) {
 afterEach(() => {
   mockAggregate.mockReset();
   mockFindOne.mockReset();
+  mockRegisteredVkFindOne.mockReset();
   mockRedisGet.mockReset();
   mockRedisSet.mockReset();
 });
@@ -176,12 +184,12 @@ describe('GET /api/vk/:hash', () => {
     expect(res.status).toBe(200);
     expect(body.vk_hash).toBe('abc123');
     expect(body.verification_key).toBe('0xdeadbeef');
-    expect(mockFindOne).not.toHaveBeenCalled();
+    expect(mockRegisteredVkFindOne).not.toHaveBeenCalled();
   });
 
   it('falls back to MongoDB on cache miss and caches result', async () => {
     mockRedisGet.mockResolvedValueOnce(null);
-    mockFindOne.mockResolvedValueOnce({ vk: '0xcafe', vkHash: 'abc123' });
+    mockRegisteredVkFindOne.mockResolvedValueOnce({ vk: '0xcafe' });
     mockRedisSet.mockResolvedValueOnce('OK');
 
     const res = await get('/api/vk/abc123');
@@ -195,7 +203,7 @@ describe('GET /api/vk/:hash', () => {
 
   it('returns 404 when hash not found', async () => {
     mockRedisGet.mockResolvedValueOnce(null);
-    mockFindOne.mockResolvedValueOnce(null);
+    mockRegisteredVkFindOne.mockResolvedValueOnce(null);
 
     const res = await get('/api/vk/nonexistent');
     const body = await res.json();
