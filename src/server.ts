@@ -42,6 +42,14 @@ const VerificationItemSchema = z
       description: 'ISO 8601 settlement timestamp',
       example: '2026-01-01T00:00:00.000Z',
     }),
+    start_time: z.string().openapi({
+      description: 'ISO 8601 start timestamp for the proved trading window',
+      example: '2026-01-01T00:00:00.000Z',
+    }),
+    end_time: z.string().openapi({
+      description: 'ISO 8601 end timestamp for the proved trading window',
+      example: '2026-01-01T00:15:00.000Z',
+    }),
     tx_hash: z.string().openapi({ description: 'On-chain transaction hash' }),
     proof_url: z.string().url().openapi({ description: 'Link to zkVerify explorer' }),
     vk_hash: z.string().openapi({ description: 'SHA-256 hash of the verification key' }),
@@ -174,6 +182,8 @@ app.openapi(getVerificationsRoute, async (c) => {
               $project: {
                 _id: 0,
                 settlement_time: { $dateToString: { date: '$createdAt' } },
+                start_time: { $dateToString: { date: '$startTime' } },
+                end_time: { $dateToString: { date: '$endTime' } },
                 tx_hash: '$includedInBlock.txHash',
                 proof_url: { $concat: [ZKVERIFY_EXPLORER_BASE, '/', '$includedInBlock.txHash'] },
                 vk_hash: '$vkHash',

@@ -7,8 +7,8 @@ fn main(
     fillsCommitment: pub [Field; 2],
     rawFills: [u8; 8192],
     rawFillsLength: u32,
-    startTime: u64,
-    endTime: u64,
+    startTime: pub u64,
+    endTime: pub u64,
     baseBalance: i64,
     threshold: i64
 ) {

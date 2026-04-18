@@ -17,6 +17,10 @@ const itWithFixture = hasFixture ? it : it.skip;
 
 let noirResult: NoirProcessorResult | undefined;
 
+function toPaddedHex(value: bigint): string {
+  return `0x${value.toString(16).padStart(64, '0')}`;
+}
+
 function normalizeFixture(rawFixture: unknown): unknown {
   if (
     rawFixture !== null &&
@@ -60,6 +64,7 @@ describe('ZK proof pipeline', () => {
     expect(runtime.program).toBeDefined();
     expect(runtime.vk).toBeInstanceOf(Uint8Array);
     expect(runtime.vk.length).toBeGreaterThan(0);
+    expect(runtime.numPublicInputs).toBe(4);
   });
 
   itWithFixture('generates a proof', async () => {
@@ -74,7 +79,12 @@ describe('ZK proof pipeline', () => {
 
     expect(noirResult.proofHex).toMatch(/^0x[0-9a-f]+$/);
     expect(noirResult.vkHex).toMatch(/^0x[0-9a-f]+$/);
-    expect(noirResult.publicInputs.length).toBeGreaterThan(0);
+    expect(noirResult.publicInputs).toEqual([
+      toPaddedHex(BigInt(input.fillsCommitment[0]!)),
+      toPaddedHex(BigInt(input.fillsCommitment[1]!)),
+      toPaddedHex(BigInt(input.startTime)),
+      toPaddedHex(BigInt(input.endTime)),
+    ]);
   });
 
   itWithFixture('submits proof to zkVerify', async () => {

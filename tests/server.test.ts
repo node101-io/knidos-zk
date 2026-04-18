@@ -51,6 +51,8 @@ const getNoAuth = (path: string) => app.request(path);
 function makeRecord(txHash: string) {
   return {
     settlement_time: '2026-01-01T00:00:00.000Z',
+    start_time: '2025-12-31T23:45:00.000Z',
+    end_time: '2026-01-01T00:00:00.000Z',
     tx_hash: txHash,
     proof_url: `https://zkverify-testnet.subscan.io/extrinsic/${txHash}`,
     vk_hash: 'abc123',
@@ -150,6 +152,17 @@ describe('GET /api/verifications', () => {
 
     expect(body.data[0].vk_hash).toBeDefined();
     expect(body.data[0].verification_key).toBeUndefined();
+  });
+
+  it('returns named time window fields alongside public_inputs', async () => {
+    mockAggregate.mockResolvedValueOnce([{ data: [makeRecord('tx-1')], next: [] }]);
+
+    const res = await get('/api/verifications');
+    const body = await res.json();
+
+    expect(body.data[0].start_time).toBe('2025-12-31T23:45:00.000Z');
+    expect(body.data[0].end_time).toBe('2026-01-01T00:00:00.000Z');
+    expect(body.data[0].public_inputs).toEqual(['0x1']);
   });
 });
 
