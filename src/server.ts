@@ -253,8 +253,8 @@ const openApiDoc = {
   },
 };
 
-app.doc('/api/openapi', openApiDoc);
-app.doc('/api/openapi.json', openApiDoc);
+app.doc31('/api/openapi', openApiDoc);
+app.doc31('/api/openapi.json', openApiDoc);
 
 app.get('/api/docs', swaggerUI({ url: '/api/openapi' }));
 
