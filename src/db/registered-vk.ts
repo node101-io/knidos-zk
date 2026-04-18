@@ -67,7 +67,7 @@ RegisteredVkSchema.statics.findOrRegister = async function (args: {
   const upserted = await this.findOneAndUpdate(
     { vkHash, network },
     { $setOnInsert: { vkHash, vk, network, statementHash: registration.statementHash } },
-    { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
+    { returnDocument: 'after', upsert: true, runValidators: true, setDefaultsOnInsert: true },
   );
 
   logger.info(
