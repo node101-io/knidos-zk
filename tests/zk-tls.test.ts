@@ -1,19 +1,51 @@
 import mongoose from 'mongoose';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import Task from '../src/db/task.js';
-import { env } from '../src/env.js';
-import { runZkTLSProcessor } from '../src/pipelines/zk-tls/processor.js';
+interface StoredTask {
+  _id: mongoose.Types.ObjectId;
+  type: string;
+  pipelineId: mongoose.Types.ObjectId;
+  input: Record<string, unknown>;
+  primus: unknown;
+}
+
+const taskStore = new Map<string, StoredTask>();
+
+vi.mock('../src/db/task.js', () => {
+  const TaskMock = {
+    createTask: vi.fn(
+      async (body: {
+        type: string;
+        pipelineId: mongoose.Types.ObjectId;
+        input: Record<string, unknown>;
+      }): Promise<StoredTask> => {
+        const _id = new mongoose.Types.ObjectId();
+        const record: StoredTask = {
+          _id,
+          type: body.type,
+          pipelineId: body.pipelineId,
+          input: body.input,
+          primus: null,
+        };
+        taskStore.set(_id.toString(), record);
+        return record;
+      },
+    ),
+    findById: vi.fn((id: string) => ({
+      lean: async () => taskStore.get(id) ?? null,
+    })),
+    setPrimusCheckpoint: vi.fn(async (id: string, checkpoint: unknown) => {
+      const doc = taskStore.get(id);
+      if (doc) doc.primus = checkpoint;
+    }),
+  };
+  return { default: TaskMock };
+});
+
+const { default: Task } = await import('../src/db/task.js');
+const { runZkTLSProcessor } = await import('../src/pipelines/zk-tls/processor.js');
 
 describe('zk-tls processor', () => {
-  beforeAll(async () => {
-    await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
-  });
-
-  afterAll(async () => {
-    await mongoose.disconnect();
-  });
-
   it('fetches fills and produces valid NoirCircuitInput', async () => {
     const task = await Task.createTask({
       type: 'zkTLS',

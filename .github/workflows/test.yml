@@ -1,0 +1,32 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      PRIMUS_PRIVATE_KEY: '0x0000000000000000000000000000000000000000000000000000000000000001'
+      PRIMUS_USER_ADDRESS: '0x0000000000000000000000000000000000000001'
+      BINANCE_API_KEY: 'ci-dummy'
+      BINANCE_API_SECRET: 'ci-dummy'
+      ZKVERIFY_SEED_PHRASE: 'ci-dummy'
+      API_KEY: 'ci-dummy'
+      STATUS_PASSWORD: 'ci-dummy'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test

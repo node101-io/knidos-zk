@@ -19,7 +19,14 @@
     "format:check": "prettier --check .",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "test": "vitest run",
+    "test": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=unit",
+    "test:unit": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=unit",
+    "test:integration": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=integration",
+    "test:e2e": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=e2e",
+    "test:all": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run",
+    "test:coverage": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=unit --coverage",
+    "test:coverage:integration": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=unit --project=integration --coverage",
+    "test:coverage:all": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --coverage",
     "db:reset": "mongosh --eval 'db.dropDatabase()' node101-knidos-zk-trade && redis-cli FLUSHDB",
     "postinstall": "git submodule update --init && cd noir_json_parser && git apply --check ../patches/noir_json_parser.patch 2>/dev/null && git apply ../patches/noir_json_parser.patch || echo 'Patch already applied'"
   },
@@ -56,6 +63,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.5.2",
+    "@vitest/coverage-v8": "^4.1.4",
     "node-gyp": "^12.2.0",
     "oxlint": "^1.59.0",
     "prettier": "^3.8.1",

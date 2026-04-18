@@ -9,3 +9,4 @@ circuit/libs
 zkVerify/aggregation.json
 .DS_Store
 circuit-runs
+coverage
