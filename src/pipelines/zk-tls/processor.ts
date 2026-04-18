@@ -1,5 +1,4 @@
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
-import { ethers } from 'ethers';
 
 import Task from '../../db/task.js';
 import { env } from '../../env.js';
@@ -15,6 +14,7 @@ import {
   type PrimusCheckpoint,
 } from '../../zk-tls/attest-hyperliquid.js';
 import { getFillsCommitment } from '../../zk-tls/get-fills-commitment.js';
+import { getPrimus } from '../../zk-tls/primus-client.js';
 import type { VerifiedHyperliquidAttestation } from '../../zk-tls/types.js';
 import type { SupportedBinanceSymbol } from '../../shared/binance-symbols.js';
 import { toTimestampMs } from '../../shared/date-utils.js';
@@ -26,21 +26,6 @@ export interface ZkTLSProcessorInput {
   symbol: SupportedBinanceSymbol;
   baseBalance: number;
   threshold: number;
-}
-
-// Singleton so ethers tracks nonce internally across tasks
-let primusInstance: PrimusNetwork | null = null;
-
-async function getPrimus(): Promise<PrimusNetwork> {
-  if (primusInstance) return primusInstance;
-
-  const provider = new ethers.providers.JsonRpcProvider(env.RPC_URL);
-  const wallet = new ethers.Wallet(env.PRIMUS_PRIVATE_KEY, provider);
-
-  const primus = new PrimusNetwork();
-  await primus.init(wallet, env.PRIMUS_CHAIN_ID);
-  primusInstance = primus;
-  return primus;
 }
 
 async function resumePrimusFlow(
