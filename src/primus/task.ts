@@ -3,9 +3,6 @@ import { createHmac } from 'crypto';
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 
 import { env } from '../env.js';
-import type { VerifiedHyperliquidAttestation } from './types.js';
-
-export const TASK_TIMEOUT_MS = 900_000;
 
 export interface PrimusSubmit {
   taskId: string;
@@ -18,13 +15,17 @@ export interface PrimusAttest {
   reportTxHash: string;
 }
 
+// What we persist in the task doc between worker runs. `attest` is
+// optional because the crash boundary might land between submit and
+// attest; `verify` is not checkpointed because it is idempotent and
+// cheap — re-running it on resume reads the already-mined on-chain
+// result.
 export interface PrimusCheckpoint {
   submit: PrimusSubmit;
   attest?: PrimusAttest;
-  verified?: VerifiedHyperliquidAttestation;
 }
 
-export async function primusSubmit(primus: PrimusNetwork): Promise<PrimusSubmit> {
+export async function submitPrimusTaskRaw(primus: PrimusNetwork): Promise<PrimusSubmit> {
   const result = (await primus.submitTask({
     address: env.PRIMUS_USER_ADDRESS,
   })) as { taskId: string; taskTxHash: string; taskAttestors: string[] };
@@ -37,23 +38,23 @@ export async function primusSubmit(primus: PrimusNetwork): Promise<PrimusSubmit>
   };
 }
 
-export async function primusAttest(
+export async function attestPrimusTask(
   primus: PrimusNetwork,
   submit: PrimusSubmit,
   symbol: string,
-  startTime: number,
-  endTime: number,
+  startTimeMs: number,
+  endTimeMs: number,
 ): Promise<PrimusAttest> {
-  const timestamp = Date.now();
   const queryString = new URLSearchParams({
     symbol,
-    startTime: String(startTime),
-    endTime: String(endTime),
+    startTime: String(startTimeMs),
+    endTime: String(endTimeMs),
     recvWindow: '60000',
-    timestamp: String(timestamp),
+    timestamp: String(Date.now()),
   }).toString();
-  const signature = createHmac('sha256', env.BINANCE_API_SECRET).update(queryString).digest('hex');
-  const url = `${env.BINANCE_API_URL}/fapi/v1/userTrades?${queryString}&signature=${signature}`;
+  const signature = createHmac('sha256', env.BINANCE_API_SECRET)
+    .update(queryString)
+    .digest('hex');
 
   const result = await primus.attest({
     address: env.PRIMUS_USER_ADDRESS,
@@ -62,21 +63,14 @@ export async function primusAttest(
     taskAttestors: submit.taskAttestors,
     requests: [
       {
-        url,
+        url: `${env.BINANCE_API_URL}/fapi/v1/userTrades?${queryString}&signature=${signature}`,
         method: 'GET',
         header: { 'X-MBX-APIKEY': env.BINANCE_API_KEY },
         body: {},
       },
     ],
     responseResolves: [
-      [
-        {
-          keyName: 'fills_commitment',
-          parseType: 'json',
-          parsePath: '$',
-          op: 'SHA256',
-        },
-      ],
+      [{ keyName: 'fills_commitment', parseType: 'json', parsePath: '$', op: 'SHA256' }],
     ],
     extendedParams: JSON.stringify({ attUrlOptimization: true }),
     getAllJsonResponse: 'true',
@@ -90,40 +84,29 @@ export async function primusAttest(
   return { reportTxHash };
 }
 
-export async function primusVerify(
+// Returns the on-chain-verified fillsCommitment (SHA256 of the Binance
+// response body). Everything else the attestor signs about the task is
+// already captured in the task contract's on-chain state; we only read
+// the one piece Noir needs.
+export async function verifyPrimusTask(
   primus: PrimusNetwork,
   submit: PrimusSubmit,
   attest: PrimusAttest,
-  chainId: number,
-): Promise<VerifiedHyperliquidAttestation> {
+): Promise<string> {
   const raw = await primus.verifyAndPollTaskResult({
     taskId: submit.taskId,
     reportTxHash: attest.reportTxHash,
   });
 
   const verified = raw[0];
-  if (!verified) {
-    throw new Error('verified_result_missing');
-  }
+  if (!verified) throw new Error('verified_result_missing');
 
   const attestation = verified.attestation;
-  if (typeof attestation.data !== 'string') {
-    throw new Error('invalid_attestation_payload');
-  }
+  if (typeof attestation.data !== 'string') throw new Error('invalid_attestation_payload');
 
   const attData = JSON.parse(attestation.data) as Record<string, unknown>;
   const fillsCommitment = attData['SHA256($)'];
-  if (typeof fillsCommitment !== 'string') {
-    throw new Error('invalid_fills_commitment');
-  }
+  if (typeof fillsCommitment !== 'string') throw new Error('invalid_fills_commitment');
 
-  return {
-    taskId: submit.taskId,
-    reportTxHash: attest.reportTxHash,
-    attestor: verified.attestor,
-    recipient: attestation.recipient,
-    chainId,
-    fillsCommitment,
-    verifiedResult: JSON.stringify(raw),
-  };
+  return fillsCommitment;
 }

@@ -3,17 +3,7 @@ import type { ConnectionOptions } from 'bullmq';
 
 import Task from '../db/task.js';
 import logger from '../shared/logger.js';
-
-function extractErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (typeof err === 'object' && err !== null) {
-    if ('message' in err && typeof (err as Record<string, unknown>).message === 'string') {
-      return (err as Record<string, unknown>).message as string;
-    }
-    return JSON.stringify(err);
-  }
-  return String(err);
-}
+import { extractErrorMessage } from '../utils/error.js';
 
 export interface MasterConfig<JobData extends { taskId: string }> {
   queueName: string;

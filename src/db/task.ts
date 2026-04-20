@@ -7,7 +7,13 @@ import { parseTaskInput } from '../pipelines/validation.js';
 const MAX_INPUT_SIZE = 1e5;
 
 export type TaskType = 'zkTLS' | 'noir' | 'zkVerify';
-export type TaskStatus = 'PENDING' | 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+export type TaskStatus =
+  | 'PENDING'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'DEFERRED'
+  | 'COMPLETED'
+  | 'FAILED';
 
 interface TaskInterface {
   _id: Types.ObjectId;
@@ -15,6 +21,9 @@ interface TaskInterface {
   status: TaskStatus;
   queuedAt?: Date;
   attemptStartedAt?: Date;
+  deferUntil?: Date;
+  deferReason?: string;
+  deferCount?: number;
   finishedAt?: Date;
   failedAt?: Date;
   pipelineId: Types.ObjectId;
@@ -43,6 +52,9 @@ interface UpdateTaskStatusBody {
   status: TaskStatus;
   result?: unknown;
   error?: unknown;
+  deferUntil?: Date | null;
+  deferReason?: string | null;
+  deferCount?: number | null;
 }
 
 interface UpdateTaskStatusOptions {
@@ -71,12 +83,15 @@ const TaskSchema = new Schema<TaskInterface, TaskModel>({
   status: {
     type: String,
     required: true,
-    enum: ['PENDING', 'QUEUED', 'RUNNING', 'COMPLETED', 'FAILED'],
+    enum: ['PENDING', 'QUEUED', 'RUNNING', 'DEFERRED', 'COMPLETED', 'FAILED'],
     index: true,
     default: 'PENDING',
   },
   queuedAt: { type: Date },
   attemptStartedAt: { type: Date },
+  deferUntil: { type: Date, default: null },
+  deferReason: { type: String, default: null },
+  deferCount: { type: Number, default: 0 },
   finishedAt: { type: Date },
   failedAt: { type: Date },
   pipelineId: {
@@ -120,6 +135,8 @@ TaskSchema.index(
   },
 );
 
+TaskSchema.index({ type: 1, status: 1, deferUntil: 1, 'input.endTime': 1, _id: 1 });
+
 TaskSchema.statics.createTask = async function (
   body: CreateTaskBody,
   options?: CreateTaskOptions,
@@ -150,7 +167,17 @@ TaskSchema.statics.findTasksByPipelineId = function (
 };
 
 TaskSchema.statics.markTaskQueued = async function (taskId: string) {
-  await Task.updateOne({ _id: taskId }, { $set: { status: 'QUEUED', queuedAt: new Date() } });
+  await Task.updateOne({
+    _id: taskId,
+  }, {
+    $set: {
+      status: 'QUEUED',
+      queuedAt: new Date(),
+      attemptStartedAt: null,
+      deferUntil: null,
+      deferReason: null,
+    },
+  });
 };
 
 TaskSchema.statics.updateTaskStatus = async function (
@@ -159,6 +186,20 @@ TaskSchema.statics.updateTaskStatus = async function (
 ): Promise<void> {
   const $set: Record<string, unknown> = { status: body.status };
   const update: UpdateQuery<TaskInterface> = { $set };
+
+  if (body.status !== 'COMPLETED') {
+    $set.finishedAt = null;
+    if (body.result === undefined) $set.result = null;
+  }
+
+  if (body.status !== 'FAILED') {
+    $set.failedAt = null;
+  }
+
+  if (body.status !== 'DEFERRED') {
+    $set.deferUntil = null;
+    $set.deferReason = null;
+  }
 
   if (body.status === 'PENDING') {
     $set.queuedAt = null;
@@ -172,6 +213,14 @@ TaskSchema.statics.updateTaskStatus = async function (
 
   if (body.status === 'RUNNING') {
     $set.attemptStartedAt = new Date();
+    $set.queuedAt = null;
+  }
+
+  if (body.status === 'DEFERRED') {
+    $set.queuedAt = null;
+    $set.attemptStartedAt = null;
+    $set.deferUntil = body.deferUntil ?? null;
+    $set.deferReason = body.deferReason ?? null;
   }
 
   if (body.status === 'COMPLETED') {
@@ -182,6 +231,10 @@ TaskSchema.statics.updateTaskStatus = async function (
 
   if (body.status === 'FAILED') {
     $set.failedAt = new Date();
+  }
+
+  if (body.deferCount !== undefined) {
+    $set.deferCount = body.deferCount;
   }
 
   if (body.error !== undefined) {

@@ -8,32 +8,10 @@ import { PROOF_TYPE } from '../pipelines/types.js';
 import type { SupportedBinanceSymbol } from '../shared/binance-symbols.js';
 import { normalizeDateInput } from '../shared/date-utils.js';
 import logger from '../shared/logger.js';
-import { settleExpiredPrimusTasksAuto } from '../zk-tls/primus-settlement.js';
 import { getWindowBounds, getMissingSymbols, getWindowsToEnsure } from './scheduler-utils.js';
 
 const DEFAULT_BASE_BALANCE = 100000000;
 const DEFAULT_THRESHOLD = 50000000;
-
-let consecutiveSettleFailures = 0;
-
-async function settleWithHeartbeat(): Promise<void> {
-  try {
-    const { settled, toWithdrawWei } = await settleExpiredPrimusTasksAuto();
-    consecutiveSettleFailures = 0;
-    logger.info(
-      { settledCount: settled.length, toWithdrawWei },
-      settled.length > 0
-        ? '[scheduler] settled expired Primus tasks'
-        : '[scheduler] no expired Primus tasks to settle',
-    );
-  } catch (error) {
-    consecutiveSettleFailures += 1;
-    logger.error(
-      { error, consecutiveSettleFailures },
-      '[scheduler] primus settle failed (pipeline continues)',
-    );
-  }
-}
 
 async function ensureZkTLSTask(
   startTime: Date,
@@ -131,11 +109,9 @@ async function catchUpMissedSlots(): Promise<void> {
 }
 
 export async function startScheduler(): Promise<void> {
-  await settleWithHeartbeat();
   await catchUpMissedSlots();
 
   const cronExpr = `*/${env.ZKTLS_WINDOW_MINUTES} * * * *`;
-  const primusSettleCron = `*/${env.PRIMUS_SETTLE_MINUTES} * * * *`;
 
   cron.schedule(cronExpr, async () => {
     const { startTime, endTime } = getWindowBounds(Date.now());
@@ -155,13 +131,10 @@ export async function startScheduler(): Promise<void> {
     }
   });
 
-  cron.schedule(primusSettleCron, settleWithHeartbeat);
-
   logger.info(
     {
       zkTLSCron: cronExpr,
       windowMinutes: env.ZKTLS_WINDOW_MINUTES,
-      primusSettleCron: primusSettleCron,
       proofType: PROOF_TYPE,
     },
     '[scheduler] cron jobs registered',

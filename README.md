@@ -49,6 +49,8 @@ cp .env.example .env
 
 The runtime expects Binance Futures API credentials and a `BINANCE_SYMBOLS` CSV list in `.env`. The scheduler runs on a configurable interval (default every 15 minutes via `ZKTLS_WINDOW_MINUTES`), always proofs the previous full window, and fans out one independent proof pipeline per configured symbol. The internal proof type for that flow is `binance-fills`.
 
+`zkTLS` uses Primus-aware backpressure. The runtime defers tasks when Primus capacity is constrained and reclaims fees from timed-out tasks only when the backlog justifies the settlement gas.
+
 ## Build & Run
 
 ```bash
@@ -89,6 +91,17 @@ pnpm tasks:retry
 # Retry only specific pipeline types
 pnpm tasks:retry --type=zkTLS
 pnpm tasks:retry --type=zkTLS,noir
+
+# Show queue + task status across pipelines (PENDING, QUEUED, RUNNING, DEFERRED, ...)
+pnpm queue:status
+
+# Diagnostic: on-chain Primus state for the submitter address
+# (maxUnsettledTaskCount, timedOut tasks, oldest submittedAt, etc.)
+pnpm primus:status
+
+# Reclaim locked ETH from timed-out Primus tasks. No-ops (reverts) if
+# no task has passed its timeout — check `primus:status` first.
+pnpm primus:reclaim
 
 # Drop the MongoDB database and flush Redis
 pnpm db:reset

@@ -68,27 +68,29 @@ describe('zk-tls processor', () => {
       threshold: 50_000_000,
     });
 
-    expect(result).toBeDefined();
+    expect(result.action).toBe('completed');
+    if (result.action !== 'completed') throw new Error('expected completed result');
+    const input = result.input;
 
-    expect(result.fillsCommitment).toHaveLength(2);
-    const [fc0, fc1] = result.fillsCommitment;
+    expect(input.fillsCommitment).toHaveLength(2);
+    const [fc0, fc1] = input.fillsCommitment;
     expect(fc0).toEqual(expect.any(String));
     expect(fc1).toEqual(expect.any(String));
     expect(fc0!.length).toBeGreaterThan(0);
     expect(fc1!.length).toBeGreaterThan(0);
 
-    expect(result.rawFills).toHaveLength(8192);
-    for (const byte of result.rawFills) {
+    expect(input.rawFills).toHaveLength(8192);
+    for (const byte of input.rawFills) {
       expect(byte).toBeGreaterThanOrEqual(0);
       expect(byte).toBeLessThanOrEqual(255);
     }
 
-    expect(result.rawFillsLength).toBeGreaterThanOrEqual(0);
-    expect(result.rawFillsLength).toBeLessThanOrEqual(8192);
+    expect(input.rawFillsLength).toBeGreaterThanOrEqual(0);
+    expect(input.rawFillsLength).toBeLessThanOrEqual(8192);
 
-    expect(result.startTime).toBe(1769172979000);
-    expect(result.endTime).toBe(1769172996000);
-    expect(result.baseBalance).toBe(100_000_000);
-    expect(result.threshold).toBe(50_000_000);
+    expect(input.startTime).toBe(1769172979000);
+    expect(input.endTime).toBe(1769172996000);
+    expect(input.baseBalance).toBe(100_000_000);
+    expect(input.threshold).toBe(50_000_000);
   });
 });

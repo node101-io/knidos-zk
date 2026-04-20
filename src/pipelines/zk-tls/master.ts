@@ -8,42 +8,43 @@ export class ZkTLSMaster extends Master<ZkTLSJobData> {
   protected async handleTask(): Promise<void> {
     try {
       const { retryAttempts, retryBackoffMs } = this.config;
-      const pendingTasks = await Task.find({
+      const now = new Date();
+      const task = await Task.findOne({
         type: 'zkTLS',
-        status: 'PENDING',
-      }).limit(20);
+        $or: [{ status: 'PENDING' }, { status: 'DEFERRED', deferUntil: { $lte: now } }],
+      })
+        .sort({ 'input.endTime': 1, _id: 1 })
+        .exec();
 
-      if (pendingTasks.length === 0) {
+      if (!task) {
         await this.sleep(1000);
         return;
       }
 
-      for (const task of pendingTasks) {
-        await zkTLSQueue.add(
-          'zkTLS-job',
-          {
-            taskId: task._id.toString(),
-            input: task.input,
+      await zkTLSQueue.add(
+        'zkTLS-job',
+        {
+          taskId: task._id.toString(),
+          input: task.input,
+        },
+        {
+          jobId: task._id.toString(),
+          attempts: retryAttempts,
+          backoff: {
+            type: 'fixed',
+            delay: retryBackoffMs,
           },
-          {
-            jobId: task._id.toString(),
-            attempts: retryAttempts,
-            backoff: {
-              type: 'fixed',
-              delay: retryBackoffMs,
-            },
-            removeOnComplete: 100,
-            removeOnFail: 100,
-          },
-        );
+          removeOnComplete: 100,
+          removeOnFail: 100,
+        },
+      );
 
-        await Task.markTaskQueued(task._id.toString());
+      await Task.markTaskQueued(task._id.toString());
 
-        logger.info(
-          { taskId: task._id.toString() },
-          `[zkTLS master] queued task ${task._id.toString()}`,
-        );
-      }
+      logger.info(
+        { taskId: task._id.toString() },
+        `[zkTLS master] queued task ${task._id.toString()}`,
+      );
     } catch (error) {
       logger.error({ error }, '[zkTLS master] error');
       await this.sleep(1000);

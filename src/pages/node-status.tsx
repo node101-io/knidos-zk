@@ -1,10 +1,13 @@
 import type { HtmlEscapedString } from 'hono/utils/html';
 
-import type { QueueStatusResult } from '../services/queue-status.js';
+import type { DeferredTaskResult, QueueStatusResult } from '../services/queue-status.js';
 
-const HEADERS = ['PENDING', 'QUEUED', 'RUNNING', 'FAILED'] as const;
+const HEADERS = ['PENDING', 'QUEUED', 'RUNNING', 'DEFERRED', 'FAILED'] as const;
 
-export function renderNodeStatus(status: QueueStatusResult): HtmlEscapedString {
+export function renderNodeStatus(
+  status: QueueStatusResult,
+  deferredTasks: DeferredTaskResult[],
+): HtmlEscapedString {
   return (
     <html>
       <head>
@@ -34,6 +37,33 @@ export function renderNodeStatus(status: QueueStatusResult): HtmlEscapedString {
               ))}
             </tr>
           ))}
+        </table>
+        <h3>Deferred Tasks</h3>
+        <table>
+          <tr>
+            <th>taskId</th>
+            <th>pipeline</th>
+            <th>symbol</th>
+            <th>endTime</th>
+            <th>deferReason</th>
+            <th>deferUntil</th>
+          </tr>
+          {deferredTasks.length === 0 ? (
+            <tr>
+              <td colspan={6}>none</td>
+            </tr>
+          ) : (
+            deferredTasks.map((task) => (
+              <tr>
+                <td>{task.taskId}</td>
+                <td>{task.type}</td>
+                <td>{task.symbol ?? '-'}</td>
+                <td>{task.endTime?.toISOString() ?? '-'}</td>
+                <td>{task.deferReason ?? '-'}</td>
+                <td>{task.deferUntil?.toISOString() ?? '-'}</td>
+              </tr>
+            ))
+          )}
         </table>
       </body>
     </html>

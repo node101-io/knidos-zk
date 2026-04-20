@@ -10,7 +10,7 @@ import RegisteredVk from './db/registered-vk.js';
 import VerificationRecord from './db/verification-record.js';
 import { env } from './env.js';
 import { renderNodeStatus } from './pages/node-status.js';
-import { getQueueStatus } from './services/queue-status.js';
+import { getDeferredTasks, getQueueStatus } from './services/queue-status.js';
 import logger from './shared/logger.js';
 import { redis } from './shared/redis.js';
 
@@ -238,8 +238,8 @@ app.openapi(getVkRoute, async (c) => {
 app.use('/status', basicAuth({ username: 'admin', password: env.STATUS_PASSWORD }));
 
 app.get('/status', async (c) => {
-  const status = await getQueueStatus();
-  return c.html(renderNodeStatus(status));
+  const [status, deferredTasks] = await Promise.all([getQueueStatus(), getDeferredTasks()]);
+  return c.html(renderNodeStatus(status, deferredTasks));
 });
 
 app.openAPIRegistry.registerComponent('securitySchemes', 'ApiKeyAuth', {

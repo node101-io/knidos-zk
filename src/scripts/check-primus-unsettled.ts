@@ -1,8 +1,7 @@
 import { BigNumber } from 'ethers';
 
 import { env } from '../env.js';
-import { TOKEN_SYMBOL_ETH, getTaskContractAddress } from '../zk-tls/constants.js';
-import { getMaxUnsettledTaskCount, getTaskContract } from '../zk-tls/primus-client.js';
+import { TOKEN_SYMBOL_ETH, primusClient } from '../primus/client.js';
 
 const TaskStatusLabel: Record<number, string> = {
   0: 'Pending',
@@ -11,23 +10,21 @@ const TaskStatusLabel: Record<number, string> = {
   3: 'Expired',
 };
 
-const address = getTaskContractAddress(env.PRIMUS_CHAIN_ID);
+const contract = primusClient.contract();
 
 console.log(`RPC:                   ${env.RPC_URL}`);
 console.log(`Chain ID:              ${env.PRIMUS_CHAIN_ID}`);
-console.log(`TaskContract:          ${address}`);
+console.log(`TaskContract:          ${contract.address}`);
 console.log(`PRIMUS_USER_ADDRESS:   ${env.PRIMUS_USER_ADDRESS}`);
 console.log('');
 
-const contract = getTaskContract();
-
-const [maxCount, timeoutBN, totalTaskCount] = await Promise.all([
-  getMaxUnsettledTaskCount(),
-  contract.taskTimeout() as Promise<BigNumber>,
+const [maxCount, timeoutMs, totalTaskCount] = await Promise.all([
+  primusClient.maxUnsettledTaskCount(),
+  primusClient.taskTimeoutMs(),
   contract.taskCount() as Promise<BigNumber>,
 ]);
 
-const timeoutSec = timeoutBN.toNumber();
+const timeoutSec = Math.floor(timeoutMs / 1000);
 
 console.log(`maxUnsettledTaskCount: ${maxCount}`);
 console.log(`taskTimeout (sec):     ${timeoutSec} (${(timeoutSec / 60).toFixed(1)} min)`);

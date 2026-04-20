@@ -49,12 +49,6 @@ export const env = createEnv({
       .positive()
       .refine((n) => 60 % n === 0, 'ZKTLS_WINDOW_MINUTES must divide 60 evenly')
       .default(15),
-    PRIMUS_SETTLE_MINUTES: z.coerce
-      .number()
-      .int()
-      .positive()
-      .refine((n) => 60 % n === 0, 'PRIMUS_SETTLE_MINUTES must divide 60 evenly')
-      .default(15),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

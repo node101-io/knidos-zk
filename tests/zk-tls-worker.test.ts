@@ -1,0 +1,139 @@
+import mongoose from 'mongoose';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockFindById = vi.fn();
+const mockUpdateTaskStatus = vi.fn();
+const mockCreateTask = vi.fn();
+const mockRunZkTLSProcessor = vi.fn();
+
+vi.mock('../src/db/task.js', () => ({
+  default: {
+    findById: (...args: unknown[]) => mockFindById(...args),
+    updateTaskStatus: (...args: unknown[]) => mockUpdateTaskStatus(...args),
+    createTask: (...args: unknown[]) => mockCreateTask(...args),
+  },
+}));
+
+vi.mock('../src/pipelines/zk-tls/processor.js', () => ({
+  runZkTLSProcessor: (...args: unknown[]) => mockRunZkTLSProcessor(...args),
+}));
+
+vi.mock('mongoose', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('mongoose')>();
+  return {
+    ...actual,
+    default: {
+      ...actual.default,
+      startSession: vi.fn(async () => ({
+        withTransaction: vi.fn(async (callback: () => Promise<void>) => callback()),
+        endSession: vi.fn(),
+      })),
+    },
+    startSession: vi.fn(async () => ({
+      withTransaction: vi.fn(async (callback: () => Promise<void>) => callback()),
+      endSession: vi.fn(),
+    })),
+  };
+});
+
+const { processZkTLSJob } = await import('../src/pipelines/zk-tls/worker.js');
+
+function buildTask(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    _id: new mongoose.Types.ObjectId(),
+    status: 'QUEUED',
+    pipelineId: new mongoose.Types.ObjectId(),
+    deferCount: 0,
+    ...overrides,
+  };
+}
+
+function buildJob(taskId: string) {
+  return {
+    id: 'job-1',
+    data: {
+      taskId,
+      input: {
+        startTime: new Date('2026-01-01T00:00:00.000Z'),
+        endTime: new Date('2026-01-01T00:15:00.000Z'),
+        symbol: 'BTCUSDT',
+        proofType: 'binance-fills',
+        baseBalance: 100_000_000,
+        threshold: 50_000_000,
+      },
+    },
+  };
+}
+
+beforeEach(() => {
+  mockFindById.mockReset();
+  mockUpdateTaskStatus.mockReset();
+  mockCreateTask.mockReset();
+  mockRunZkTLSProcessor.mockReset();
+});
+
+describe('processZkTLSJob', () => {
+  it('marks rate-limited tasks as DEFERRED instead of FAILED', async () => {
+    const task = buildTask();
+    mockFindById.mockResolvedValue(task);
+    mockRunZkTLSProcessor.mockRejectedValue({
+      code: '00000',
+      message: 'Operation too frequent. Please try again later.',
+    });
+
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never);
+
+    expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(1, {
+      taskId: task._id.toString(),
+      status: 'RUNNING',
+    });
+    expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        taskId: task._id.toString(),
+        status: 'DEFERRED',
+        deferReason: 'primus_rate_limited',
+        deferCount: 1,
+      }),
+    );
+  });
+
+  it('preserves explicit defer decisions from the capacity manager', async () => {
+    const task = buildTask({ deferCount: 2 });
+    mockFindById.mockResolvedValue(task);
+    mockRunZkTLSProcessor.mockResolvedValue({
+      action: 'defer',
+      reason: 'primus_capacity_full_wait',
+      deferUntil: new Date('2026-01-01T00:20:00.000Z'),
+    });
+
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never);
+
+    expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        taskId: task._id.toString(),
+        status: 'DEFERRED',
+        deferReason: 'primus_capacity_full_wait',
+        deferCount: 3,
+        deferUntil: new Date('2026-01-01T00:20:00.000Z'),
+      }),
+    );
+  });
+
+  it('marks insufficient-funds errors as FAILED', async () => {
+    const task = buildTask();
+    mockFindById.mockResolvedValue(task);
+    mockRunZkTLSProcessor.mockRejectedValue(new Error('insufficient funds for intrinsic transaction cost'));
+
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never);
+
+    expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        taskId: task._id.toString(),
+        status: 'FAILED',
+      }),
+    );
+  });
+});

@@ -48,9 +48,12 @@ const input = await runZkTLSProcessor(task._id.toString(), {
   baseBalance: 100000000,
   threshold: 50000000,
 });
+if (input.action !== 'completed') {
+  throw new Error(`zkTLS processor deferred: ${input.reason}`);
+}
 
 await fs.mkdir(path.dirname(FIXTURE_PATH), { recursive: true });
-await fs.writeFile(FIXTURE_PATH, JSON.stringify(toCompactFixture(input), null, 2));
+await fs.writeFile(FIXTURE_PATH, JSON.stringify(toCompactFixture(input.input), null, 2));
 
 await mongoose.disconnect();
 
