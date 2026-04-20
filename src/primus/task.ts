@@ -1,8 +1,10 @@
 import { createHmac } from 'crypto';
 
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
+import { BigNumber, ethers } from 'ethers';
 
 import { env } from '../env.js';
+import { primusClient, TOKEN_SYMBOL_ETH } from './client.js';
 
 export interface PrimusSubmit {
   taskId: string;
@@ -25,15 +27,44 @@ export interface PrimusCheckpoint {
   attest?: PrimusAttest;
 }
 
-export async function submitPrimusTaskRaw(primus: PrimusNetwork): Promise<PrimusSubmit> {
-  const result = (await primus.submitTask({
-    address: env.PRIMUS_USER_ADDRESS,
-  })) as { taskId: string; taskTxHash: string; taskAttestors: string[] };
+// We attach a fixed attestorCount (matches the SDK's hardcoded value)
+// and set a gas ceiling tight enough to catch runaway state but loose
+// enough to cover contract-side variance. Historical on-chain average
+// is ~263k, max ~278k; 500k buys ~2x headroom.
+//
+// Why an explicit gasLimit at all: some Base Sepolia RPCs return
+// "intrinsic gas too high" on eth_estimateGas for txs that execute
+// fine (eth_call confirms success with the same calldata). Skipping
+// estimation removes our dependency on that code path. Unused gas is
+// not charged by the EVM.
+const ATTESTOR_COUNT = 1;
+const SUBMIT_GAS_LIMIT = 500_000;
+
+export async function submitPrimusTaskRaw(): Promise<PrimusSubmit> {
+  const contract = primusClient.contract();
+  const fee = (await contract.queryLatestFeeInfo(TOKEN_SYMBOL_ETH)) as {
+    primusFee: BigNumber;
+    attestorFee: BigNumber;
+  };
+  const totalFee = fee.primusFee.add(fee.attestorFee).mul(ATTESTOR_COUNT);
+
+  const tx = (await contract.submitTask(
+    env.PRIMUS_USER_ADDRESS,
+    '', // templateId — the SDK's default; the contract doesn't enforce a value
+    ATTESTOR_COUNT,
+    TOKEN_SYMBOL_ETH,
+    ethers.constants.AddressZero, // no callback
+    { value: totalFee, gasLimit: SUBMIT_GAS_LIMIT },
+  )) as ethers.ContractTransaction;
+
+  const receipt = await tx.wait();
+  const event = receipt.events?.find((e) => e.event === 'SubmitTask');
+  if (!event?.args) throw new Error('submit_task_event_missing');
 
   return {
-    taskId: result.taskId,
-    taskTxHash: result.taskTxHash,
-    taskAttestors: result.taskAttestors,
+    taskId: event.args.taskId as string,
+    taskTxHash: tx.hash,
+    taskAttestors: event.args.attestors as string[],
     submittedAt: Date.now(),
   };
 }

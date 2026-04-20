@@ -2,16 +2,13 @@ import { BigNumber } from 'ethers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockMaxUnsettledTaskCount = vi.fn();
-const mockSdk = vi.fn();
 const mockContract = vi.fn();
 const mockTaskTimeoutMs = vi.fn();
-const mockWithdrawBalance = vi.fn();
 
 vi.mock('../src/primus/client.js', () => ({
   TOKEN_SYMBOL_ETH: 0,
   primusClient: {
     userAddress: '0xuser',
-    sdk: (...args: unknown[]) => mockSdk(...args),
     contract: (...args: unknown[]) => mockContract(...args),
     maxUnsettledTaskCount: (...args: unknown[]) => mockMaxUnsettledTaskCount(...args),
     taskTimeoutMs: (...args: unknown[]) => mockTaskTimeoutMs(...args),
@@ -22,8 +19,14 @@ function buildTaskInfo(submittedAtSeconds: number) {
   return { submittedAt: BigNumber.from(submittedAtSeconds) };
 }
 
+// Builds an object that looks like a signer-connected ethers Contract
+// for the purposes of our tests: queryUnsettledTasks returns canned
+// shapes from `unsettled`; submitTask and withdrawBalance are provided
+// by the test to stub write-path behaviour.
 function buildContractMock(args: {
   unsettled: Array<{ totalCount: number; taskInfos: Array<{ submittedAt: BigNumber }> }>;
+  submitTask?: ReturnType<typeof vi.fn>;
+  withdrawBalance?: ReturnType<typeof vi.fn>;
 }) {
   return {
     queryUnsettledTasks: vi.fn().mockImplementation(async () => {
@@ -34,6 +37,32 @@ function buildContractMock(args: {
         totalCount: BigNumber.from(next.totalCount),
       };
     }),
+    submitTask: args.submitTask ?? vi.fn(),
+    withdrawBalance: args.withdrawBalance ?? vi.fn(),
+    queryLatestFeeInfo: vi.fn().mockResolvedValue({
+      primusFee: BigNumber.from(3),
+      attestorFee: BigNumber.from(7),
+    }),
+  };
+}
+
+// Submit returns a ContractTransaction whose .wait() receipt contains a
+// SubmitTask event. This mirrors what our code consumes.
+function fakeSubmitTx(taskId: string, attestors: string[]) {
+  return {
+    hash: '0xsubmit-tx',
+    wait: async () => ({
+      events: [{ event: 'SubmitTask', args: { taskId, attestors } }],
+    }),
+  };
+}
+
+function fakeWithdrawTx(settledTaskIds: string[]) {
+  return {
+    hash: '0xwithdraw-tx',
+    wait: async () => ({
+      events: [{ event: 'WithdrawBalance', args: { settledTaskIds } }],
+    }),
   };
 }
 
@@ -41,12 +70,9 @@ beforeEach(() => {
   vi.resetModules();
   vi.useRealTimers();
   mockMaxUnsettledTaskCount.mockReset();
-  mockSdk.mockReset();
   mockContract.mockReset();
   mockTaskTimeoutMs.mockReset();
-  mockWithdrawBalance.mockReset();
   mockMaxUnsettledTaskCount.mockResolvedValue(100);
-  mockSdk.mockResolvedValue({ withdrawBalance: mockWithdrawBalance } as never);
   mockTaskTimeoutMs.mockResolvedValue(900_000);
 });
 
@@ -54,33 +80,35 @@ describe('submitWithCapacity — capacity decisions', () => {
   it('submits when the wallet has free slots', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(1_776_538_500_000));
+    const submitTask = vi.fn().mockResolvedValue(fakeSubmitTx('0xtask', ['0xattestor']));
+    const withdrawBalance = vi.fn();
     const contract = buildContractMock({
       unsettled: [{ totalCount: 50, taskInfos: [buildTaskInfo(1_776_538_412)] }],
+      submitTask,
+      withdrawBalance,
     });
-    const submitTask = vi.fn().mockResolvedValue({
-      taskId: '0xtask',
-      taskTxHash: '0xtx',
-      taskAttestors: ['0xattestor'],
-    });
-    mockSdk.mockResolvedValue({ submitTask, withdrawBalance: mockWithdrawBalance } as never);
     mockContract.mockReturnValue(contract as never);
 
     const { submitWithCapacity } = await import('../src/primus/capacity.js');
-    const primus = await mockSdk();
-    const result = await submitWithCapacity(primus);
+    const result = await submitWithCapacity();
 
     expect(submitTask).toHaveBeenCalledTimes(1);
-    expect(mockWithdrawBalance).not.toHaveBeenCalled();
+    expect(withdrawBalance).not.toHaveBeenCalled();
     expect(result).toMatchObject({ taskId: '0xtask' });
   });
 
   it('reclaims when saturated with a full batch of timed-out tasks, then submits', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(9_999_999_999_000));
-    // First snapshot: 100 unsettled; 80 are timed-out (submittedAt too old).
-    // After reclaim: 20 unsettled, none timed-out.
+    // First snapshot: 100 unsettled; 80 are timed-out. After reclaim: 20.
     const oldSec = 9_999_000_000;
-    const recentSec = 9_999_999_000;
+    const recentSec = 9_999_999_999; // "now" — not timed out
+    const submitTask = vi.fn().mockResolvedValue(fakeSubmitTx('0xtask', ['0xattestor']));
+    const withdrawBalance = vi
+      .fn()
+      .mockResolvedValue(
+        fakeWithdrawTx(Array.from({ length: 80 }, (_, i) => `0xsettled-${i}`)),
+      );
     const contract = buildContractMock({
       unsettled: [
         {
@@ -95,22 +123,23 @@ describe('submitWithCapacity — capacity decisions', () => {
           taskInfos: Array.from({ length: 20 }, () => buildTaskInfo(recentSec)),
         },
       ],
+      submitTask,
+      withdrawBalance,
     });
-    const submitTask = vi.fn().mockResolvedValue({
-      taskId: '0xtask',
-      taskTxHash: '0xtx',
-      taskAttestors: ['0xattestor'],
-    });
-    mockWithdrawBalance.mockResolvedValue(Array.from({ length: 80 }, (_, i) => `0xsettled-${i}`));
-    mockSdk.mockResolvedValue({ submitTask, withdrawBalance: mockWithdrawBalance } as never);
     mockContract.mockReturnValue(contract as never);
 
     const { submitWithCapacity } = await import('../src/primus/capacity.js');
-    const primus = await mockSdk();
-    const result = await submitWithCapacity(primus);
+    const result = await submitWithCapacity();
 
-    expect(mockWithdrawBalance).toHaveBeenCalledTimes(1);
-    expect(mockWithdrawBalance).toHaveBeenCalledWith(0, 100);
+    expect(withdrawBalance).toHaveBeenCalledTimes(1);
+    const [tokenSymbol, limit, overrides] = withdrawBalance.mock.calls[0] as [
+      number,
+      number,
+      { gasLimit: number },
+    ];
+    expect(tokenSymbol).toBe(0);
+    expect(limit).toBe(100);
+    expect(overrides.gasLimit).toBe(3_000_000);
     expect(submitTask).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({ taskId: '0xtask' });
   });
@@ -119,15 +148,12 @@ describe('submitWithCapacity — capacity decisions', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(1_776_538_500_000));
     const contract = buildContractMock({
-      unsettled: [
-        { totalCount: 100, taskInfos: [buildTaskInfo(1_776_538_412)] },
-      ],
+      unsettled: [{ totalCount: 100, taskInfos: [buildTaskInfo(1_776_538_412)] }],
     });
     mockContract.mockReturnValue(contract as never);
 
     const { submitWithCapacity } = await import('../src/primus/capacity.js');
-    const primus = await mockSdk();
-    const result = await submitWithCapacity(primus);
+    const result = await submitWithCapacity();
 
     expect(result).toEqual({
       action: 'defer',
@@ -140,10 +166,9 @@ describe('submitWithCapacity — capacity decisions', () => {
   it('defers with batch_wait when saturated but batch is too small', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(9_999_999_999_000));
-    // 100 unsettled, 50 timed-out (< MIN_RECLAIM_BATCH = 80), 50 still active.
-    // timeoutSec=900, nowSec=9_999_999_999 → boundary is 9_999_999_099.
-    const oldSec = 9_999_000_000; // well past timeout
-    const activeSec = 9_999_999_999; // submitted right now, not timed out
+    const oldSec = 9_999_000_000;
+    const activeSec = 9_999_999_999;
+    const withdrawBalance = vi.fn();
     const contract = buildContractMock({
       unsettled: [
         {
@@ -154,42 +179,39 @@ describe('submitWithCapacity — capacity decisions', () => {
           ],
         },
       ],
+      withdrawBalance,
     });
     mockContract.mockReturnValue(contract as never);
 
     const { submitWithCapacity } = await import('../src/primus/capacity.js');
-    const primus = await mockSdk();
-    const result = await submitWithCapacity(primus);
+    const result = await submitWithCapacity();
 
     expect(result).toMatchObject({
       action: 'defer',
       reason: 'primus_capacity_batch_wait',
     });
-    expect(mockWithdrawBalance).not.toHaveBeenCalled();
+    expect(withdrawBalance).not.toHaveBeenCalled();
   });
 
   it('returns primus_capacity_retry when submit exhausts twice', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(1_776_538_500_000));
-    // Both evaluates see freeSlots > 0, but raw submitTask reverts with
-    // exhaust both times (a degenerate race).
-    const contract = buildContractMock({
-      unsettled: [
-        { totalCount: 50, taskInfos: [buildTaskInfo(1_776_538_412)] },
-        { totalCount: 50, taskInfos: [buildTaskInfo(1_776_538_412)] },
-      ],
-    });
     const exhaustError = {
       code: 'CALL_EXCEPTION',
       reason: 'unsettled task count exceed max count',
     };
     const submitTask = vi.fn().mockRejectedValue(exhaustError);
-    const primus = { submitTask, withdrawBalance: mockWithdrawBalance };
-    mockSdk.mockResolvedValue(primus as never);
+    const contract = buildContractMock({
+      unsettled: [
+        { totalCount: 50, taskInfos: [buildTaskInfo(1_776_538_412)] },
+        { totalCount: 50, taskInfos: [buildTaskInfo(1_776_538_412)] },
+      ],
+      submitTask,
+    });
     mockContract.mockReturnValue(contract as never);
 
     const { submitWithCapacity } = await import('../src/primus/capacity.js');
-    const result = await submitWithCapacity(primus as never);
+    const result = await submitWithCapacity();
 
     expect(submitTask).toHaveBeenCalledTimes(2);
     expect(result).toMatchObject({
@@ -200,13 +222,23 @@ describe('submitWithCapacity — capacity decisions', () => {
 });
 
 describe('reclaimTimedOutTasks', () => {
-  it('calls withdrawBalance with ETH and the max unsettled limit', async () => {
-    mockWithdrawBalance.mockResolvedValue(['0xsettled-1', '0xsettled-2']);
+  it('calls withdrawBalance with ETH, the max unsettled limit, and an explicit gasLimit', async () => {
+    const withdrawBalance = vi.fn().mockResolvedValue(fakeWithdrawTx(['0xsettled-1', '0xsettled-2']));
+    const contract = buildContractMock({ unsettled: [], withdrawBalance });
+    mockContract.mockReturnValue(contract as never);
+
     const { reclaimTimedOutTasks } = await import('../src/primus/capacity.js');
 
     const result = await reclaimTimedOutTasks();
 
-    expect(mockWithdrawBalance).toHaveBeenCalledWith(0, 100);
+    const [tokenSymbol, limit, overrides] = withdrawBalance.mock.calls[0] as [
+      number,
+      number,
+      { gasLimit: number },
+    ];
+    expect(tokenSymbol).toBe(0);
+    expect(limit).toBe(100);
+    expect(overrides.gasLimit).toBe(3_000_000);
     expect(result).toEqual({ settled: ['0xsettled-1', '0xsettled-2'] });
   });
 });

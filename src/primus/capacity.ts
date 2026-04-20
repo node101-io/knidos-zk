@@ -1,5 +1,4 @@
-import type { PrimusNetwork } from '@primuslabs/network-core-sdk';
-import { BigNumber } from 'ethers';
+import { BigNumber, ethers } from 'ethers';
 
 import logger from '../shared/logger.js';
 import { primusClient, TOKEN_SYMBOL_ETH } from './client.js';
@@ -32,11 +31,19 @@ import { submitPrimusTaskRaw, type PrimusSubmit } from './task.js';
 // where our view snapshot said "free slot" but the raw submitTask
 // reverted with capacity exhausted anyway. Usually indicates someone
 // else submitted in between.
+//
+// RECLAIM_GAS_LIMIT: ceiling for withdrawBalance. Historical max on
+// Base Sepolia is ~1.53M; 3M buys ~2x headroom. We set an explicit
+// gasLimit because some Base Sepolia RPCs incorrectly bail on
+// eth_estimateGas with "intrinsic gas too high" for txs that execute
+// fine on-chain (observed across public, Alchemy, Tenderly, drpc).
+// Unused gas is not charged by the EVM.
 
 const MIN_RECLAIM_BATCH = 80;
 const BATCH_WAIT_MS = 30_000;
 const GRACE_MS = 15_000;
 const CAPACITY_RETRY_DELAY_MS = 1_000;
+const RECLAIM_GAS_LIMIT = 3_000_000;
 
 // ---- Types -------------------------------------------------------------
 
@@ -65,16 +72,14 @@ function decideAction(s: Snapshot): 'submit' | 'reclaim' | CapacityDeferReason {
 
 // ---- Public API --------------------------------------------------------
 
-export async function submitWithCapacity(
-  primus: PrimusNetwork,
-): Promise<
+export async function submitWithCapacity(): Promise<
   PrimusSubmit | DeferredTaskDecision<CapacityDeferReason | 'primus_capacity_retry'>
 > {
   const first = await evaluate();
   if (first.kind === 'defer') return first.decision;
 
   try {
-    return await submitPrimusTaskRaw(primus);
+    return await submitPrimusTaskRaw();
   } catch (error) {
     if (!isPrimusCapacityExhaustedError(error)) throw error;
     // A race between our view-call snapshot and submitTask. Re-evaluate
@@ -82,7 +87,7 @@ export async function submitWithCapacity(
     const second = await evaluate({ sourceError: error });
     if (second.kind === 'defer') return second.decision;
     try {
-      return await submitPrimusTaskRaw(primus);
+      return await submitPrimusTaskRaw();
     } catch (retryError) {
       if (!isPrimusCapacityExhaustedError(retryError)) throw retryError;
       return deferTaskDecision({
@@ -98,12 +103,8 @@ export async function submitWithCapacity(
 // none are timed out, the contract reverts with "No task fee can be
 // withdrawn" — callers should catch that.
 export async function reclaimTimedOutTasks(): Promise<{ settled: string[] }> {
-  const [primus, limit] = await Promise.all([
-    primusClient.sdk(),
-    primusClient.maxUnsettledTaskCount(),
-  ]);
-  const settled = (await primus.withdrawBalance(TOKEN_SYMBOL_ETH, limit)) as string[];
-  return { settled };
+  const limit = await primusClient.maxUnsettledTaskCount();
+  return { settled: await withdrawTimedOut(limit) };
 }
 
 // ---- I/O shell ---------------------------------------------------------
@@ -124,9 +125,8 @@ async function evaluate(
     }
 
     if (action === 'reclaim') {
-      const primus = await primusClient.sdk();
       const limit = await primusClient.maxUnsettledTaskCount();
-      const settled = (await primus.withdrawBalance(TOKEN_SYMBOL_ETH, limit)) as string[];
+      const settled = await withdrawTimedOut(limit);
       const refreshed = await snapshot();
       log('reclaim', refreshed, { settledCount: settled.length });
       if (refreshed.freeSlots > 0) return { kind: 'proceed', snapshot: refreshed };
@@ -167,6 +167,16 @@ function deferFromSnapshot(
 
   log('defer', s, { reason, deferUntil });
   return deferTaskDecision({ reason, deferUntil, sourceError });
+}
+
+async function withdrawTimedOut(limit: number): Promise<string[]> {
+  const contract = primusClient.contract();
+  const tx = (await contract.withdrawBalance(TOKEN_SYMBOL_ETH, limit, {
+    gasLimit: RECLAIM_GAS_LIMIT,
+  })) as ethers.ContractTransaction;
+  const receipt = await tx.wait();
+  const event = receipt.events?.find((e) => e.event === 'WithdrawBalance');
+  return (event?.args?.settledTaskIds ?? []) as string[];
 }
 
 async function snapshot(): Promise<Snapshot> {

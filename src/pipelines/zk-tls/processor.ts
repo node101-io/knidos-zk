@@ -81,7 +81,7 @@ async function resumePrimusFlow(
   if (fresh?.submit) {
     submit = fresh.submit;
   } else {
-    const submitted = await submitWithCapacity(primus);
+    const submitted = await submitWithCapacity();
     if (isDeferredTaskDecision(submitted)) return submitted;
     submit = submitted;
     await Task.setPrimusCheckpoint(taskId, { submit });
