@@ -12,6 +12,7 @@ const CAPACITY_EXHAUSTED_MESSAGE = 'unsettled task count exceed max count';
 const TRANSIENT_RPC_TOKENS = [
   'timeout',
   'timed out',
+  'aborted', // AbortController timeout, e.g. Binance fetch hitting our 30s ceiling
   'econnreset',
   'econnrefused',
   'enotfound',
