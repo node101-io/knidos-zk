@@ -136,4 +136,30 @@ describe('processZkTLSJob', () => {
       }),
     );
   });
+
+  // Production INSUFFICIENT_FUNDS from ethers v5 is wrapped with a nested
+  // SERVER_ERROR. Before the classifier split, this was routed to DEFERRED
+  // via the 'server_error' transient token, causing a 60s retry loop.
+  it('marks wrapped ethers INSUFFICIENT_FUNDS errors as FAILED, not DEFERRED', async () => {
+    const task = buildTask();
+    mockFindById.mockResolvedValue(task);
+    mockRunZkTLSProcessor.mockRejectedValue({
+      code: 'INSUFFICIENT_FUNDS',
+      reason: 'insufficient funds for intrinsic transaction cost',
+      error: {
+        code: 'SERVER_ERROR',
+        body: '{"jsonrpc":"2.0","error":{"code":-32003,"message":"insufficient funds for gas * price + value: have X want Y"},"id":1}',
+      },
+    });
+
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never);
+
+    expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        taskId: task._id.toString(),
+        status: 'FAILED',
+      }),
+    );
+  });
 });

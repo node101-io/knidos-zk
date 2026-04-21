@@ -18,6 +18,16 @@ const TASK_CONTRACT_ADDRESSES: Record<number, string> = {
 // named constant so callers don't scatter magic numbers.
 export const TOKEN_SYMBOL_ETH = 0;
 
+// Base Sepolia's eth_gasPrice returns 1.505 gwei unconditionally, but
+// the actual basefee observed via eth_feeHistory is ~0.005 gwei.
+// ethers v5's default fee data pulls from eth_gasPrice, causing a
+// ~300x overpay on every tx (drained 0.132 ETH over 330 submits on
+// 2026-04-20). We pin our own caps: maxFeePerGas gives ~10x headroom
+// over observed basefee; priority is within the range eth_feeHistory
+// reports as typical reward (1-4 Mwei).
+export const MAX_FEE_PER_GAS_WEI = 50_000_000; // 0.05 gwei
+export const MAX_PRIORITY_FEE_PER_GAS_WEI = 2_000_000; // 0.002 gwei
+
 // Explicit fragment of the TaskContract ABI. Only the view/write methods
 // this codebase actually uses are listed. If the contract is upgraded
 // and renames or removes a field, ethers will fail at our boundary

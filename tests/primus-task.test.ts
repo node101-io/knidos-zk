@@ -12,6 +12,8 @@ const mockContract = vi.fn();
 
 vi.mock('../src/primus/client.js', () => ({
   TOKEN_SYMBOL_ETH: 0,
+  MAX_FEE_PER_GAS_WEI: 50_000_000,
+  MAX_PRIORITY_FEE_PER_GAS_WEI: 2_000_000,
   primusClient: {
     userAddress: '0xuser',
     contract: (...args: unknown[]) => mockContract(...args),
@@ -94,7 +96,7 @@ describe('submitPrimusTaskRaw', () => {
         number,
         number,
         string,
-        { value: BigNumber; gasLimit: number },
+        { value: BigNumber; gasLimit: number; maxFeePerGas: number; maxPriorityFeePerGas: number },
       ];
     expect(addr).toBe(env.PRIMUS_USER_ADDRESS);
     expect(templateId).toBe('');
@@ -103,6 +105,8 @@ describe('submitPrimusTaskRaw', () => {
     expect(callback).toBe('0x0000000000000000000000000000000000000000');
     expect(overrides.value.toNumber()).toBe(10); // 3 + 7
     expect(overrides.gasLimit).toBe(500_000);
+    expect(overrides.maxFeePerGas).toBe(50_000_000); // 0.05 gwei
+    expect(overrides.maxPriorityFeePerGas).toBe(2_000_000); // 0.002 gwei
 
     expect(result.taskId).toBe('0xtask');
     expect(result.taskTxHash).toBe('0xsubmit-tx');

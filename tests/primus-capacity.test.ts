@@ -7,6 +7,8 @@ const mockTaskTimeoutMs = vi.fn();
 
 vi.mock('../src/primus/client.js', () => ({
   TOKEN_SYMBOL_ETH: 0,
+  MAX_FEE_PER_GAS_WEI: 50_000_000,
+  MAX_PRIORITY_FEE_PER_GAS_WEI: 2_000_000,
   primusClient: {
     userAddress: '0xuser',
     contract: (...args: unknown[]) => mockContract(...args),
@@ -135,11 +137,13 @@ describe('submitWithCapacity — capacity decisions', () => {
     const [tokenSymbol, limit, overrides] = withdrawBalance.mock.calls[0] as [
       number,
       number,
-      { gasLimit: number },
+      { gasLimit: number; maxFeePerGas: number; maxPriorityFeePerGas: number },
     ];
     expect(tokenSymbol).toBe(0);
     expect(limit).toBe(100);
     expect(overrides.gasLimit).toBe(3_000_000);
+    expect(overrides.maxFeePerGas).toBe(50_000_000);
+    expect(overrides.maxPriorityFeePerGas).toBe(2_000_000);
     expect(submitTask).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({ taskId: '0xtask' });
   });
@@ -234,11 +238,13 @@ describe('reclaimTimedOutTasks', () => {
     const [tokenSymbol, limit, overrides] = withdrawBalance.mock.calls[0] as [
       number,
       number,
-      { gasLimit: number },
+      { gasLimit: number; maxFeePerGas: number; maxPriorityFeePerGas: number },
     ];
     expect(tokenSymbol).toBe(0);
     expect(limit).toBe(100);
     expect(overrides.gasLimit).toBe(3_000_000);
+    expect(overrides.maxFeePerGas).toBe(50_000_000);
+    expect(overrides.maxPriorityFeePerGas).toBe(2_000_000);
     expect(result).toEqual({ settled: ['0xsettled-1', '0xsettled-2'] });
   });
 });

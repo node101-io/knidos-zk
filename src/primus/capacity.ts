@@ -1,7 +1,12 @@
 import { BigNumber, ethers } from 'ethers';
 
 import logger from '../shared/logger.js';
-import { primusClient, TOKEN_SYMBOL_ETH } from './client.js';
+import {
+  MAX_FEE_PER_GAS_WEI,
+  MAX_PRIORITY_FEE_PER_GAS_WEI,
+  primusClient,
+  TOKEN_SYMBOL_ETH,
+} from './client.js';
 import {
   deferTaskDecision,
   getTransientRpcDelayMs,
@@ -173,6 +178,8 @@ async function withdrawTimedOut(limit: number): Promise<string[]> {
   const contract = primusClient.contract();
   const tx = (await contract.withdrawBalance(TOKEN_SYMBOL_ETH, limit, {
     gasLimit: RECLAIM_GAS_LIMIT,
+    maxFeePerGas: MAX_FEE_PER_GAS_WEI,
+    maxPriorityFeePerGas: MAX_PRIORITY_FEE_PER_GAS_WEI,
   })) as ethers.ContractTransaction;
   const receipt = await tx.wait();
   const event = receipt.events?.find((e) => e.event === 'WithdrawBalance');

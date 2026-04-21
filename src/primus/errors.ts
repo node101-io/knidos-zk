@@ -19,11 +19,23 @@ const TRANSIENT_RPC_TOKENS = [
   'etimedout',
   'network error',
   'socket hang up',
-  'server_error',
   'temporary',
   'gateway timeout',
   '503',
   '429',
+];
+
+// Errors that will keep reproducing until an operator intervenes.
+// Must be checked BEFORE TRANSIENT_RPC_TOKENS because ethers wraps
+// everything in a SERVER_ERROR code; the permanent reason only
+// shows up deeper in the error payload, and a looser "server_error"
+// transient match would mask it.
+const PERMANENT_FAILURE_TOKENS = [
+  'insufficient funds', // wallet balance too low — needs top-up
+  'insufficient_funds', // ethers-v5 error code
+  'nonce too low', // broken nonce tracking
+  'nonce_expired', // ethers-v5 error code
+  'replacement fee too low',
 ];
 
 export interface DeferredTaskDecision<Reason extends string = string> {
@@ -74,6 +86,11 @@ function isTransientPrimusRpc(error: unknown): boolean {
   return TRANSIENT_RPC_TOKENS.some((token) => text.includes(token));
 }
 
+function isPermanentFailure(error: unknown): boolean {
+  const text = normalizedErrorText(error);
+  return PERMANENT_FAILURE_TOKENS.some((token) => text.includes(token));
+}
+
 export function isPrimusCapacityExhaustedError(error: unknown): boolean {
   return normalizedErrorText(error).includes(CAPACITY_EXHAUSTED_MESSAGE);
 }
@@ -102,6 +119,13 @@ export function decideZkTLSError(
       deferUntil: new Date(now() + getRateLimitDelayMs(args.currentDeferCount)),
       sourceError: error,
     });
+  }
+
+  // Permanent failures are checked before transient so that ethers'
+  // generic SERVER_ERROR wrapper on an INSUFFICIENT_FUNDS (or similar)
+  // error doesn't accidentally loop-defer forever.
+  if (isPermanentFailure(error)) {
+    return { action: 'fail' };
   }
 
   if (isTransientPrimusRpc(error)) {

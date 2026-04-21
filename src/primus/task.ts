@@ -4,7 +4,12 @@ import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 import { BigNumber, ethers } from 'ethers';
 
 import { env } from '../env.js';
-import { primusClient, TOKEN_SYMBOL_ETH } from './client.js';
+import {
+  MAX_FEE_PER_GAS_WEI,
+  MAX_PRIORITY_FEE_PER_GAS_WEI,
+  primusClient,
+  TOKEN_SYMBOL_ETH,
+} from './client.js';
 
 export interface PrimusSubmit {
   taskId: string;
@@ -54,7 +59,12 @@ export async function submitPrimusTaskRaw(): Promise<PrimusSubmit> {
     ATTESTOR_COUNT,
     TOKEN_SYMBOL_ETH,
     ethers.constants.AddressZero, // no callback
-    { value: totalFee, gasLimit: SUBMIT_GAS_LIMIT },
+    {
+      value: totalFee,
+      gasLimit: SUBMIT_GAS_LIMIT,
+      maxFeePerGas: MAX_FEE_PER_GAS_WEI,
+      maxPriorityFeePerGas: MAX_PRIORITY_FEE_PER_GAS_WEI,
+    },
   )) as ethers.ContractTransaction;
 
   const receipt = await tx.wait();
