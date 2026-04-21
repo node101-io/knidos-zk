@@ -112,8 +112,7 @@ export async function attestPrimusTask(
       [{ keyName: 'fills_commitment', parseType: 'json', parsePath: '$', op: 'SHA256' }],
     ],
     extendedParams: JSON.stringify({ attUrlOptimization: true }),
-    getAllJsonResponse: 'true',
-    attMode: { algorithmType: 'mpctls', resultType: 'plain' },
+    attMode: { algorithmType: 'mpctls', resultType: 'cipher' },
   });
 
   const reportTxHash = result[0]?.reportTxHash;

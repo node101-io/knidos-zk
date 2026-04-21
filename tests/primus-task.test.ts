@@ -141,6 +141,8 @@ describe('attestPrimusTask', () => {
         taskAttestors: string[];
         requests: Array<{ url: string; header: Record<string, string>; method: string }>;
         responseResolves: unknown;
+        extendedParams?: string;
+        attMode?: { algorithmType: string; resultType: string };
       };
       expect(call.taskId).toBe(submit.taskId);
       expect(call.taskTxHash).toBe(submit.taskTxHash);
@@ -160,6 +162,9 @@ describe('attestPrimusTask', () => {
       expect(call.responseResolves).toEqual([
         [{ keyName: 'fills_commitment', parseType: 'json', parsePath: '$', op: 'SHA256' }],
       ]);
+      expect(call.extendedParams).toBe(JSON.stringify({ attUrlOptimization: true }));
+      expect(call).not.toHaveProperty('getAllJsonResponse');
+      expect(call.attMode).toEqual({ algorithmType: 'mpctls', resultType: 'cipher' });
       expect(result.reportTxHash).toBe('0xreport-tx');
     } finally {
       vi.useRealTimers();

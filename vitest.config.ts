@@ -51,11 +51,20 @@ export default defineConfig({
       },
       {
         test: {
-          name: 'e2e',
+          name: 'e2e-zktls',
           pool: 'forks',
           testTimeout: SLOW_TIMEOUT,
           hookTimeout: SLOW_TIMEOUT,
-          include: ['tests/zk-tls.test.ts', 'tests/zk-verify.test.ts'],
+          include: ['tests/zk-tls.test.ts'],
+        },
+      },
+      {
+        test: {
+          name: 'e2e-zkverify',
+          pool: 'forks',
+          testTimeout: SLOW_TIMEOUT,
+          hookTimeout: SLOW_TIMEOUT,
+          include: ['tests/zk-verify.test.ts'],
           globalSetup: [NOIR_GLOBAL_SETUP],
         },
       },

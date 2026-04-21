@@ -23,7 +23,7 @@
     "test": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=unit",
     "test:unit": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=unit",
     "test:integration": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=integration",
-    "test:e2e": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=e2e",
+    "test:e2e": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=e2e-zktls --project=e2e-zkverify",
     "test:all": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run",
     "test:coverage": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=unit --coverage",
     "test:coverage:integration": "NODE_OPTIONS='--disable-warning=DEP0040' vitest run --project=unit --project=integration --coverage",
