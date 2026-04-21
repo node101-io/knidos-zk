@@ -55,7 +55,8 @@ RUN pnpm exec tsc \
 
 # ======================================
 # runtime: minimal image, no build tools, non-root user
-# Runtime deps only: git (for nargo git-based deps), jq (for bb), ca-certs
+# Runtime deps: curl (bb downloads SRS data on first run), git (nargo git deps),
+# jq (bb output parsing), ca-certs
 # ======================================
 FROM node:22-trixie-slim AS runtime
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -67,7 +68,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update \
  && apt-get install -y --no-install-recommends \
-      ca-certificates git jq \
+      ca-certificates curl git jq \
  && rm -rf /var/lib/apt/lists/*
 
 # Toolchain binaries to a world-readable location so non-root user can exec them
