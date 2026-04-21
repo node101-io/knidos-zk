@@ -66,6 +66,55 @@ pnpm dev:node
 
 The Noir proving worker count defaults to `1` and can be overridden with `NOIR_PROVING_SLOT_COUNT`.
 
+## Production deployment (Docker)
+
+The repo ships with a multi-stage `Dockerfile` and `docker-compose.yml` that run the daemon (`node`), the HTTP server (`server`), and a local Redis. MongoDB is expected to be external (Atlas). Docker engine + compose plugin are the only host prerequisites — `nargo`, `bb`, Node, pnpm are all baked into the image.
+
+### First-time deploy
+
+```bash
+git clone <repo> /root/knidos-zk && cd /root/knidos-zk
+git submodule update --init
+cp .env.example .env   # fill in Atlas MONGO_URI, Primus keys, etc.
+
+docker compose up -d --build
+docker compose ps      # redis healthy, node + server running
+```
+
+Make sure the server's public IP is whitelisted in Atlas Network Access.
+
+### Updating after a code change
+
+```bash
+cd /root/knidos-zk
+git pull
+git submodule update --init   # only if submodule changed
+
+docker compose up -d --build
+```
+
+`--build` rebuilds the image (cached layers reused, usually ~30–60s) and `up -d` recreates only the services whose image changed. Redis stays up. Downtime per service is ~5–10s (plus ~30s Noir warmup on the `node` daemon).
+
+### Rollback
+
+```bash
+git checkout <previous-sha>
+docker compose up -d --build
+```
+
+### Operational commands
+
+```bash
+docker compose ps                          # service status
+docker compose logs -f node                # daemon logs (wide events)
+docker compose logs -f server              # HTTP server logs
+docker compose logs --since 1h node | jq 'select(.event=="task.attempt")'
+docker compose restart node                # restart single service
+docker compose down                        # stop everything
+```
+
+Docker engine is enabled on boot (`systemctl enable docker`) and `restart: unless-stopped` in compose handles crashes and reboots — no PM2 or dedicated systemd unit required.
+
 ## Lint & Format
 
 ```bash
