@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+circuit/target
+.env
+.env.local
+.DS_Store
+.vscode
+.idea
+*.log
+tests
+.github
+ecosystem.config.cjs
+.git
