@@ -22,8 +22,7 @@ services:
       REDIS_PORT: "6379"
       NODE_ENV: production
     depends_on:
-      redis:
-        condition: service_healthy
+      - redis
     volumes:
       - circuit-target:/app/circuit/target
     command: ["node", "dist/src/app.js"]
@@ -40,10 +39,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      redis:
-        condition: service_healthy
-      node:
-        condition: service_started
+      - redis
+      - node
     command: ["node", "dist/src/server.js"]
     deploy:
       replicas: 1
