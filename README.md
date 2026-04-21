@@ -68,13 +68,18 @@ The Noir proving worker count defaults to `1` and can be overridden with `NOIR_P
 
 ## Production deployment (Docker Swarm)
 
-Production uses Docker's built-in Swarm mode on a single node. Swarm gives us zero-downtime rolling updates for the HTTP `server` (via `update_config.order: start-first` with healthchecks) while keeping the same `docker-compose.yml` we use for builds. MongoDB is external (Atlas); the stack runs `node` (daemon), `server` (HTTP), and a local `redis`. `nargo`, `bb`, Node, and pnpm are baked into the image — Docker engine is the only host prerequisite.
+Production uses Docker's built-in Swarm mode on a single node. Swarm gives us zero-downtime rolling updates for the HTTP `server` (via `update_config.order: start-first` with healthchecks) while keeping the same `docker-compose.yml` we use for builds. MongoDB is external (Atlas); the stack runs `node` (daemon), `server` (HTTP), and a local `redis`. `nargo`, `bb`, Node, and pnpm are baked into the image — Docker engine (with compose plugin) and `jq` are the only host prerequisites (jq is used by the one-time host-setup script below).
 
 ### First-time deploy
 
 ```bash
 git clone <repo> /root/knidos-zk && cd /root/knidos-zk
 git submodule update --init
+
+# One-time host DNS fix for systemd-resolved + Docker overlay compat.
+# Idempotent — safe to re-run. See host-setup.sh for details.
+sudo ./host-setup.sh
+
 cp .env.example .env   # fill in Atlas MONGO_URI, Primus keys, etc.
 
 docker swarm init                                      # one-time, enables swarm mode
