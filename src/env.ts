@@ -38,6 +38,8 @@ export const env = createEnv({
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
+    AXIOM_TOKEN: z.string().min(1, 'AXIOM_TOKEN cannot be empty').optional(),
+    AXIOM_DATASET: z.string().min(1, 'AXIOM_DATASET cannot be empty').optional(),
     PORT: z.coerce.number().int().positive().default(3000),
     API_KEY: z.string().min(1, 'API_KEY cannot be empty'),
     STATUS_PASSWORD: z.string().min(1, 'STATUS_PASSWORD cannot be empty'),

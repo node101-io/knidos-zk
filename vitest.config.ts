@@ -30,6 +30,7 @@ export default defineConfig({
             'tests/primus-capacity.test.ts',
             'tests/scheduler-utils.test.ts',
             'tests/validation.test.ts',
+            'tests/logger.test.ts',
             'tests/server.test.ts',
             'tests/zk-tls-master.test.ts',
             'tests/zk-tls-worker.test.ts',

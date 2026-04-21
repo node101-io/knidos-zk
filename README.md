@@ -51,6 +51,8 @@ The runtime expects Binance Futures API credentials and a `BINANCE_SYMBOLS` CSV 
 
 `zkTLS` uses Primus-aware backpressure. The runtime defers tasks when Primus capacity is constrained and reclaims fees from timed-out tasks only when the backlog justifies the settlement gas.
 
+Production logs always go to `stdout`. If `AXIOM_TOKEN` and `AXIOM_DATASET` are both set, production also ships the same JSON logs to Axiom using the official Pino transport. The recommended dataset name is `knidos-zk-logs`.
+
 ## Build & Run
 
 ```bash
@@ -87,6 +89,15 @@ docker compose build                                   # build image from Docker
 docker stack deploy -c docker-compose.yml knidos       # deploy stack
 docker stack services knidos                           # should show redis + node + server running
 ```
+
+If you want Axiom shipping in production, add these to the host `.env` before deploy:
+
+```bash
+AXIOM_TOKEN=...
+AXIOM_DATASET=knidos-zk-logs
+```
+
+Create the dataset as an `Events` dataset and generate an ingest-only API token in Axiom. A simple first monitor in the Axiom UI is `service == "knidos-zk"` with `severity in ["ERROR","CRITICAL"]`.
 
 > **`.env` quoting gotcha**: Docker Swarm's `env_file` parser does **not** strip surrounding double quotes from values (unlike `docker compose`). Write values unquoted — e.g. `PRIMUS_PRIVATE_KEY=0xabc...`, not `PRIMUS_PRIVATE_KEY="0xabc..."`. Quick sweep to clean an existing `.env`:
 >
