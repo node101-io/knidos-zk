@@ -84,6 +84,11 @@ COPY --from=builder --chown=node:node /app/noir_json_parser ./noir_json_parser
 COPY --from=builder --chown=node:node /app/package.json ./package.json
 COPY --chown=node:node circuit ./circuit
 
+# Pre-create the circuit/target mount point so the named volume inherits
+# node:node ownership on first mount (otherwise volume defaults to root:root
+# and nargo compile hits EACCES trying to write the compiled artifact).
+RUN mkdir -p /app/circuit/target && chown node:node /app/circuit/target
+
 USER node
 
 EXPOSE 3000
