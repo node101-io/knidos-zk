@@ -5,7 +5,7 @@ import Task from '../../db/task.js';
 import { redis } from '../../shared/redis.js';
 import type { TaskEventCtx } from '../../shared/task-event.js';
 import { classifyError, decideZkTLSError } from '../../primus/errors.js';
-import { extractErrorMessage, serializeError } from '../../utils/error.js';
+import { serializeError } from '../../utils/error.js';
 import type { ZkTLSJobData } from '../types.js';
 import { parseZkTLSJobInput } from '../validation.js';
 import { runZkTLSProcessor } from './processor.js';
@@ -36,7 +36,7 @@ async function recordOutcome(task: TaskRecord, outcome: Outcome, ctx: TaskEventC
       deferUntil: outcome.deferUntil.toISOString(),
       deferCount,
       errorClass: classifyError(outcome.error),
-      errorMessage: extractErrorMessage(outcome.error),
+      error: serializeError(outcome.error),
     });
     return;
   }
@@ -48,7 +48,7 @@ async function recordOutcome(task: TaskRecord, outcome: Outcome, ctx: TaskEventC
   ctx.set({
     outcome: 'failed',
     errorClass: classifyError(outcome.error),
-    errorMessage: extractErrorMessage(outcome.error),
+    error: serializeError(outcome.error),
   });
 }
 

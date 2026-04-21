@@ -28,6 +28,7 @@ export default defineConfig({
           include: [
             'tests/primus-task.test.ts',
             'tests/primus-capacity.test.ts',
+            'tests/error-utils.test.ts',
             'tests/scheduler-utils.test.ts',
             'tests/validation.test.ts',
             'tests/logger.test.ts',

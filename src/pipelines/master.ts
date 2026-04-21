@@ -5,7 +5,7 @@ import Task from '../db/task.js';
 import { classifyError } from '../primus/errors.js';
 import logger from '../shared/logger.js';
 import { createTaskEventCtx, type TaskEventCtx } from '../shared/task-event.js';
-import { extractErrorMessage } from '../utils/error.js';
+import { serializeError } from '../utils/error.js';
 
 export interface MasterConfig<JobData extends { taskId: string }> {
   queueName: string;
@@ -62,12 +62,7 @@ export abstract class Master<JobData extends { taskId: string }> {
           if (caught) {
             ctx.set({
               errorClass: classifyError(caught),
-              errorMessage: extractErrorMessage(caught),
-              errorName: caught instanceof Error ? caught.name : undefined,
-              errorStack:
-                caught instanceof Error && typeof caught.stack === 'string'
-                  ? caught.stack.slice(0, 2048)
-                  : undefined,
+              error: serializeError(caught),
             });
           }
           logger.info(ctx.snapshot(), 'task.attempt');
@@ -86,13 +81,12 @@ export abstract class Master<JobData extends { taskId: string }> {
 
       const attempts = typeof job.opts.attempts === 'number' ? Math.max(job.opts.attempts, 1) : 1;
       const willRetry = job.attemptsMade < attempts;
-      const errorMessage = extractErrorMessage(err);
 
       try {
         await Task.updateTaskStatus({
           taskId: job.data.taskId,
           status: willRetry ? 'QUEUED' : 'FAILED',
-          error: errorMessage,
+          error: serializeError(err),
         });
       } catch (error: unknown) {
         logger.error(
