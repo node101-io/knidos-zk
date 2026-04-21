@@ -13,6 +13,7 @@
     "queue:status": "tsx --env-file=.env src/scripts/queue-status.ts",
     "primus:status": "tsx --env-file=.env src/scripts/check-primus-unsettled.ts",
     "primus:reclaim": "tsx --env-file=.env src/scripts/reclaim-primus.ts",
+    "primus:bridge": "tsx --env-file=.env src/scripts/bridge-sepolia-to-base.ts",
     "dev:node": "tsx watch --env-file=.env src/app.ts",
     "dev:server": "tsx watch --env-file=.env src/server.ts",
     "format": "prettier --write .",

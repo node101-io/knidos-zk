@@ -103,6 +103,12 @@ pnpm primus:status
 # no task has passed its timeout — check `primus:status` first.
 pnpm primus:reclaim
 
+# Bridge ETH from Ethereum Sepolia to Base Sepolia for the submitter
+# wallet. Requires Sepolia ETH on the wallet (PRIMUS_PRIVATE_KEY).
+# See the script header for faucet links.
+pnpm primus:bridge             # defaults to 0.05 ETH
+pnpm primus:bridge 0.1         # custom amount
+
 # Drop the MongoDB database and flush Redis
 pnpm db:reset
 ```
