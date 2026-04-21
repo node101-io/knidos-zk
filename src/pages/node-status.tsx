@@ -2,7 +2,7 @@ import type { HtmlEscapedString } from 'hono/utils/html';
 
 import type { DeferredTaskResult, QueueStatusResult } from '../services/queue-status.js';
 
-const HEADERS = ['PENDING', 'QUEUED', 'RUNNING', 'DEFERRED', 'FAILED'] as const;
+const HEADERS = ['PENDING', 'QUEUED', 'RUNNING', 'DEFERRED', 'FAILED', 'SUCCESS'] as const;
 
 export function renderNodeStatus(
   status: QueueStatusResult,
@@ -26,7 +26,7 @@ export function renderNodeStatus(
           <tr>
             <th>pipeline</th>
             {HEADERS.map((h) => (
-              <th>{h}</th>
+              <th>{h === 'SUCCESS' ? 'SUCCESS (last 1h)' : h}</th>
             ))}
           </tr>
           {Object.entries(status).map(([type, counts]) => (
