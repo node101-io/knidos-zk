@@ -83,6 +83,12 @@ docker stack deploy -c docker-compose.yml knidos       # deploy stack
 docker stack services knidos                           # should show redis + node + server running
 ```
 
+> **`.env` quoting gotcha**: Docker Swarm's `env_file` parser does **not** strip surrounding double quotes from values (unlike `docker compose`). Write values unquoted — e.g. `PRIMUS_PRIVATE_KEY=0xabc...`, not `PRIMUS_PRIVATE_KEY="0xabc..."`. Quick sweep to clean an existing `.env`:
+>
+> ```bash
+> sed -i 's/="\(.*\)"$/=\1/' .env   # macOS: sed -i '' '...'
+> ```
+
 Make sure the server's public IP is whitelisted in Atlas Network Access.
 
 ### Updating after a code change
