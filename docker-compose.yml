@@ -45,6 +45,14 @@ services:
       node:
         condition: service_started
     command: ["node", "dist/src/server.js"]
+    deploy:
+      replicas: 1
+      update_config:
+        order: start-first
+        failure_action: rollback
+        monitor: 10s
+      restart_policy:
+        condition: on-failure
     healthcheck:
       test:
         - CMD

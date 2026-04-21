@@ -66,9 +66,9 @@ pnpm dev:node
 
 The Noir proving worker count defaults to `1` and can be overridden with `NOIR_PROVING_SLOT_COUNT`.
 
-## Production deployment (Docker)
+## Production deployment (Docker Swarm)
 
-The repo ships with a multi-stage `Dockerfile` and `docker-compose.yml` that run the daemon (`node`), the HTTP server (`server`), and a local Redis. MongoDB is expected to be external (Atlas). Docker engine + compose plugin are the only host prerequisites — `nargo`, `bb`, Node, pnpm are all baked into the image.
+Production uses Docker's built-in Swarm mode on a single node. Swarm gives us zero-downtime rolling updates for the HTTP `server` (via `update_config.order: start-first` with healthchecks) while keeping the same `docker-compose.yml` we use for builds. MongoDB is external (Atlas); the stack runs `node` (daemon), `server` (HTTP), and a local `redis`. `nargo`, `bb`, Node, and pnpm are baked into the image — Docker engine is the only host prerequisite.
 
 ### First-time deploy
 
@@ -77,8 +77,10 @@ git clone <repo> /root/knidos-zk && cd /root/knidos-zk
 git submodule update --init
 cp .env.example .env   # fill in Atlas MONGO_URI, Primus keys, etc.
 
-docker compose up -d --build
-docker compose ps      # redis healthy, node + server running
+docker swarm init                                      # one-time, enables swarm mode
+docker compose build                                   # build image from Dockerfile
+docker stack deploy -c docker-compose.yml knidos       # deploy stack
+docker stack services knidos                           # should show redis + node + server running
 ```
 
 Make sure the server's public IP is whitelisted in Atlas Network Access.
@@ -90,30 +92,39 @@ cd /root/knidos-zk
 git pull
 git submodule update --init   # only if submodule changed
 
-docker compose up -d --build
+docker compose build                                   # ~30–60s with layer cache
+docker stack deploy -c docker-compose.yml knidos       # rolling update
 ```
 
-`--build` rebuilds the image (cached layers reused, usually ~30–60s) and `up -d` recreates only the services whose image changed. Redis stays up. Downtime per service is ~5–10s (plus ~30s Noir warmup on the `node` daemon).
+Swarm replaces each service's tasks with the new image. The `server` uses `order: start-first` — the new container boots, passes its healthcheck, and only then does the old one exit, giving zero observable downtime on port 3000. `node` (daemon) has a brief gap (~30s Noir warmup) that's invisible to clients since it has no inbound traffic.
 
 ### Rollback
 
 ```bash
 git checkout <previous-sha>
-docker compose up -d --build
+docker compose build
+docker stack deploy -c docker-compose.yml knidos
+```
+
+Or revert a single service to its previous image:
+
+```bash
+docker service rollback knidos_server
 ```
 
 ### Operational commands
 
 ```bash
-docker compose ps                          # service status
-docker compose logs -f node                # daemon logs (wide events)
-docker compose logs -f server              # HTTP server logs
-docker compose logs --since 1h node | jq 'select(.event=="task.attempt")'
-docker compose restart node                # restart single service
-docker compose down                        # stop everything
+docker stack services knidos                           # service status + replica counts
+docker stack ps knidos                                 # individual tasks (containers)
+docker service logs -f knidos_node                     # daemon logs (wide events)
+docker service logs -f knidos_server                   # HTTP server logs
+docker service logs --since 1h knidos_node | jq 'select(.event=="task.attempt")'
+docker service update --force knidos_node              # restart single service
+docker stack rm knidos                                 # tear down entire stack
 ```
 
-Docker engine is enabled on boot (`systemctl enable docker`) and `restart: unless-stopped` in compose handles crashes and reboots — no PM2 or dedicated systemd unit required.
+Docker engine is enabled on boot (`systemctl enable docker`). Swarm services are restarted automatically by the swarm manager on any exit — no PM2 or dedicated systemd unit required.
 
 ## Lint & Format
 
