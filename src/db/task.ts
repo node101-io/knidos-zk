@@ -7,13 +7,7 @@ import { parseTaskInput } from '../pipelines/validation.js';
 const MAX_INPUT_SIZE = 1e5;
 
 export type TaskType = 'zkTLS' | 'noir' | 'zkVerify';
-export type TaskStatus =
-  | 'PENDING'
-  | 'QUEUED'
-  | 'RUNNING'
-  | 'DEFERRED'
-  | 'COMPLETED'
-  | 'FAILED';
+export type TaskStatus = 'PENDING' | 'QUEUED' | 'RUNNING' | 'DEFERRED' | 'COMPLETED' | 'FAILED';
 
 interface TaskInterface {
   _id: Types.ObjectId;
@@ -167,17 +161,20 @@ TaskSchema.statics.findTasksByPipelineId = function (
 };
 
 TaskSchema.statics.markTaskQueued = async function (taskId: string) {
-  await Task.updateOne({
-    _id: taskId,
-  }, {
-    $set: {
-      status: 'QUEUED',
-      queuedAt: new Date(),
-      attemptStartedAt: null,
-      deferUntil: null,
-      deferReason: null,
+  await Task.updateOne(
+    {
+      _id: taskId,
     },
-  });
+    {
+      $set: {
+        status: 'QUEUED',
+        queuedAt: new Date(),
+        attemptStartedAt: null,
+        deferUntil: null,
+        deferReason: null,
+      },
+    },
+  );
 };
 
 TaskSchema.statics.updateTaskStatus = async function (

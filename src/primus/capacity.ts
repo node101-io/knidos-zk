@@ -190,12 +190,12 @@ async function snapshot(): Promise<Snapshot> {
   const [max, timeoutMs, unsettled] = await Promise.all([
     primusClient.maxUnsettledTaskCount(),
     primusClient.taskTimeoutMs(),
-    primusClient.contract().queryUnsettledTasks(
-      primusClient.userAddress,
-      TOKEN_SYMBOL_ETH,
-      0,
-      200,
-    ) as Promise<{ taskInfos: { submittedAt: BigNumber }[]; totalCount: BigNumber }>,
+    primusClient
+      .contract()
+      .queryUnsettledTasks(primusClient.userAddress, TOKEN_SYMBOL_ETH, 0, 200) as Promise<{
+      taskInfos: { submittedAt: BigNumber }[];
+      totalCount: BigNumber;
+    }>,
   ]);
 
   const total = unsettled.totalCount.toNumber();

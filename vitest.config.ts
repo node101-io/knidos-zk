@@ -33,6 +33,7 @@ export default defineConfig({
             'tests/server.test.ts',
             'tests/zk-tls-master.test.ts',
             'tests/zk-tls-worker.test.ts',
+            'tests/zk-verify-session.test.ts',
           ],
         },
       },

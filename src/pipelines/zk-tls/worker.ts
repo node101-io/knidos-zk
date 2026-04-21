@@ -3,9 +3,9 @@ import mongoose from 'mongoose';
 
 import Task from '../../db/task.js';
 import { redis } from '../../shared/redis.js';
-import logger from '../../shared/logger.js';
-import { serializeError } from '../../utils/error.js';
-import { decideZkTLSError } from '../../primus/errors.js';
+import type { TaskEventCtx } from '../../shared/task-event.js';
+import { classifyError, decideZkTLSError } from '../../primus/errors.js';
+import { extractErrorMessage, serializeError } from '../../utils/error.js';
 import type { ZkTLSJobData } from '../types.js';
 import { parseZkTLSJobInput } from '../validation.js';
 import { runZkTLSProcessor } from './processor.js';
@@ -18,21 +18,26 @@ type Outcome =
   | { kind: 'defer'; reason: string; deferUntil: Date; error: unknown }
   | { kind: 'fail'; error: unknown };
 
-async function recordOutcome(task: TaskRecord, outcome: Outcome): Promise<void> {
+async function recordOutcome(task: TaskRecord, outcome: Outcome, ctx: TaskEventCtx): Promise<void> {
   const taskId = task._id.toString();
   if (outcome.kind === 'defer') {
+    const deferCount = (task.deferCount ?? 0) + 1;
     await Task.updateTaskStatus({
       taskId,
       status: 'DEFERRED',
       error: serializeError(outcome.error),
       deferReason: outcome.reason,
       deferUntil: outcome.deferUntil,
-      deferCount: (task.deferCount ?? 0) + 1,
+      deferCount,
     });
-    logger.warn(
-      { taskId, deferReason: outcome.reason, deferUntil: outcome.deferUntil },
-      '[zkTLS worker] task deferred',
-    );
+    ctx.set({
+      outcome: 'deferred',
+      deferReason: outcome.reason,
+      deferUntil: outcome.deferUntil.toISOString(),
+      deferCount,
+      errorClass: classifyError(outcome.error),
+      errorMessage: extractErrorMessage(outcome.error),
+    });
     return;
   }
   await Task.updateTaskStatus({
@@ -40,23 +45,39 @@ async function recordOutcome(task: TaskRecord, outcome: Outcome): Promise<void> 
     status: 'FAILED',
     error: serializeError(outcome.error),
   });
-  logger.error({ taskId, error: outcome.error }, '[zkTLS worker] task failed');
+  ctx.set({
+    outcome: 'failed',
+    errorClass: classifyError(outcome.error),
+    errorMessage: extractErrorMessage(outcome.error),
+  });
 }
 
 export async function processZkTLSJob(
   _workerId: number,
   job: Job<ZkTLSJobData, void>,
+  ctx: TaskEventCtx,
 ): Promise<void> {
   const { taskId, input } = job.data;
+  ctx.set({ type: 'zkTLS' });
 
   const task = await Task.findById(taskId);
   if (!task) {
-    logger.warn({ taskId, jobId: job.id }, '[zkTLS worker] task not found');
+    ctx.set({ outcome: 'skipped', skipReason: 'task_not_found' });
     return;
   }
-  if (task.status === 'COMPLETED' || task.status === 'RUNNING') return;
+  if (task.status === 'COMPLETED' || task.status === 'RUNNING') {
+    ctx.set({ outcome: 'skipped', skipReason: 'already_completed_or_running' });
+    return;
+  }
 
   const parsedInput = parseZkTLSJobInput(input);
+  ctx.set({
+    pipelineId: task.pipelineId.toString(),
+    symbol: parsedInput.symbol,
+    windowStart: parsedInput.startTime,
+    windowEnd: parsedInput.endTime,
+  });
+
   await Task.updateTaskStatus({ taskId, status: 'RUNNING' });
 
   let result;
@@ -74,17 +95,22 @@ export async function processZkTLSJob(
             error: decision.sourceError ?? error,
           }
         : { kind: 'fail', error },
+      ctx,
     );
     return;
   }
 
   if (result.action === 'defer') {
-    await recordOutcome(task, {
-      kind: 'defer',
-      reason: result.reason,
-      deferUntil: result.deferUntil,
-      error: result.sourceError ?? result,
-    });
+    await recordOutcome(
+      task,
+      {
+        kind: 'defer',
+        reason: result.reason,
+        deferUntil: result.deferUntil,
+        error: result.sourceError ?? result,
+      },
+      ctx,
+    );
     return;
   }
 

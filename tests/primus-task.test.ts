@@ -89,15 +89,15 @@ describe('submitPrimusTaskRaw', () => {
 
     expect(mockQueryLatestFeeInfo).toHaveBeenCalledWith(0);
     expect(mockSubmitTaskCall).toHaveBeenCalledTimes(1);
-    const [addr, templateId, attestorCount, tokenSymbol, callback, overrides] =
-      mockSubmitTaskCall.mock.calls[0] as [
-        string,
-        string,
-        number,
-        number,
-        string,
-        { value: BigNumber; gasLimit: number; maxFeePerGas: number; maxPriorityFeePerGas: number },
-      ];
+    const [addr, templateId, attestorCount, tokenSymbol, callback, overrides] = mockSubmitTaskCall
+      .mock.calls[0] as [
+      string,
+      string,
+      number,
+      number,
+      string,
+      { value: BigNumber; gasLimit: number; maxFeePerGas: number; maxPriorityFeePerGas: number },
+    ];
     expect(addr).toBe(env.PRIMUS_USER_ADDRESS);
     expect(templateId).toBe('');
     expect(attestorCount).toBe(1);

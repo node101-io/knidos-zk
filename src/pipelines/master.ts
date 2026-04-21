@@ -2,7 +2,9 @@ import { Job, Worker } from 'bullmq';
 import type { ConnectionOptions } from 'bullmq';
 
 import Task from '../db/task.js';
+import { classifyError } from '../primus/errors.js';
 import logger from '../shared/logger.js';
+import { createTaskEventCtx, type TaskEventCtx } from '../shared/task-event.js';
 import { extractErrorMessage } from '../utils/error.js';
 
 export interface MasterConfig<JobData extends { taskId: string }> {
@@ -14,7 +16,7 @@ export interface MasterConfig<JobData extends { taskId: string }> {
   retryBackoffMs: number;
   lockDurationMs: number;
   stalledIntervalMs: number;
-  processJob: (workerId: number, job: Job<JobData, void>) => Promise<void>;
+  processJob: (workerId: number, job: Job<JobData, void>, ctx: TaskEventCtx) => Promise<void>;
 }
 
 export abstract class Master<JobData extends { taskId: string }> {
@@ -34,15 +36,42 @@ export abstract class Master<JobData extends { taskId: string }> {
     const worker = new Worker<JobData, void, string>(
       queueName,
       async (job) => {
-        logger.info(
-          { jobId: job.id },
-          `${workerLabel} worker ${workerId} started job ${job.id ?? 'unknown'}`,
-        );
-        await processJob(workerId, job);
-        logger.info(
-          { jobId: job.id },
-          `${workerLabel} worker ${workerId} finished job ${job.id ?? 'unknown'}`,
-        );
+        const ctx = createTaskEventCtx({
+          event: 'task.attempt',
+          taskId: job.data.taskId,
+          jobId: job.id,
+          queueName,
+          workerId,
+          workerLabel,
+          attempt: job.attemptsMade + 1,
+          maxAttempts: typeof job.opts.attempts === 'number' ? job.opts.attempts : 1,
+        });
+        const stopTimer = ctx.timer('duration');
+        let caught: unknown;
+        try {
+          await processJob(workerId, job, ctx);
+        } catch (err) {
+          caught = err;
+          throw err;
+        } finally {
+          stopTimer();
+          const snap = ctx.snapshot();
+          if (!snap.outcome) {
+            ctx.set({ outcome: caught ? 'failed' : 'completed' });
+          }
+          if (caught) {
+            ctx.set({
+              errorClass: classifyError(caught),
+              errorMessage: extractErrorMessage(caught),
+              errorName: caught instanceof Error ? caught.name : undefined,
+              errorStack:
+                caught instanceof Error && typeof caught.stack === 'string'
+                  ? caught.stack.slice(0, 2048)
+                  : undefined,
+            });
+          }
+          logger.info(ctx.snapshot(), 'task.attempt');
+        }
       },
       {
         connection,
@@ -52,21 +81,8 @@ export abstract class Master<JobData extends { taskId: string }> {
       },
     );
 
-    worker.on('completed', (job) => {
-      logger.info(
-        { jobId: job.id },
-        `${workerLabel} worker ${workerId} completed job ${job.id ?? 'unknown'}`,
-      );
-    });
-
     worker.on('failed', async (job, err) => {
-      if (!job) {
-        logger.warn(
-          { error: err },
-          `${workerLabel} worker ${workerId} received failed event without job`,
-        );
-        return;
-      }
+      if (!job) return;
 
       const attempts = typeof job.opts.attempts === 'number' ? Math.max(job.opts.attempts, 1) : 1;
       const willRetry = job.attemptsMade < attempts;
@@ -78,19 +94,6 @@ export abstract class Master<JobData extends { taskId: string }> {
           status: willRetry ? 'QUEUED' : 'FAILED',
           error: errorMessage,
         });
-
-        if (willRetry) {
-          logger.warn(
-            { error: err, jobId: job.id },
-            `${workerLabel} worker ${workerId} failed job ${job.id ?? 'unknown'} and BullMQ will retry`,
-          );
-          return;
-        }
-
-        logger.error(
-          { error: err, jobId: job.id },
-          `${workerLabel} worker ${workerId} failed job ${job.id ?? 'unknown'}`,
-        );
       } catch (error: unknown) {
         logger.error(
           { error, jobId: job.id },

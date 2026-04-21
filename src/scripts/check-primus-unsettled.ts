@@ -39,12 +39,7 @@ console.log(`  toWithdrawTaskCount: ${balance.toWithdrawTaskCount.toString()}`);
 console.log(`  toLockTaskCount:     ${balance.toLockTaskCount.toString()}`);
 console.log('');
 
-const probe = await contract.queryUnsettledTasks(
-  env.PRIMUS_USER_ADDRESS,
-  TOKEN_SYMBOL_ETH,
-  0,
-  1,
-);
+const probe = await contract.queryUnsettledTasks(env.PRIMUS_USER_ADDRESS, TOKEN_SYMBOL_ETH, 0, 1);
 const totalUnsettled = (probe.totalCount as BigNumber).toNumber();
 console.log(`queryUnsettledTasks.totalCount: ${totalUnsettled}`);
 
@@ -98,9 +93,7 @@ for (const [label, count] of Object.entries(statusBuckets)) {
   console.log(`  ${label}: ${count}`);
 }
 
-const sorted = [...allTasks].sort(
-  (a, b) => a.submittedAt.toNumber() - b.submittedAt.toNumber(),
-);
+const sorted = [...allTasks].sort((a, b) => a.submittedAt.toNumber() - b.submittedAt.toNumber());
 console.log('');
 console.log('Oldest 5 unsettled:');
 for (const t of sorted.slice(0, 5)) {
@@ -124,9 +117,9 @@ for (const t of sorted.slice(-5).reverse()) {
 
 console.log('');
 console.log(
-  `Limit check: ${allTasks.length} / ${maxCount} (${(
-    (allTasks.length / maxCount) * 100
-  ).toFixed(1)}%)`,
+  `Limit check: ${allTasks.length} / ${maxCount} (${((allTasks.length / maxCount) * 100).toFixed(
+    1,
+  )}%)`,
 );
 if (allTasks.length >= maxCount) {
   console.log(

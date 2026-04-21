@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import Task from '../../db/task.js';
 import VerificationRecord from '../../db/verification-record.js';
 import { redis } from '../../shared/redis.js';
-import logger from '../../shared/logger.js';
+import type { TaskEventCtx } from '../../shared/task-event.js';
 import type { ZkVerifyJobData } from '../types.js';
 import type { NoirProcessorResult } from '../noir/processor.js';
 import { parseZkVerifyJobInput } from '../validation.js';
@@ -20,27 +20,34 @@ function sleep(ms: number): Promise<void> {
 }
 
 export async function processZkVerifyJob(
-  workerId: number,
+  _workerId: number,
   job: Job<ZkVerifyJobData, void>,
+  ctx: TaskEventCtx,
 ): Promise<void> {
   const { taskId, input } = job.data;
+  ctx.set({ type: 'zkVerify' });
 
   const task = await Task.findById(taskId);
   if (!task) {
-    logger.warn({ taskId, jobId: job.id }, '[zkVerify worker] task not found');
+    ctx.set({ outcome: 'skipped', skipReason: 'task_not_found' });
     return;
   }
 
-  if (task.status === 'COMPLETED') return;
-
-  if (task.status === 'RUNNING') return;
+  if (task.status === 'COMPLETED' || task.status === 'RUNNING') {
+    ctx.set({ outcome: 'skipped', skipReason: 'already_completed_or_running' });
+    return;
+  }
 
   const parsedInput = parseZkVerifyJobInput(input);
-
-  await Task.updateTaskStatus({
-    taskId,
-    status: 'RUNNING',
+  ctx.set({
+    pipelineId: task.pipelineId.toString(),
+    symbol: parsedInput.symbol,
+    noirTaskId: parsedInput.noirTaskId,
+    windowStart: parsedInput.startTime,
+    windowEnd: parsedInput.endTime,
   });
+
+  await Task.updateTaskStatus({ taskId, status: 'RUNNING' });
 
   for (;;) {
     const previousCompletedTask = await Task.findOne({
@@ -60,24 +67,10 @@ export async function processZkVerifyJob(
     }
 
     const remainingMs = ZKVERIFY_MIN_GAP_MS - elapsedMs;
-
-    logger.info(
-      {
-        taskId,
-        workerId,
-        previousTaskId: previousCompletedTask._id,
-        remainingMs,
-      },
-      '[zkVerify worker] waiting before next zkVerify submission',
-    );
-
-    await sleep(Math.min(ZKVERIFY_SLEEP_STEP_MS, remainingMs));
+    const sleepMs = Math.min(ZKVERIFY_SLEEP_STEP_MS, remainingMs);
+    ctx.bump('zkVerifyWaitMs', sleepMs);
+    await sleep(sleepMs);
   }
-
-  logger.info(
-    { taskId, workerId, noirTaskId: parsedInput.noirTaskId },
-    '[zkVerify worker] starting zkVerify task',
-  );
 
   const noirTask = await Task.findById(parsedInput.noirTaskId);
   if (!noirTask) {
@@ -91,10 +84,18 @@ export async function processZkVerifyJob(
     );
   }
 
+  const stopSubmit = ctx.timer('submit');
   const result = await runZkVerifyProcessor({
     vk: noirResult.vkHex,
     proof: noirResult.proofHex,
     publicSignals: noirResult.publicInputs,
+  });
+  stopSubmit();
+
+  ctx.set({
+    variant: String(result.variant),
+    aggregationId: result.aggregationId,
+    statement: result.statement,
   });
 
   const session = await mongoose.startSession();
@@ -139,9 +140,4 @@ export async function processZkVerifyJob(
   } finally {
     await session.endSession();
   }
-
-  logger.info(
-    { taskId, workerId, aggregationId: result.aggregationId },
-    '[zkVerify worker] completed zkVerify task',
-  );
 }

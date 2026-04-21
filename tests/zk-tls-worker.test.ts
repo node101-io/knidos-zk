@@ -37,6 +37,11 @@ vi.mock('mongoose', async (importOriginal) => {
 });
 
 const { processZkTLSJob } = await import('../src/pipelines/zk-tls/worker.js');
+const { createTaskEventCtx } = await import('../src/shared/task-event.js');
+
+function buildCtx() {
+  return createTaskEventCtx({});
+}
 
 function buildTask(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -81,7 +86,7 @@ describe('processZkTLSJob', () => {
       message: 'Operation too frequent. Please try again later.',
     });
 
-    await processZkTLSJob(0, buildJob(task._id.toString()) as never);
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never, buildCtx());
 
     expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(1, {
       taskId: task._id.toString(),
@@ -107,7 +112,7 @@ describe('processZkTLSJob', () => {
       deferUntil: new Date('2026-01-01T00:20:00.000Z'),
     });
 
-    await processZkTLSJob(0, buildJob(task._id.toString()) as never);
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never, buildCtx());
 
     expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
       2,
@@ -124,9 +129,11 @@ describe('processZkTLSJob', () => {
   it('marks insufficient-funds errors as FAILED', async () => {
     const task = buildTask();
     mockFindById.mockResolvedValue(task);
-    mockRunZkTLSProcessor.mockRejectedValue(new Error('insufficient funds for intrinsic transaction cost'));
+    mockRunZkTLSProcessor.mockRejectedValue(
+      new Error('insufficient funds for intrinsic transaction cost'),
+    );
 
-    await processZkTLSJob(0, buildJob(task._id.toString()) as never);
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never, buildCtx());
 
     expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
       2,
@@ -152,7 +159,7 @@ describe('processZkTLSJob', () => {
       },
     });
 
-    await processZkTLSJob(0, buildJob(task._id.toString()) as never);
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never, buildCtx());
 
     expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
       2,

@@ -93,9 +93,7 @@ export async function attestPrimusTask(
     recvWindow: '60000',
     timestamp: String(Date.now()),
   }).toString();
-  const signature = createHmac('sha256', env.BINANCE_API_SECRET)
-    .update(queryString)
-    .digest('hex');
+  const signature = createHmac('sha256', env.BINANCE_API_SECRET).update(queryString).digest('hex');
 
   const result = await primus.attest({
     address: env.PRIMUS_USER_ADDRESS,

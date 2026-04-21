@@ -6,17 +6,61 @@ type VerifyTransactionInfo = zkv.VerifyTransactionInfo;
 
 import RegisteredVk from '../../db/registered-vk.js';
 import { env } from '../../env.js';
+import logger from '../../shared/logger.js';
 
-// Singleton — reuse across jobs (same as Primus pattern in zk-tls)
-let sessionInstance: zkv.zkVerifySession | null = null;
+const VERIFY_TIMEOUT_MS = 60 * 1000;
+
+let sessionPromise: Promise<zkv.zkVerifySession> | null = null;
+
+// Owner identity prevents a late 'disconnected' handler from an old WS
+// from clearing a replacement session that already swapped in.
+async function invalidate(owner: Promise<zkv.zkVerifySession>): Promise<void> {
+  if (sessionPromise !== owner) return;
+  sessionPromise = null;
+  try {
+    await (await owner).close();
+  } catch (error) {
+    logger.warn({ error }, '[zkVerify processor] failed to close stale session');
+  }
+}
 
 async function getSession(): Promise<zkv.zkVerifySession> {
-  if (sessionInstance) return sessionInstance;
-  const builder = zkVerifySession.start();
-  const networked =
-    env.ZKVERIFY_NETWORK === 'mainnet' ? builder.zkVerify() : builder.Volta();
-  sessionInstance = await networked.withAccount(env.ZKVERIFY_SEED_PHRASE);
-  return sessionInstance;
+  if (sessionPromise) {
+    try {
+      const session = await sessionPromise;
+      if (session.provider.isConnected) return session;
+      await invalidate(sessionPromise);
+    } catch {
+      sessionPromise = null;
+    }
+  }
+
+  const pending = (async () => {
+    const builder = zkVerifySession.start();
+    const networked = env.ZKVERIFY_NETWORK === 'mainnet' ? builder.zkVerify() : builder.Volta();
+    return networked.withAccount(env.ZKVERIFY_SEED_PHRASE);
+  })();
+  sessionPromise = pending;
+
+  try {
+    const session = await pending;
+    session.provider.on('disconnected', () => {
+      logger.warn('[zkVerify processor] provider disconnected, invalidating session');
+      void invalidate(pending);
+    });
+    return session;
+  } catch (error) {
+    if (sessionPromise === pending) sessionPromise = null;
+    throw error;
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 export interface ZkVerifyProcessorInput {
@@ -39,10 +83,10 @@ export async function runZkVerifyProcessor(
   input: ZkVerifyProcessorInput,
 ): Promise<ZkVerifyProcessorResult> {
   const variant = UltrahonkVariant.Plain;
-
   const { vk, proof, publicSignals } = input;
 
   const session = await getSession();
+  const owner = sessionPromise;
 
   const registered = await RegisteredVk.findOrRegister({
     vk,
@@ -59,7 +103,18 @@ export async function runZkVerifyProcessor(
       ...(env.ZKVERIFY_DOMAIN_ID !== undefined ? { domainId: env.ZKVERIFY_DOMAIN_ID } : {}),
     });
 
-  const transactionInfo = await transactionResult;
+  let transactionInfo: VerifyTransactionInfo;
+  try {
+    transactionInfo = await withTimeout(
+      transactionResult,
+      VERIFY_TIMEOUT_MS,
+      '[zkVerify processor] transactionResult',
+    );
+  } catch (error) {
+    if (owner) await invalidate(owner);
+    throw error;
+  }
+
   const statement = transactionInfo.statement ?? undefined;
   const aggregationId = transactionInfo.aggregationId ?? undefined;
 

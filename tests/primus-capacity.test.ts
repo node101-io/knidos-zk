@@ -108,9 +108,7 @@ describe('submitWithCapacity — capacity decisions', () => {
     const submitTask = vi.fn().mockResolvedValue(fakeSubmitTx('0xtask', ['0xattestor']));
     const withdrawBalance = vi
       .fn()
-      .mockResolvedValue(
-        fakeWithdrawTx(Array.from({ length: 80 }, (_, i) => `0xsettled-${i}`)),
-      );
+      .mockResolvedValue(fakeWithdrawTx(Array.from({ length: 80 }, (_, i) => `0xsettled-${i}`)));
     const contract = buildContractMock({
       unsettled: [
         {
@@ -227,7 +225,9 @@ describe('submitWithCapacity — capacity decisions', () => {
 
 describe('reclaimTimedOutTasks', () => {
   it('calls withdrawBalance with ETH, the max unsettled limit, and an explicit gasLimit', async () => {
-    const withdrawBalance = vi.fn().mockResolvedValue(fakeWithdrawTx(['0xsettled-1', '0xsettled-2']));
+    const withdrawBalance = vi
+      .fn()
+      .mockResolvedValue(fakeWithdrawTx(['0xsettled-1', '0xsettled-2']));
     const contract = buildContractMock({ unsettled: [], withdrawBalance });
     mockContract.mockReturnValue(contract as never);
 

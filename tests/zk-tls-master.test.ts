@@ -73,7 +73,10 @@ describe('ZkTLSMaster', () => {
     expect(mockFindOne).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'zkTLS',
-        $or: [{ status: 'PENDING' }, { status: 'DEFERRED', deferUntil: { $lte: expect.any(Date) } }],
+        $or: [
+          { status: 'PENDING' },
+          { status: 'DEFERRED', deferUntil: { $lte: expect.any(Date) } },
+        ],
       }),
     );
     expect(sort).toHaveBeenCalledWith({ 'input.endTime': 1, _id: 1 });

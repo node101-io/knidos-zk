@@ -3,39 +3,54 @@ import mongoose from 'mongoose';
 
 import Task from '../../db/task.js';
 import { redis } from '../../shared/redis.js';
-import logger from '../../shared/logger.js';
+import type { TaskEventCtx } from '../../shared/task-event.js';
 import type { NoirJobData } from '../types.js';
 import { parseNoirJobInput } from '../validation.js';
 import { runNoirProcessor } from './processor.js';
 
 export const noirQueue = new Queue('noir-queue', { connection: redis });
 
-export async function processNoirJob(workerId: number, job: Job<NoirJobData, void>): Promise<void> {
+export async function processNoirJob(
+  workerId: number,
+  job: Job<NoirJobData, void>,
+  ctx: TaskEventCtx,
+): Promise<void> {
   const { taskId, input } = job.data;
+  ctx.set({ type: 'noir' });
 
   const task = await Task.findById(taskId);
   if (!task) {
-    logger.warn({ taskId, jobId: job.id }, '[noir worker] task not found');
+    ctx.set({ outcome: 'skipped', skipReason: 'task_not_found' });
     return;
   }
 
-  if (task.status === 'COMPLETED') return;
-
-  if (task.status === 'RUNNING') return;
+  if (task.status === 'COMPLETED' || task.status === 'RUNNING') {
+    ctx.set({ outcome: 'skipped', skipReason: 'already_completed_or_running' });
+    return;
+  }
 
   const parsedInput = parseNoirJobInput(input);
-
-  await Task.updateTaskStatus({
-    taskId,
-    status: 'RUNNING',
+  ctx.set({
+    pipelineId: task.pipelineId.toString(),
+    symbol: parsedInput.symbol,
+    windowStart: parsedInput.startTime,
+    windowEnd: parsedInput.endTime,
+    zkTLSTaskId: parsedInput.zkTLSTaskId,
   });
 
-  logger.info({ taskId, workerId }, '[noir worker] starting noir task');
+  await Task.updateTaskStatus({ taskId, status: 'RUNNING' });
 
+  const stopProof = ctx.timer('proofGen');
   const result = await runNoirProcessor(workerId, parsedInput);
+  stopProof();
+
+  ctx.set({
+    proofBytes: Math.floor((result.proofHex.length - 2) / 2),
+    publicInputsCount: result.publicInputs.length,
+    vkHashPrefix: result.vkHex.slice(0, 10),
+  });
 
   const session = await mongoose.startSession();
-
   try {
     await session.withTransaction(async () => {
       await Task.updateTaskStatus(
@@ -64,8 +79,4 @@ export async function processNoirJob(workerId: number, job: Job<NoirJobData, voi
   } finally {
     await session.endSession();
   }
-
-  logger.info({ taskId, workerId }, '[noir worker] completed noir task');
-
-  logger.info({ taskId, workerId }, '[noir worker] created zkVerify task');
 }

@@ -49,6 +49,15 @@ export type ZkTLSErrorDecision =
   | DeferredTaskDecision<'primus_rate_limited' | 'primus_transient_rpc'>
   | { action: 'fail' };
 
+export type ErrorClass = 'primus_rate_limited' | 'primus_transient_rpc' | 'permanent' | 'unknown';
+
+export function classifyError(err: unknown): ErrorClass {
+  if (isPrimusRateLimited(err)) return 'primus_rate_limited';
+  if (isPermanentFailure(err)) return 'permanent';
+  if (isTransientPrimusRpc(err)) return 'primus_transient_rpc';
+  return 'unknown';
+}
+
 export function deferTaskDecision<Reason extends string>(args: {
   reason: Reason;
   deferUntil: Date;
@@ -65,11 +74,11 @@ export function deferTaskDecision<Reason extends string>(args: {
 export function isDeferredTaskDecision(value: unknown): value is DeferredTaskDecision {
   return Boolean(
     value &&
-      typeof value === 'object' &&
-      'action' in value &&
-      (value as { action?: unknown }).action === 'defer' &&
-      'reason' in value &&
-      'deferUntil' in value,
+    typeof value === 'object' &&
+    'action' in value &&
+    (value as { action?: unknown }).action === 'defer' &&
+    'reason' in value &&
+    'deferUntil' in value,
   );
 }
 

@@ -14,10 +14,7 @@ import {
 } from '../../primus/task.js';
 import { primusClient } from '../../primus/client.js';
 import { submitWithCapacity } from '../../primus/capacity.js';
-import {
-  isDeferredTaskDecision,
-  type DeferredTaskDecision,
-} from '../../primus/errors.js';
+import { isDeferredTaskDecision, type DeferredTaskDecision } from '../../primus/errors.js';
 import type { SupportedBinanceSymbol } from '../../shared/binance-symbols.js';
 import { toTimestampMs } from '../../shared/date-utils.js';
 import type { NoirCircuitInput } from '../types.js';
@@ -53,7 +50,13 @@ export async function runZkTLSProcessor(
     ),
   ]);
 
-  const fillsCommitment = await resumePrimusFlow(taskId, primus, input.symbol, startTimeMs, endTimeMs);
+  const fillsCommitment = await resumePrimusFlow(
+    taskId,
+    primus,
+    input.symbol,
+    startTimeMs,
+    endTimeMs,
+  );
   if (isDeferredTaskDecision(fillsCommitment)) return fillsCommitment;
 
   return {
