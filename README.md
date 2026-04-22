@@ -70,7 +70,7 @@ The Noir proving worker count defaults to `1` and can be overridden with `NOIR_P
 
 ## Production deployment (Docker Compose)
 
-Production runs plain `docker compose` on a single host. The stack is three services — `node` (daemon), `server` (HTTP), and a local `redis`. MongoDB is external (Atlas). `nargo`, `bb`, Node, and pnpm are baked into the image; `docker` (with compose plugin) and `jq` are the only host prerequisites (`jq` is used by the one-time host-setup script below).
+Production runs plain `docker compose` on a single host. The stack is three services — `node` (daemon), `server` (HTTP), and a local `redis`. MongoDB is external (Atlas). `nargo`, `bb`, Node, and pnpm are baked into the image; `docker` (with the compose plugin) is the only host prerequisite.
 
 A `server` restart during deploy causes a brief (~20s) `connection refused` window on port 3000 — acceptable because the HTTP surface is a read-only verification API and clients retry. The `node` daemon has a ~30–90s Noir warmup on restart, but it has no inbound traffic so clients don't see it.
 
@@ -79,10 +79,6 @@ A `server` restart during deploy causes a brief (~20s) `connection refused` wind
 ```bash
 git clone <repo> /root/knidos-zk && cd /root/knidos-zk
 git submodule update --init
-
-# One-time host DNS fix for systemd-resolved + Docker embedded DNS compat.
-# Idempotent — safe to re-run. See host-setup.sh for details.
-sudo ./host-setup.sh
 
 cp .env.example .env   # fill in Atlas MONGO_URI, Primus keys, etc.
 
