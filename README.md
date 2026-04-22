@@ -166,7 +166,7 @@ pnpm tasks:retry --type=zkTLS
 pnpm tasks:retry --type=zkTLS,noir
 
 # Dev-only: keep the newest 3 zkTLS scheduler waves and prune older
-# task docs across the pipeline chain.
+# zkTLS task docs only.
 pnpm tasks:prune-waves
 pnpm tasks:prune-waves --apply
 pnpm tasks:prune-waves --keep-waves=5 --apply

@@ -75,46 +75,35 @@ async function main(): Promise<void> {
 
     if (prunableWaveEndTimes.length === 0) {
       console.log(
-        `[prune-task-waves] Nothing older than the newest ${keepWaves} wave(s). No task documents were deleted.`,
+        `[prune-task-waves] Nothing older than the newest ${keepWaves} wave(s). No zkTLS task documents were deleted.`,
       );
       return;
     }
 
     const deleteMatch = {
+      type: 'zkTLS',
       'input.endTime': { $lt: cutoff },
     } as const;
 
-    const [deleteCount, countsByType] = await Promise.all([
-      Task.countDocuments(deleteMatch),
-      Task.aggregate<{ _id: string; count: number }>([
-        { $match: deleteMatch },
-        { $group: { _id: '$type', count: { $sum: 1 } } },
-        { $sort: { _id: 1 } },
-      ]),
-    ]);
+    const deleteCount = await Task.countDocuments(deleteMatch);
 
     console.log(
-      `[prune-task-waves] Found ${prunableWaveEndTimes.length} older wave(s) to prune: ${formatWaveList(
+      `[prune-task-waves] Found ${prunableWaveEndTimes.length} older wave(s) to prune from zkTLS: ${formatWaveList(
         prunableWaveEndTimes,
       )}`,
     );
-    console.table(
-      countsByType.map((row) => ({
-        type: row._id,
-        tasks: row.count,
-      })),
-    );
+    console.log(`[prune-task-waves] Matching zkTLS task count: ${deleteCount}`);
 
     if (!apply) {
       console.log(
-        `[prune-task-waves] Dry run only. Re-run with --apply to delete ${deleteCount} task(s).`,
+        `[prune-task-waves] Dry run only. Re-run with --apply to delete ${deleteCount} zkTLS task(s).`,
       );
       return;
     }
 
     const result = await Task.deleteMany(deleteMatch);
     console.log(
-      `[prune-task-waves] Deleted ${result.deletedCount} task(s) across ${prunableWaveEndTimes.length} older wave(s).`,
+      `[prune-task-waves] Deleted ${result.deletedCount} zkTLS task(s) across ${prunableWaveEndTimes.length} older wave(s).`,
     );
   } finally {
     await mongoose.disconnect();
