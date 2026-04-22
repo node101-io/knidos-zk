@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# One-time Docker host setup for knidos-zk Swarm deployment.
+# One-time Docker host DNS setup for knidos-zk.
 #
 # Configures /etc/docker/daemon.json with explicit DNS upstreams so that
 # Docker's embedded DNS (127.0.0.11) can resolve external names even when
 # the host runs systemd-resolved (whose 127.0.0.53 stub is unreachable from
 # inside containers). Without this, container resolv.conf can end up with
-# 127.0.0.53 instead of 127.0.0.11, breaking both service discovery (e.g.
-# `redis` hostname) and external lookups (Atlas, Primus RPC, zkVerify).
+# 127.0.0.53 instead of 127.0.0.11, breaking both Compose service discovery
+# (e.g. `redis` hostname) and external lookups (Atlas, Primus RPC, zkVerify).
+#
+# Not deployment-mode specific: the systemd-resolved / Docker embedded-DNS
+# mismatch can affect user-defined bridge networks (plain Compose) as well
+# as overlay networks (Swarm).
 #
 # Idempotent: safe to re-run. Merges with any existing daemon.json keys.
 set -euo pipefail

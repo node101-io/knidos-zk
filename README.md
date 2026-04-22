@@ -68,9 +68,11 @@ pnpm dev:node
 
 The Noir proving worker count defaults to `1` and can be overridden with `NOIR_PROVING_SLOT_COUNT`.
 
-## Production deployment (Docker Swarm)
+## Production deployment (Docker Compose)
 
-Production uses Docker's built-in Swarm mode on a single node. Swarm gives us zero-downtime rolling updates for the HTTP `server` (via `update_config.order: start-first` with healthchecks) while keeping the same `docker-compose.yml` we use for builds. MongoDB is external (Atlas); the stack runs `node` (daemon), `server` (HTTP), and a local `redis`. `nargo`, `bb`, Node, and pnpm are baked into the image — Docker engine (with compose plugin) and `jq` are the only host prerequisites (jq is used by the one-time host-setup script below).
+Production runs plain `docker compose` on a single host. The stack is three services — `node` (daemon), `server` (HTTP), and a local `redis`. MongoDB is external (Atlas). `nargo`, `bb`, Node, and pnpm are baked into the image; `docker` (with compose plugin) and `jq` are the only host prerequisites (`jq` is used by the one-time host-setup script below).
+
+A `server` restart during deploy causes a brief (~20s) `connection refused` window on port 3000 — acceptable because the HTTP surface is a read-only verification API and clients retry. The `node` daemon has a ~30–90s Noir warmup on restart, but it has no inbound traffic so clients don't see it.
 
 ### First-time deploy
 
@@ -78,16 +80,14 @@ Production uses Docker's built-in Swarm mode on a single node. Swarm gives us ze
 git clone <repo> /root/knidos-zk && cd /root/knidos-zk
 git submodule update --init
 
-# One-time host DNS fix for systemd-resolved + Docker overlay compat.
+# One-time host DNS fix for systemd-resolved + Docker embedded DNS compat.
 # Idempotent — safe to re-run. See host-setup.sh for details.
 sudo ./host-setup.sh
 
 cp .env.example .env   # fill in Atlas MONGO_URI, Primus keys, etc.
 
-docker swarm init                                      # one-time, enables swarm mode
-docker compose build                                   # build image from Dockerfile
-docker stack deploy -c docker-compose.yml knidos       # deploy stack
-docker stack services knidos                           # should show redis + node + server running
+docker compose up -d --build                           # build image + start stack
+docker compose ps                                      # should show redis/node/server running
 ```
 
 If you want Axiom shipping in production, add these to the host `.env` before deploy:
@@ -99,12 +99,6 @@ AXIOM_DATASET=knidos-zk-logs
 
 Create the dataset as an `Events` dataset and generate an ingest-only API token in Axiom. A simple first monitor in the Axiom UI is `service == "knidos-zk"` with `severity in ["ERROR","CRITICAL"]`.
 
-> **`.env` quoting gotcha**: Docker Swarm's `env_file` parser does **not** strip surrounding double quotes from values (unlike `docker compose`). Write values unquoted — e.g. `PRIMUS_PRIVATE_KEY=0xabc...`, not `PRIMUS_PRIVATE_KEY="0xabc..."`. Quick sweep to clean an existing `.env`:
->
-> ```bash
-> sed -i 's/="\(.*\)"$/=\1/' .env   # macOS: sed -i '' '...'
-> ```
-
 Make sure the server's public IP is whitelisted in Atlas Network Access.
 
 ### Updating after a code change
@@ -114,39 +108,36 @@ cd /root/knidos-zk
 git pull
 git submodule update --init   # only if submodule changed
 
-docker compose build                                   # ~30–60s with layer cache
-docker stack deploy -c docker-compose.yml knidos       # rolling update
+docker compose up -d --build  # rebuild image + recreate changed services
 ```
 
-Swarm replaces each service's tasks with the new image. The `server` uses `order: start-first` — the new container boots, passes its healthcheck, and only then does the old one exit, giving zero observable downtime on port 3000. `node` (daemon) has a brief gap (~30s Noir warmup) that's invisible to clients since it has no inbound traffic.
+Compose rebuilds the image, then recreates containers whose image digest changed. The `server` container is stopped and replaced (~20s `start_period` before the healthcheck flips back to `healthy`); clients see a brief window of `connection refused`. The `node` daemon restarts and burns its Noir warmup again (~30–90s), invisible to clients.
+
+To restart a single service without rebuilding the others:
+
+```bash
+docker compose up -d --build --no-deps server   # or: node
+```
 
 ### Rollback
 
 ```bash
 git checkout <previous-sha>
-docker compose build
-docker stack deploy -c docker-compose.yml knidos
-```
-
-Or revert a single service to its previous image:
-
-```bash
-docker service rollback knidos_server
+docker compose up -d --build
 ```
 
 ### Operational commands
 
 ```bash
-docker stack services knidos                           # service status + replica counts
-docker stack ps knidos                                 # individual tasks (containers)
-docker service logs -f knidos_node                     # daemon logs (wide events)
-docker service logs -f knidos_server                   # HTTP server logs
-docker service logs --since 1h knidos_node | jq 'select(.event=="task.attempt")'
-docker service update --force knidos_node              # restart single service
-docker stack rm knidos                                 # tear down entire stack
+docker compose ps                                      # service status + health
+docker compose logs -f node                            # daemon logs (wide events)
+docker compose logs -f server                          # HTTP server logs
+docker compose logs --since 1h node | jq 'select(.event=="task.attempt")'
+docker compose restart node                            # restart single service (no rebuild)
+docker compose down                                    # tear down stack (keeps volumes)
 ```
 
-Docker engine is enabled on boot (`systemctl enable docker`). Swarm services are restarted automatically by the swarm manager on any exit — no PM2 or dedicated systemd unit required.
+Docker engine is enabled on boot (`systemctl enable docker`). With `restart: unless-stopped` on every service, containers come back automatically after host reboot or crash — no PM2 or dedicated systemd unit required.
 
 ## Lint & Format
 
@@ -173,6 +164,12 @@ pnpm tasks:retry
 # Retry only specific pipeline types
 pnpm tasks:retry --type=zkTLS
 pnpm tasks:retry --type=zkTLS,noir
+
+# Dev-only: keep the newest 3 zkTLS scheduler waves and prune older
+# task docs across the pipeline chain.
+pnpm tasks:prune-waves
+pnpm tasks:prune-waves --apply
+pnpm tasks:prune-waves --keep-waves=5 --apply
 
 # Show queue + task status across pipelines (PENDING, QUEUED, RUNNING, DEFERRED, ...)
 pnpm queue:status
