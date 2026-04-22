@@ -105,7 +105,7 @@ export async function attestPrimusTask(
         url: `${env.BINANCE_API_URL}/fapi/v1/userTrades?${queryString}&signature=${signature}`,
         method: 'GET',
         header: { 'X-MBX-APIKEY': env.BINANCE_API_KEY },
-        body: {},
+        body: '',
       },
     ],
     responseResolves: [

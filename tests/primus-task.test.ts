@@ -139,7 +139,12 @@ describe('attestPrimusTask', () => {
         taskId: string;
         taskTxHash: string;
         taskAttestors: string[];
-        requests: Array<{ url: string; header: Record<string, string>; method: string }>;
+        requests: Array<{
+          url: string;
+          header: Record<string, string>;
+          method: string;
+          body: string;
+        }>;
         responseResolves: unknown;
         extendedParams?: string;
         attMode?: { algorithmType: string; resultType: string };
@@ -159,6 +164,7 @@ describe('attestPrimusTask', () => {
       );
       expect(call.requests[0]!.method).toBe('GET');
       expect(call.requests[0]!.header).toEqual({ 'X-MBX-APIKEY': env.BINANCE_API_KEY });
+      expect(call.requests[0]!.body).toBe('');
       expect(call.responseResolves).toEqual([
         [{ keyName: 'fills_commitment', parseType: 'json', parsePath: '$', op: 'SHA256' }],
       ]);
