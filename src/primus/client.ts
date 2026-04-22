@@ -82,7 +82,6 @@ export function createPrimusClient(cfg: {
   const provider = new providers.JsonRpcProvider(cfg.rpcUrl);
 
   let walletInstance: ethers.Wallet | null = null;
-  let sdkInstance: PrimusNetwork | null = null;
   let contractInstance: Contract | null = null;
   let maxTasksCache: number | null = null;
   let timeoutMsCache: number | null = null;
@@ -93,10 +92,8 @@ export function createPrimusClient(cfg: {
   }
 
   async function sdk(): Promise<PrimusNetwork> {
-    if (sdkInstance) return sdkInstance;
     const instance = new PrimusNetwork();
     await instance.init(wallet(), cfg.chainId);
-    sdkInstance = instance;
     return instance;
   }
 

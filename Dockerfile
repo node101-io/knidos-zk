@@ -50,8 +50,16 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm-store \
 FROM deps AS builder
 COPY tsconfig.json ./
 COPY src ./src
+# Primus ships the native addon source in the package tarball, but its
+# install script only auto-builds on Ubuntu/macOS. Our image is Debian,
+# so we must rebuild the addon explicitly after prune and fail the image
+# build if the `.node` artifact is still missing.
 RUN pnpm exec tsc \
- && pnpm prune --prod --ignore-scripts
+ && pnpm prune --prod --ignore-scripts \
+ && primus_sdk_dir="$(node -e "const path=require('path'); process.stdout.write(path.dirname(require.resolve('@primuslabs/network-core-sdk/package.json')));")" \
+ && cd "$primus_sdk_dir" \
+ && node "$(node -e "process.stdout.write(require.resolve('node-gyp/bin/node-gyp.js'))")" rebuild \
+ && test -f build/Release/primus-zktls-native.node
 
 # ======================================
 # runtime: minimal image, no build tools, non-root user
