@@ -82,28 +82,29 @@ async function main(): Promise<void> {
 
     const deleteMatch = {
       type: 'zkTLS',
+      status: { $in: ['PENDING', 'QUEUED'] },
       'input.endTime': { $lt: cutoff },
     } as const;
 
     const deleteCount = await Task.countDocuments(deleteMatch);
 
     console.log(
-      `[prune-task-waves] Found ${prunableWaveEndTimes.length} older wave(s) to prune from zkTLS: ${formatWaveList(
+      `[prune-task-waves] Found ${prunableWaveEndTimes.length} older wave(s) to prune from zkTLS (PENDING/QUEUED only): ${formatWaveList(
         prunableWaveEndTimes,
       )}`,
     );
-    console.log(`[prune-task-waves] Matching zkTLS task count: ${deleteCount}`);
+    console.log(`[prune-task-waves] Matching zkTLS PENDING/QUEUED task count: ${deleteCount}`);
 
     if (!apply) {
       console.log(
-        `[prune-task-waves] Dry run only. Re-run with --apply to delete ${deleteCount} zkTLS task(s).`,
+        `[prune-task-waves] Dry run only. Re-run with --apply to delete ${deleteCount} zkTLS PENDING/QUEUED task(s).`,
       );
       return;
     }
 
     const result = await Task.deleteMany(deleteMatch);
     console.log(
-      `[prune-task-waves] Deleted ${result.deletedCount} zkTLS task(s) across ${prunableWaveEndTimes.length} older wave(s).`,
+      `[prune-task-waves] Deleted ${result.deletedCount} zkTLS PENDING/QUEUED task(s) across ${prunableWaveEndTimes.length} older wave(s).`,
     );
   } finally {
     await mongoose.disconnect();
