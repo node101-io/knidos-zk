@@ -10,6 +10,7 @@
     "node": "node --env-file=.env dist/src/app.js",
     "server": "node --env-file=.env dist/src/server.js",
     "tasks:retry": "tsx --env-file=.env src/scripts/retry-failed-tasks.ts",
+    "tasks:prune-waves": "tsx --env-file=.env src/scripts/prune-task-waves.ts",
     "queue:status": "tsx --env-file=.env src/scripts/queue-status.ts",
     "primus:status": "tsx --env-file=.env src/scripts/check-primus-unsettled.ts",
     "primus:reclaim": "tsx --env-file=.env src/scripts/reclaim-primus.ts",

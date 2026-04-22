@@ -34,6 +34,7 @@ export default defineConfig({
             'tests/validation.test.ts',
             'tests/logger.test.ts',
             'tests/server.test.ts',
+            'tests/task-wave-retention.test.ts',
             'tests/zk-tls-master.test.ts',
             'tests/zk-tls-worker.test.ts',
             'tests/zk-verify-session.test.ts',
