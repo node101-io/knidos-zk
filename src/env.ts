@@ -50,11 +50,6 @@ export const env = createEnv({
     REDIS_HOST: z.string().min(1).default(DEFAULT_REDIS_HOST),
     REDIS_PORT: z.coerce.number().int().positive().default(DEFAULT_REDIS_PORT),
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-    LOG_LEVEL: z
-      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-      .default('info'),
-    AXIOM_TOKEN: z.string().min(1, 'AXIOM_TOKEN cannot be empty').optional(),
-    AXIOM_DATASET: z.string().min(1, 'AXIOM_DATASET cannot be empty').optional(),
     PORT: z.coerce.number().int().positive().default(3000),
     API_KEY: z.string().min(1, 'API_KEY cannot be empty'),
     STATUS_PASSWORD: z.string().min(1, 'STATUS_PASSWORD cannot be empty'),

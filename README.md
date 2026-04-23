@@ -53,7 +53,7 @@ The runtime expects Binance Futures API credentials and a `BINANCE_SYMBOLS` CSV 
 
 For Base Sepolia reliability, keep `RPC_URL` as the primary endpoint and optionally set `RPC_FALLBACK_URLS` to a comma-separated list of secondary RPCs. Read-only JSON-RPC calls will fail over across that list on transient 429/5xx or transport errors; `eth_sendRawTransaction` stays pinned to the primary endpoint.
 
-Production logs always go to `stdout`. If `AXIOM_TOKEN` and `AXIOM_DATASET` are both set, production also ships the same JSON logs to Axiom using the official Pino transport. The recommended dataset name is `knidos-zk-logs`.
+Production logs go to `stdout` as JSON; inspect them with `docker compose logs`.
 
 ## Build & Run
 
@@ -87,15 +87,6 @@ cp .env.example .env   # fill in Atlas MONGO_URI, Primus keys, etc.
 docker compose up -d --build                           # build image + start stack
 docker compose ps                                      # should show redis/node/server running
 ```
-
-If you want Axiom shipping in production, add these to the host `.env` before deploy:
-
-```bash
-AXIOM_TOKEN=...
-AXIOM_DATASET=knidos-zk-logs
-```
-
-Create the dataset as an `Events` dataset and generate an ingest-only API token in Axiom. A simple first monitor in the Axiom UI is `service == "knidos-zk"` with `severity in ["ERROR","CRITICAL"]`.
 
 Make sure the server's public IP is whitelisted in Atlas Network Access.
 
