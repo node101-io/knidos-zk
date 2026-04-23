@@ -10,5 +10,4 @@ circuit/target
 *.log
 tests
 .github
-ecosystem.config.cjs
 .git
