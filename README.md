@@ -51,6 +51,8 @@ The runtime expects Binance Futures API credentials and a `BINANCE_SYMBOLS` CSV 
 
 `zkTLS` uses Primus-aware backpressure. The runtime defers tasks when Primus capacity is constrained and reclaims fees from timed-out tasks only when the backlog justifies the settlement gas.
 
+For Base Sepolia reliability, keep `RPC_URL` as the primary endpoint and optionally set `RPC_FALLBACK_URLS` to a comma-separated list of secondary RPCs. Read-only JSON-RPC calls will fail over across that list on transient 429/5xx or transport errors; `eth_sendRawTransaction` stays pinned to the primary endpoint.
+
 Production logs always go to `stdout`. If `AXIOM_TOKEN` and `AXIOM_DATASET` are both set, production also ships the same JSON logs to Axiom using the official Pino transport. The recommended dataset name is `knidos-zk-logs`.
 
 ## Build & Run

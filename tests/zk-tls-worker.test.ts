@@ -103,6 +103,31 @@ describe('processZkTLSJob', () => {
     );
   });
 
+  it('marks Primus websocket transport errors as DEFERRED', async () => {
+    const task = buildTask();
+    mockFindById.mockResolvedValue(task);
+    mockRunZkTLSProcessor.mockRejectedValue({
+      code: '10003',
+      message: 'Unstable internet connection. Please try again.',
+      data: {
+        retdesc:
+          '10003:run_client do_offline exception: [PrimusServerNetworkError]recv websocket header error',
+      },
+    });
+
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never, buildCtx());
+
+    expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        taskId: task._id.toString(),
+        status: 'DEFERRED',
+        deferReason: 'primus_transient_rpc',
+        deferCount: 1,
+      }),
+    );
+  });
+
   it('preserves explicit defer decisions from the capacity manager', async () => {
     const task = buildTask({ deferCount: 2 });
     mockFindById.mockResolvedValue(task);
@@ -166,6 +191,36 @@ describe('processZkTLSJob', () => {
       expect.objectContaining({
         taskId: task._id.toString(),
         status: 'FAILED',
+      }),
+    );
+  });
+
+  it('marks nested upstream 502 wrappers as DEFERRED', async () => {
+    const task = buildTask();
+    mockFindById.mockResolvedValue(task);
+    mockRunZkTLSProcessor.mockRejectedValue({
+      name: 'Error',
+      message: 'missing revert data in call exception; Transaction reverted without a reason string',
+      code: 'CALL_EXCEPTION',
+      error: {
+        name: 'Error',
+        message: 'bad response',
+        code: 'SERVER_ERROR',
+        status: 502,
+        body: 'error code: 502',
+        url: 'https://sepolia.base.org',
+      },
+    });
+
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never, buildCtx());
+
+    expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        taskId: task._id.toString(),
+        status: 'DEFERRED',
+        deferReason: 'primus_transient_rpc',
+        deferCount: 1,
       }),
     );
   });
