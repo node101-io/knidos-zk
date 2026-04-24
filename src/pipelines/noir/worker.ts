@@ -31,7 +31,6 @@ export async function processNoirJob(
 
   const parsedInput = parseNoirJobInput(input);
   ctx.set({
-    pipelineId: task.pipelineId.toString(),
     symbol: parsedInput.symbol,
     windowStart: parsedInput.startTime,
     windowEnd: parsedInput.endTime,
@@ -62,10 +61,15 @@ export async function processNoirJob(
         { session },
       );
 
+      await Task.updateOne(
+        { _id: taskId },
+        { $unset: { 'input.circuitInput': '' } },
+        { session },
+      );
+
       await Task.createTask(
         {
           type: 'zkVerify',
-          pipelineId: task.pipelineId,
           input: {
             noirTaskId: taskId,
             symbol: parsedInput.symbol,

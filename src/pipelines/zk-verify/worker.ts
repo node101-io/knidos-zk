@@ -5,6 +5,7 @@ import Task from '../../db/task.js';
 import VerificationRecord from '../../db/verification-record.js';
 import { redis } from '../../shared/redis.js';
 import type { TaskEventCtx } from '../../shared/task-event.js';
+import { computeVkHash } from '../../shared/vk-hash.js';
 import type { ZkVerifyJobData } from '../types.js';
 import type { NoirProcessorResult } from '../noir/processor.js';
 import { parseZkVerifyJobInput } from '../validation.js';
@@ -40,7 +41,6 @@ export async function processZkVerifyJob(
 
   const parsedInput = parseZkVerifyJobInput(input);
   ctx.set({
-    pipelineId: task.pipelineId.toString(),
     symbol: parsedInput.symbol,
     noirTaskId: parsedInput.noirTaskId,
     windowStart: parsedInput.startTime,
@@ -103,18 +103,13 @@ export async function processZkVerifyJob(
   try {
     await session.withTransaction(async () => {
       await Task.updateTaskStatus(
-        {
-          taskId,
-          status: 'COMPLETED',
-          result,
-        },
+        { taskId, status: 'COMPLETED' },
         { session },
       );
 
       await VerificationRecord.create(
         [
           {
-            pipelineId: task.pipelineId,
             zkVerifyTaskId: task._id,
             noirTaskId: new mongoose.Types.ObjectId(parsedInput.noirTaskId),
             symbol: parsedInput.symbol,
@@ -123,17 +118,20 @@ export async function processZkVerifyJob(
 
             variant: result.variant,
 
-            vk: result.vk,
-            proof: result.proof,
+            vkHash: computeVkHash(result.vk),
             publicSignals: result.publicSignals,
 
-            ...(result.statement !== undefined ? { statement: result.statement } : {}),
-            ...(result.aggregationId !== undefined ? { aggregationId: result.aggregationId } : {}),
-            ...(result.includedInBlock !== undefined
-              ? { includedInBlock: result.includedInBlock }
+            ...(result.includedInBlock?.txHash
+              ? { txHash: result.includedInBlock.txHash }
               : {}),
           },
         ],
+        { session },
+      );
+
+      await Task.updateOne(
+        { _id: new mongoose.Types.ObjectId(parsedInput.noirTaskId) },
+        { $unset: { result: '' } },
         { session },
       );
     });

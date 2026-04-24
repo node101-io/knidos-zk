@@ -13,14 +13,10 @@ interface TaskInterface {
   _id: Types.ObjectId;
   type: TaskType;
   status: TaskStatus;
-  queuedAt?: Date;
-  attemptStartedAt?: Date;
   deferUntil?: Date;
   deferReason?: string;
   deferCount?: number;
   finishedAt?: Date;
-  failedAt?: Date;
-  pipelineId: Types.ObjectId;
   input: Record<string, unknown>;
   result?: unknown;
   error?: unknown;
@@ -29,16 +25,11 @@ interface TaskInterface {
 
 interface CreateTaskBody {
   type: TaskType;
-  pipelineId: Types.ObjectId;
   input: Record<string, unknown>;
 }
 
 interface CreateTaskOptions {
   session?: mongoose.ClientSession;
-}
-
-interface FindTasksByPipelineIdBody {
-  pipelineId: Types.ObjectId;
 }
 
 interface UpdateTaskStatusBody {
@@ -57,8 +48,6 @@ interface UpdateTaskStatusOptions {
 
 export interface TaskModel extends Model<TaskInterface> {
   createTask(body: CreateTaskBody, options?: CreateTaskOptions): Promise<TaskInterface>;
-
-  findTasksByPipelineId(body: FindTasksByPipelineIdBody): Promise<TaskInterface[]>;
 
   markTaskQueued(taskId: string): Promise<void>;
 
@@ -81,19 +70,10 @@ const TaskSchema = new Schema<TaskInterface, TaskModel>({
     index: true,
     default: 'PENDING',
   },
-  queuedAt: { type: Date },
-  attemptStartedAt: { type: Date },
   deferUntil: { type: Date, default: null },
   deferReason: { type: String, default: null },
   deferCount: { type: Number, default: 0 },
   finishedAt: { type: Date },
-  failedAt: { type: Date },
-  pipelineId: {
-    type: Schema.Types.ObjectId,
-    required: true,
-    ref: 'pipeline',
-    index: true,
-  },
   input: {
     type: Schema.Types.Mixed,
     required: true,
@@ -140,7 +120,6 @@ TaskSchema.statics.createTask = async function (
     [
       {
         type: body.type,
-        pipelineId: body.pipelineId,
         input,
       },
     ],
@@ -154,25 +133,12 @@ TaskSchema.statics.createTask = async function (
   return task;
 };
 
-TaskSchema.statics.findTasksByPipelineId = function (
-  body: FindTasksByPipelineIdBody,
-): ReturnType<TaskModel['findTasksByPipelineId']> {
-  return Task.find({ pipelineId: body.pipelineId }).exec();
-};
-
 TaskSchema.statics.markTaskQueued = async function (taskId: string) {
   await Task.updateOne(
+    { _id: taskId },
     {
-      _id: taskId,
-    },
-    {
-      $set: {
-        status: 'QUEUED',
-        queuedAt: new Date(),
-        attemptStartedAt: null,
-        deferUntil: null,
-        deferReason: null,
-      },
+      $set: { status: 'QUEUED' },
+      $unset: { deferUntil: '', deferReason: '' },
     },
   );
 };
@@ -189,33 +155,12 @@ TaskSchema.statics.updateTaskStatus = async function (
     if (body.result === undefined) $set.result = null;
   }
 
-  if (body.status !== 'FAILED') {
-    $set.failedAt = null;
-  }
-
   if (body.status !== 'DEFERRED') {
     $set.deferUntil = null;
     $set.deferReason = null;
   }
 
-  if (body.status === 'PENDING') {
-    $set.queuedAt = null;
-    $set.attemptStartedAt = null;
-  }
-
-  if (body.status === 'QUEUED') {
-    $set.queuedAt = new Date();
-    $set.attemptStartedAt = null;
-  }
-
-  if (body.status === 'RUNNING') {
-    $set.attemptStartedAt = new Date();
-    $set.queuedAt = null;
-  }
-
   if (body.status === 'DEFERRED') {
-    $set.queuedAt = null;
-    $set.attemptStartedAt = null;
     $set.deferUntil = body.deferUntil ?? null;
     $set.deferReason = body.deferReason ?? null;
   }
@@ -224,10 +169,6 @@ TaskSchema.statics.updateTaskStatus = async function (
     $set.finishedAt = new Date();
     $set.result = body.result ?? null;
     $set.error = null;
-  }
-
-  if (body.status === 'FAILED') {
-    $set.failedAt = new Date();
   }
 
   if (body.deferCount !== undefined) {

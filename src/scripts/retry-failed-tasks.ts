@@ -39,15 +39,12 @@ async function main(): Promise<void> {
     {
       $set: {
         status: 'PENDING',
-        queuedAt: null,
-        attemptStartedAt: null,
         error: {
           message: '[manual retry] task moved back to PENDING',
           retriedAt: new Date(),
         },
       },
       $unset: {
-        failedAt: 1,
         finishedAt: 1,
       },
     },

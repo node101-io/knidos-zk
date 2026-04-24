@@ -72,7 +72,6 @@ export async function processZkTLSJob(
 
   const parsedInput = parseZkTLSJobInput(input);
   ctx.set({
-    pipelineId: task.pipelineId.toString(),
     symbol: parsedInput.symbol,
     windowStart: parsedInput.startTime,
     windowEnd: parsedInput.endTime,
@@ -118,10 +117,10 @@ export async function processZkTLSJob(
   try {
     await session.withTransaction(async () => {
       await Task.updateTaskStatus({ taskId, status: 'COMPLETED' }, { session });
+      await Task.updateOne({ _id: taskId }, { $unset: { primus: '' } }, { session });
       await Task.createTask(
         {
           type: 'noir',
-          pipelineId: task.pipelineId,
           input: {
             zkTLSTaskId: taskId,
             symbol: parsedInput.symbol,

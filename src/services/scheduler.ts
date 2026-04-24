@@ -1,5 +1,4 @@
 import cron from 'node-cron';
-import mongoose from 'mongoose';
 
 import Task from '../db/task.js';
 import { env } from '../env.js';
@@ -37,7 +36,6 @@ async function ensureZkTLSTask(
     {
       $setOnInsert: {
         type: 'zkTLS',
-        pipelineId: new mongoose.Types.ObjectId(),
         input,
       },
     },

@@ -30,7 +30,6 @@ await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
 
 const task = await Task.createTask({
   type: 'zkTLS',
-  pipelineId: new mongoose.Types.ObjectId(),
   input: {
     startTime: new Date(START_TIME),
     endTime: new Date(END_TIME),

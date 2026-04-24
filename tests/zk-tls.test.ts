@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 interface StoredTask {
   _id: mongoose.Types.ObjectId;
   type: string;
-  pipelineId: mongoose.Types.ObjectId;
   input: Record<string, unknown>;
   primus: unknown;
 }
@@ -16,14 +15,12 @@ vi.mock('../src/db/task.js', () => {
     createTask: vi.fn(
       async (body: {
         type: string;
-        pipelineId: mongoose.Types.ObjectId;
         input: Record<string, unknown>;
       }): Promise<StoredTask> => {
         const _id = new mongoose.Types.ObjectId();
         const record: StoredTask = {
           _id,
           type: body.type,
-          pipelineId: body.pipelineId,
           input: body.input,
           primus: null,
         };
@@ -49,7 +46,6 @@ describe('zk-tls processor', () => {
   it('fetches fills and produces valid NoirCircuitInput', async () => {
     const task = await Task.createTask({
       type: 'zkTLS',
-      pipelineId: new mongoose.Types.ObjectId(),
       input: {
         startTime: new Date(1769172979000),
         endTime: new Date(1769172996000),

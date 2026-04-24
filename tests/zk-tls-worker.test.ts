@@ -47,7 +47,6 @@ function buildTask(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     _id: new mongoose.Types.ObjectId(),
     status: 'QUEUED',
-    pipelineId: new mongoose.Types.ObjectId(),
     deferCount: 0,
     ...overrides,
   };

@@ -1,32 +1,23 @@
 import mongoose, { Schema, Types } from 'mongoose';
-import type { VerifyTransactionInfo } from 'zkverifyjs';
 
 import {
   SUPPORTED_BINANCE_SYMBOLS,
   type SupportedBinanceSymbol,
 } from '../shared/binance-symbols.js';
-import { computeVkHash } from '../shared/vk-hash.js';
 
 export interface VerificationRecordInterface {
-  pipelineId: Types.ObjectId;
   zkVerifyTaskId: Types.ObjectId;
   noirTaskId: Types.ObjectId;
   symbol: SupportedBinanceSymbol;
   startTime: Date;
   endTime: Date;
 
-  // zkVerify outputs
-  statement: string;
-  aggregationId: number;
-  includedInBlock: VerifyTransactionInfo;
-
   variant: string;
 
-  // proof artifacts
-  vk: string;
   vkHash: string;
-  proof: string;
   publicSignals: string[];
+
+  txHash?: string;
 
   createdAt: Date;
   updatedAt: Date;
@@ -34,11 +25,6 @@ export interface VerificationRecordInterface {
 
 const VerificationRecordSchema = new Schema<VerificationRecordInterface>(
   {
-    pipelineId: {
-      type: Schema.Types.ObjectId,
-      required: true,
-      index: true,
-    },
     zkVerifyTaskId: {
       type: Schema.Types.ObjectId,
       required: true,
@@ -66,43 +52,30 @@ const VerificationRecordSchema = new Schema<VerificationRecordInterface>(
       index: true,
     },
 
-    statement: { type: String },
-    aggregationId: { type: Number },
-    includedInBlock: { type: Schema.Types.Mixed },
-
     variant: {
       type: String,
       required: true,
     },
 
-    vk: {
-      type: String,
-      required: true,
-    },
     vkHash: {
       type: String,
-      index: true,
-    },
-    proof: {
-      type: String,
       required: true,
+      index: true,
     },
     publicSignals: {
       type: [String],
       required: true,
       default: [],
     },
+
+    txHash: {
+      type: String,
+    },
   },
   {
     timestamps: true,
   },
 );
-
-VerificationRecordSchema.pre('save', function () {
-  if (this.isModified('vk') || !this.vkHash) {
-    this.vkHash = computeVkHash(this.vk);
-  }
-});
 
 const VerificationRecord = mongoose.model<VerificationRecordInterface>(
   'VerificationRecord',
