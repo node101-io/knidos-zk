@@ -16,7 +16,7 @@
 //   - Alchemy:       https://www.alchemy.com/faucets/ethereum-sepolia
 //
 // Usage:
-//   pnpm primus:bridge            # defaults to 0.05 ETH
+//   pnpm primus:bridge            # bridges entire balance minus L1 gas reserve
 //   pnpm primus:bridge 0.1        # custom amount
 //
 // After the L1 tx mines, wait ~2 min and check the Base Sepolia
@@ -33,26 +33,40 @@ const BASE_SEPOLIA_PORTAL = '0x49f53e41452C74589E85cA1677426Ba426459e85';
 // Public Sepolia RPC. Swap if rate-limited.
 const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
 
-// Conservative gas reserve so we don't bridge the entire balance and
-// fail on the tx itself for lack of gas. Covers a 0.001 ETH worst-case
-// L1 gas bill.
-const GAS_RESERVE = ethers.utils.parseEther('0.001');
-
-const amountEth = process.argv[2] ?? '0.05';
-const amountWei = ethers.utils.parseEther(amountEth);
+// Manual gas limit. Ethers' estimateGas underestimates OptimismPortal.receive()
+// because the metered modifier's ResourceMetering math uses block.timestamp,
+// so the simulated cost can come in below the actual on-chain cost and the
+// tx reverts out-of-gas (~83k vs needed ~90-110k). 200k is a safe ceiling.
+const GAS_LIMIT = 200000;
 
 const provider = new ethers.providers.JsonRpcProvider(SEPOLIA_RPC);
 const wallet = new ethers.Wallet(env.PRIMUS_PRIVATE_KEY, provider);
 
-const balance = await provider.getBalance(wallet.address);
+const [balance, feeData] = await Promise.all([
+  provider.getBalance(wallet.address),
+  provider.getFeeData(),
+]);
+
+// Reserve worst-case fee (gasLimit * maxFeePerGas) + 20% buffer for fee
+// swings between estimation and inclusion.
+const gasReserve = feeData
+  .maxFeePerGas!.mul(GAS_LIMIT)
+  .mul(120)
+  .div(100);
+
+const amountWei = process.argv[2]
+  ? ethers.utils.parseEther(process.argv[2])
+  : balance.sub(gasReserve);
+
 console.log(`from:            ${wallet.address}`);
 console.log(`sepolia balance: ${ethers.utils.formatEther(balance)} ETH`);
-console.log(`bridging:        ${amountEth} ETH -> Base Sepolia`);
+console.log(`gas reserve:     ${ethers.utils.formatEther(gasReserve)} ETH`);
+console.log(`bridging:        ${ethers.utils.formatEther(amountWei)} ETH -> Base Sepolia`);
 
-if (balance.lt(amountWei.add(GAS_RESERVE))) {
+if (amountWei.lte(0) || balance.lt(amountWei.add(gasReserve))) {
   console.error(
     `\nInsufficient Sepolia balance: have ${ethers.utils.formatEther(balance)} ETH, ` +
-      `need ~${ethers.utils.formatEther(amountWei.add(GAS_RESERVE))} ETH (bridge amount + gas reserve).`,
+      `need ~${ethers.utils.formatEther(amountWei.add(gasReserve))} ETH (bridge amount + gas reserve).`,
   );
   process.exit(1);
 }
@@ -60,6 +74,7 @@ if (balance.lt(amountWei.add(GAS_RESERVE))) {
 const tx = await wallet.sendTransaction({
   to: BASE_SEPOLIA_PORTAL,
   value: amountWei,
+  gasLimit: GAS_LIMIT,
 });
 console.log(`sepolia tx sent: ${tx.hash}`);
 
