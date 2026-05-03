@@ -12,6 +12,7 @@ import { runCleanupOnce } from './services/cleanup.js';
 import { startScheduler } from './services/scheduler.js';
 import logger from './shared/logger.js';
 import { redis } from './shared/redis.js';
+import { resetPipelineQueues } from './utils/reset-pipeline-queues.js';
 
 const RETRY_ATTEMPTS = 3;
 const RETRY_BACKOFF_MS = 5000;
@@ -20,6 +21,7 @@ const ZKTLS_RETRY_ATTEMPTS = 1;
 try {
   await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
   await warmupNoirRuntime();
+  await resetPipelineQueues();
   await runCleanupOnce();
   await startScheduler();
 

@@ -31,6 +31,7 @@ function buildContractMock(args: {
   withdrawBalance?: ReturnType<typeof vi.fn>;
 }) {
   return {
+    address: '0xC02234058caEaA9416506eABf6Ef3122fCA939E8',
     queryUnsettledTasks: vi.fn().mockImplementation(async () => {
       const next = args.unsettled.shift();
       if (!next) throw new Error('missing queryUnsettledTasks mock');
@@ -193,6 +194,43 @@ describe('submitWithCapacity — capacity decisions', () => {
       reason: 'primus_capacity_batch_wait',
     });
     expect(withdrawBalance).not.toHaveBeenCalled();
+  });
+
+  it('defers a submitTask receipt revert as capacity exhaustion when ethers omits the reason', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(1_776_538_500_000));
+    const exhaustError = {
+      code: 'CALL_EXCEPTION',
+      receipt: {
+        status: 0,
+        to: '0xC02234058caEaA9416506eABf6Ef3122fCA939E8',
+      },
+      transaction: {
+        to: '0xC02234058caEaA9416506eABf6Ef3122fCA939E8',
+        data: '0x5ae543eb00000000000000000000000052ca55973e855c2a8b93274a2b9be358a294a916',
+      },
+    };
+    const submitTask = vi.fn().mockRejectedValue(exhaustError);
+    const contract = buildContractMock({
+      unsettled: [
+        { totalCount: 99, taskInfos: [buildTaskInfo(1_776_538_412)] },
+        { totalCount: 100, taskInfos: [buildTaskInfo(1_776_538_412)] },
+        { totalCount: 100, taskInfos: [buildTaskInfo(1_776_538_412)] },
+      ],
+      submitTask,
+    });
+    mockContract.mockReturnValue(contract as never);
+
+    const { submitWithCapacity } = await import('../src/primus/capacity.js');
+    const result = await submitWithCapacity();
+
+    expect(submitTask).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      action: 'defer',
+      reason: 'primus_capacity_full_wait',
+      deferUntil: new Date(1_776_538_412_000 + 900_000 + 15_000),
+      sourceError: exhaustError,
+    });
   });
 
   it('returns primus_capacity_retry when submit exhausts twice', async () => {

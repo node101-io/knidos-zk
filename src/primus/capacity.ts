@@ -86,7 +86,7 @@ export async function submitWithCapacity(): Promise<
   try {
     return await submitPrimusTaskRaw();
   } catch (error) {
-    if (!isPrimusCapacityExhaustedError(error)) throw error;
+    if (!(await isSubmitCapacityExhaustedError(error))) throw error;
     // A race between our view-call snapshot and submitTask. Re-evaluate
     // (which may reclaim) and try once more. If still exhausted, defer.
     const second = await evaluate({ sourceError: error });
@@ -94,7 +94,7 @@ export async function submitWithCapacity(): Promise<
     try {
       return await submitPrimusTaskRaw();
     } catch (retryError) {
-      if (!isPrimusCapacityExhaustedError(retryError)) throw retryError;
+      if (!(await isSubmitCapacityExhaustedError(retryError))) throw retryError;
       return deferTaskDecision({
         reason: 'primus_capacity_retry',
         deferUntil: new Date(Date.now() + CAPACITY_RETRY_DELAY_MS),
@@ -218,6 +218,40 @@ async function snapshot(): Promise<Snapshot> {
       ? new Date(oldestSec * 1000 + timeoutMs + GRACE_MS)
       : null,
   };
+}
+
+async function isSubmitCapacityExhaustedError(error: unknown): Promise<boolean> {
+  if (isPrimusCapacityExhaustedError(error)) return true;
+  if (!isSubmitTaskReceiptRevert(error)) return false;
+
+  try {
+    return (await snapshot()).freeSlots === 0;
+  } catch {
+    // If the submitTask tx reverted and the follow-up view failed, keep it
+    // recoverable. The next evaluate() call will classify the view failure.
+    return true;
+  }
+}
+
+function isSubmitTaskReceiptRevert(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+
+  const value = error as {
+    code?: unknown;
+    receipt?: { status?: unknown; to?: unknown };
+    transaction?: { to?: unknown; data?: unknown };
+  };
+  if (value.code !== 'CALL_EXCEPTION') return false;
+  if (value.receipt?.status !== 0) return false;
+
+  const contractAddress = primusClient.contract().address.toLowerCase();
+  const txTo = typeof value.transaction?.to === 'string' ? value.transaction.to.toLowerCase() : '';
+  const receiptTo = typeof value.receipt?.to === 'string' ? value.receipt.to.toLowerCase() : '';
+  const data = typeof value.transaction?.data === 'string' ? value.transaction.data : '';
+
+  return (
+    data.startsWith('0x5ae543eb') && (txTo === contractAddress || receiptTo === contractAddress)
+  );
 }
 
 function log(action: string, s: Snapshot, extra: Record<string, unknown> = {}): void {

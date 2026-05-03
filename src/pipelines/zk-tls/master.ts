@@ -34,8 +34,8 @@ export class ZkTLSMaster extends Master<ZkTLSJobData> {
             type: 'fixed',
             delay: retryBackoffMs,
           },
-          removeOnComplete: 100,
-          removeOnFail: 100,
+          removeOnComplete: true,
+          removeOnFail: true,
         },
       );
 
