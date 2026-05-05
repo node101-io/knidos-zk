@@ -7,15 +7,32 @@ const RATE_LIMIT_TOKEN = 'operation too frequent';
 const RATE_LIMIT_DELAY_SECONDS = 30;
 const RATE_LIMIT_MAX_DELAY_SECONDS = 300;
 const TRANSIENT_RPC_DELAY_MS = 60_000;
+// Above this many consecutive defers we mark the task FAILED rather
+// than letting it cycle forever. Reason: a sustained Primus attestor
+// outage was producing tasks with deferCount in the 30s while the
+// queue grew unbounded. Failed tasks can be revived with
+// `pnpm tasks:retry` once the upstream is healthy. Permanent failures
+// (insufficient funds / nonce) still short-circuit before this cap.
+const MAX_DEFERS = 50;
 // Revert reason string is defined in Task.sol L77.
 const CAPACITY_EXHAUSTED_MESSAGE = 'unsettled task count exceed max count';
-const TRANSIENT_PRIMUS_TRANSPORT_TOKENS = [
+// Tokens that pinpoint the Primus attestor's MPC websocket transport
+// (the "offline" phase of the SDK's attest()). When these fire, no
+// amount of waiting on the same on-chain submit helps — the attestor
+// the contract picked is unreachable. The fix is to invalidate the
+// checkpoint and re-submit so the contract picks a different attestor;
+// see processor.ts attest retry loop.
+const ATTESTOR_TRANSPORT_TOKENS = [
   'primusservernetworkerror',
   'websocket header error',
   'recv websocket header error',
   'unstable internet connection',
 ];
-const TRANSIENT_RPC_TOKENS = [
+// Tokens for transient HTTP / RPC failures (Base RPC 5xx, timeouts,
+// AbortController). These point at network or upstream-RPC issues —
+// not at a specific Primus attestor — so a simple time-based defer is
+// the right action.
+const RPC_TRANSIENT_TOKENS = [
   'bad response',
   'timeout',
   'timed out',
@@ -36,10 +53,10 @@ const TRANSIENT_RPC_TOKENS = [
   'error code: 503',
   'error code: 504',
 ];
-const TRANSIENT_RPC_STATUS_CODES = new Set([429, 502, 503, 504]);
+const RPC_TRANSIENT_STATUS_CODES = new Set([429, 502, 503, 504]);
 
 // Errors that will keep reproducing until an operator intervenes.
-// Must be checked BEFORE TRANSIENT_RPC_TOKENS because ethers wraps
+// Must be checked BEFORE the transient classifiers because ethers wraps
 // everything in a SERVER_ERROR code; the permanent reason only
 // shows up deeper in the error payload, and a looser "server_error"
 // transient match would mask it.
@@ -58,16 +75,25 @@ export interface DeferredTaskDecision<Reason extends string = string> {
   sourceError?: unknown;
 }
 
-export type ZkTLSErrorDecision =
-  | DeferredTaskDecision<'primus_rate_limited' | 'primus_transient_rpc'>
-  | { action: 'fail' };
+export type ZkTLSDeferReason =
+  | 'primus_rate_limited'
+  | 'primus_attestor_transient'
+  | 'primus_rpc_transient';
 
-export type ErrorClass = 'primus_rate_limited' | 'primus_transient_rpc' | 'permanent' | 'unknown';
+export type ZkTLSErrorDecision = DeferredTaskDecision<ZkTLSDeferReason> | { action: 'fail' };
+
+export type ErrorClass =
+  | 'primus_rate_limited'
+  | 'primus_attestor_transient'
+  | 'primus_rpc_transient'
+  | 'permanent'
+  | 'unknown';
 
 export function classifyError(err: unknown): ErrorClass {
   if (isPrimusRateLimited(err)) return 'primus_rate_limited';
   if (isPermanentFailure(err)) return 'permanent';
-  if (isTransientPrimusRpc(err)) return 'primus_transient_rpc';
+  if (isAttestorTransport(err)) return 'primus_attestor_transient';
+  if (isRpcTransient(err)) return 'primus_rpc_transient';
   return 'unknown';
 }
 
@@ -137,17 +163,23 @@ export function collectErrorStatusCodes(err: unknown): number[] {
   return values;
 }
 
-export function isTransientPrimusRpc(error: unknown): boolean {
+export function isAttestorTransport(error: unknown): boolean {
   const text = normalizedErrorText(error);
-  if (TRANSIENT_PRIMUS_TRANSPORT_TOKENS.some((token) => text.includes(token))) {
+  return ATTESTOR_TRANSPORT_TOKENS.some((token) => text.includes(token));
+}
+
+export function isRpcTransient(error: unknown): boolean {
+  const text = normalizedErrorText(error);
+  if (RPC_TRANSIENT_TOKENS.some((token) => text.includes(token))) {
     return true;
   }
+  return collectErrorStatusCodes(error).some((status) => RPC_TRANSIENT_STATUS_CODES.has(status));
+}
 
-  if (TRANSIENT_RPC_TOKENS.some((token) => text.includes(token))) {
-    return true;
-  }
-
-  return collectErrorStatusCodes(error).some((status) => TRANSIENT_RPC_STATUS_CODES.has(status));
+// Backwards-compatible union — preserved so the JSON-RPC fallback
+// provider keeps firing on either bucket without a separate predicate.
+export function isTransientPrimusRpc(error: unknown): boolean {
+  return isAttestorTransport(error) || isRpcTransient(error);
 }
 
 function isPermanentFailure(error: unknown): boolean {
@@ -177,6 +209,21 @@ export function decideZkTLSError(
 ): ZkTLSErrorDecision {
   const now = args.now ?? (() => Date.now());
 
+  // Permanent failures are checked first so that ethers' generic
+  // SERVER_ERROR wrapper on an INSUFFICIENT_FUNDS (or similar) error
+  // doesn't accidentally loop-defer forever.
+  if (isPermanentFailure(error)) {
+    return { action: 'fail' };
+  }
+
+  // Cap unbounded defer cycles. Tasks that have rotated through this
+  // many error-driven defers are effectively stuck; failing them
+  // bounds the queue and surfaces the issue. Capacity defers go
+  // through a separate path and are not capped here.
+  if (args.currentDeferCount >= MAX_DEFERS) {
+    return { action: 'fail' };
+  }
+
   if (isPrimusRateLimited(error)) {
     return deferTaskDecision({
       reason: 'primus_rate_limited',
@@ -185,16 +232,17 @@ export function decideZkTLSError(
     });
   }
 
-  // Permanent failures are checked before transient so that ethers'
-  // generic SERVER_ERROR wrapper on an INSUFFICIENT_FUNDS (or similar)
-  // error doesn't accidentally loop-defer forever.
-  if (isPermanentFailure(error)) {
-    return { action: 'fail' };
+  if (isAttestorTransport(error)) {
+    return deferTaskDecision({
+      reason: 'primus_attestor_transient',
+      deferUntil: new Date(now() + getTransientRpcDelayMs()),
+      sourceError: error,
+    });
   }
 
-  if (isTransientPrimusRpc(error)) {
+  if (isRpcTransient(error)) {
     return deferTaskDecision({
-      reason: 'primus_transient_rpc',
+      reason: 'primus_rpc_transient',
       deferUntil: new Date(now() + getTransientRpcDelayMs()),
       sourceError: error,
     });

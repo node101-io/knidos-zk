@@ -13,10 +13,7 @@ const taskStore = new Map<string, StoredTask>();
 vi.mock('../src/db/task.js', () => {
   const TaskMock = {
     createTask: vi.fn(
-      async (body: {
-        type: string;
-        input: Record<string, unknown>;
-      }): Promise<StoredTask> => {
+      async (body: { type: string; input: Record<string, unknown> }): Promise<StoredTask> => {
         const _id = new mongoose.Types.ObjectId();
         const record: StoredTask = {
           _id,
@@ -34,6 +31,10 @@ vi.mock('../src/db/task.js', () => {
     setPrimusCheckpoint: vi.fn(async (id: string, checkpoint: unknown) => {
       const doc = taskStore.get(id);
       if (doc) doc.primus = checkpoint;
+    }),
+    clearPrimusCheckpoint: vi.fn(async (id: string) => {
+      const doc = taskStore.get(id);
+      if (doc) doc.primus = null;
     }),
   };
   return { default: TaskMock };

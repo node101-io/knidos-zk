@@ -54,6 +54,8 @@ export interface TaskModel extends Model<TaskInterface> {
   updateTaskStatus(body: UpdateTaskStatusBody, options?: UpdateTaskStatusOptions): Promise<void>;
 
   setPrimusCheckpoint(taskId: string, checkpoint: unknown): Promise<void>;
+
+  clearPrimusCheckpoint(taskId: string): Promise<void>;
 }
 
 const TaskSchema = new Schema<TaskInterface, TaskModel>({
@@ -192,6 +194,10 @@ TaskSchema.statics.setPrimusCheckpoint = async function (
   checkpoint: unknown,
 ): Promise<void> {
   await Task.updateOne({ _id: taskId }, { $set: { primus: checkpoint } });
+};
+
+TaskSchema.statics.clearPrimusCheckpoint = async function (taskId: string): Promise<void> {
+  await Task.updateOne({ _id: taskId }, { $unset: { primus: '' } });
 };
 
 const Task = mongoose.model<TaskInterface, TaskModel>('Task', TaskSchema);

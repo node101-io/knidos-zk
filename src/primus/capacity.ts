@@ -60,7 +60,7 @@ interface Snapshot {
 }
 
 type CapacityDeferReason =
-  | 'primus_transient_rpc'
+  | 'primus_rpc_transient'
   | 'primus_capacity_full_wait'
   | 'primus_capacity_batch_wait';
 
@@ -147,7 +147,7 @@ async function evaluate(
     return {
       kind: 'defer',
       decision: deferTaskDecision({
-        reason: 'primus_transient_rpc',
+        reason: 'primus_rpc_transient',
         deferUntil: new Date(Date.now() + getTransientRpcDelayMs()),
         sourceError: args.sourceError ?? error,
       }),

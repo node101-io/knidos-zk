@@ -121,7 +121,7 @@ describe('processZkTLSJob', () => {
       expect.objectContaining({
         taskId: task._id.toString(),
         status: 'DEFERRED',
-        deferReason: 'primus_transient_rpc',
+        deferReason: 'primus_attestor_transient',
         deferCount: 1,
       }),
     );
@@ -199,7 +199,8 @@ describe('processZkTLSJob', () => {
     mockFindById.mockResolvedValue(task);
     mockRunZkTLSProcessor.mockRejectedValue({
       name: 'Error',
-      message: 'missing revert data in call exception; Transaction reverted without a reason string',
+      message:
+        'missing revert data in call exception; Transaction reverted without a reason string',
       code: 'CALL_EXCEPTION',
       error: {
         name: 'Error',
@@ -218,8 +219,31 @@ describe('processZkTLSJob', () => {
       expect.objectContaining({
         taskId: task._id.toString(),
         status: 'DEFERRED',
-        deferReason: 'primus_transient_rpc',
+        deferReason: 'primus_rpc_transient',
         deferCount: 1,
+      }),
+    );
+  });
+
+  it('marks tasks FAILED once the defer cap is reached', async () => {
+    const task = buildTask({ deferCount: 50 });
+    mockFindById.mockResolvedValue(task);
+    mockRunZkTLSProcessor.mockRejectedValue({
+      code: '10003',
+      message: 'Unstable internet connection. Please try again.',
+      data: {
+        retdesc:
+          '10003:run_client do_offline exception: [PrimusServerNetworkError]recv websocket header error',
+      },
+    });
+
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never, buildCtx());
+
+    expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        taskId: task._id.toString(),
+        status: 'FAILED',
       }),
     );
   });
