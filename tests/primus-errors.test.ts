@@ -82,6 +82,27 @@ describe('decideZkTLSError', () => {
     });
   });
 
+  it('classifies the Primus gateway "Too many requests" response as rate-limited', () => {
+    const error = {
+      code: '00000',
+      message: 'Too many requests. Please try again later.',
+      data: '',
+    };
+
+    const decision = decideZkTLSError(error, {
+      currentDeferCount: 0,
+      now: () => Date.parse('2026-04-23T00:00:00.000Z'),
+    });
+
+    expect(classifyError(error)).toBe('primus_rate_limited');
+    expect(decision).toEqual({
+      action: 'defer',
+      reason: 'primus_rate_limited',
+      deferUntil: new Date('2026-04-23T00:00:30.000Z'),
+      sourceError: error,
+    });
+  });
+
   it('keeps insufficient-funds failures terminal', () => {
     const error = {
       code: 'INSUFFICIENT_FUNDS',

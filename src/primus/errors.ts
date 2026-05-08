@@ -1,9 +1,12 @@
 import { collectErrorStrings } from '../utils/error.js';
 
-// The real rate-limit signal is Binance's "Operation too frequent"
-// message forwarded through the attestor. The SDK's error codes like
-// '00000' are generic failure codes and were causing false positives.
-const RATE_LIMIT_TOKEN = 'operation too frequent';
+// Two distinct rate-limit signals can reach us:
+//   1. Binance's "Operation too frequent" forwarded through the attestor.
+//   2. The Primus gateway's own "Too many requests..." response (returned
+//      with code "00000" — the SDK's generic failure code, so we have to
+//      key off the message text rather than the code).
+// Both are transient and should defer with backoff, not fail.
+const RATE_LIMIT_TOKENS = ['operation too frequent', 'too many requests'] as const;
 const RATE_LIMIT_DELAY_SECONDS = 30;
 const RATE_LIMIT_MAX_DELAY_SECONDS = 300;
 const TRANSIENT_RPC_DELAY_MS = 60_000;
@@ -126,7 +129,8 @@ function normalizedErrorText(error: unknown): string {
 }
 
 function isPrimusRateLimited(error: unknown): boolean {
-  return normalizedErrorText(error).includes(RATE_LIMIT_TOKEN);
+  const text = normalizedErrorText(error);
+  return RATE_LIMIT_TOKENS.some((token) => text.includes(token));
 }
 
 export function collectErrorStatusCodes(err: unknown): number[] {
