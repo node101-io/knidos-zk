@@ -102,11 +102,13 @@ docker compose up -d --build  # rebuild image + recreate changed services
 
 Compose rebuilds the image, then recreates containers whose image digest changed. The `server` container is stopped and replaced (~20s `start_period` before the healthcheck flips back to `healthy`); clients see a brief window of `connection refused`. The `node` daemon restarts and burns its Noir warmup again (~30–90s), invisible to clients.
 
-To restart a single service without rebuilding the others:
+To update a single service without touching the others:
 
 ```bash
-docker compose up -d --build --no-deps server   # or: node
+docker compose up -d --build --force-recreate --no-deps server   # or: node
 ```
+
+`server` and `node` share `knidos-zk:latest` (built from the same Dockerfile), so the `--build` step rebuilds the image once; `--no-deps` keeps the other containers running on their existing image instance; `--force-recreate` ensures the target picks up the new image.
 
 ### Rollback
 

@@ -31,6 +31,9 @@ services:
     command: ["node", "dist/src/app.js"]
 
   server:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: knidos-zk:latest
     restart: unless-stopped
     env_file: .env
