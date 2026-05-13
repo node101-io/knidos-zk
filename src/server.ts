@@ -81,6 +81,29 @@ const ErrorResponseSchema = z
   })
   .openapi('ErrorResponse');
 
+const HealthResponseSchema = z
+  .object({
+    stats: z.object({
+      lastProofSubmittedAt: z
+        .string()
+        .nullable()
+        .openapi({
+          description: 'ISO 8601 timestamp of the latest settled proof, null if none yet',
+          example: '2026-01-01T00:00:00.000Z',
+        }),
+      totalProofsGenerated: z
+        .number()
+        .int()
+        .openapi({ description: 'Approximate total number of settled verification records' }),
+    }),
+    status: z.literal('ok').openapi({ description: 'Node health status' }),
+    uptime: z
+      .number()
+      .int()
+      .openapi({ description: 'Process uptime in milliseconds' }),
+  })
+  .openapi('HealthResponse');
+
 // --- routes ---
 
 const getVerificationsRoute = createRoute({
@@ -104,6 +127,25 @@ const getVerificationsRoute = createRoute({
     401: {
       content: { 'application/json': { schema: ErrorResponseSchema } },
       description: 'Missing or invalid API key',
+    },
+    500: {
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+      description: 'Internal server error',
+    },
+  },
+});
+
+const getHealthRoute = createRoute({
+  method: 'get',
+  path: '/health',
+  tags: ['Health'],
+  summary: 'Node health',
+  description:
+    'Public node health snapshot: latest settled proof, total proof count, status, and process uptime. Cached at the edge for 10 seconds.',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: HealthResponseSchema } },
+      description: 'Node health snapshot',
     },
     500: {
       content: { 'application/json': { schema: ErrorResponseSchema } },
@@ -215,9 +257,10 @@ app.openapi(getVkRoute, async (c) => {
 
     const cached = await redis.get(`${VK_CACHE_PREFIX}${hash}`);
     if (cached) {
-      c.header('Cache-Control', 'no-store');
-      c.header('CDN-Cache-Control', 'public, max-age=31536000, immutable');
-      return c.json({ vk_hash: hash, verification_key: cached }, 200);
+      return c.json({ vk_hash: hash, verification_key: cached }, 200, {
+        'Cache-Control': 'no-store',
+        'CDN-Cache-Control': 'public, max-age=31536000, immutable',
+      });
     }
 
     const record = await RegisteredVk.findOne({ vkHash: hash }, { vk: 1 });
@@ -227,10 +270,39 @@ app.openapi(getVkRoute, async (c) => {
 
     await redis.set(`${VK_CACHE_PREFIX}${hash}`, record.vk);
 
-    c.header('Cache-Control', 'public, max-age=31536000, immutable');
-    return c.json({ vk_hash: hash, verification_key: record.vk }, 200);
+    return c.json({ vk_hash: hash, verification_key: record.vk }, 200, {
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    });
   } catch {
     logger.error('[http] GET /api/vk/:hash failed');
+    return c.json({ error: 'Internal Server Error' }, 500);
+  }
+});
+
+app.openapi(getHealthRoute, async (c) => {
+  try {
+    const [latest, total] = await Promise.all([
+      VerificationRecord.findOne({}, { createdAt: 1 }).sort({ _id: -1 }).lean(),
+      VerificationRecord.estimatedDocumentCount(),
+    ]);
+
+    return c.json(
+      {
+        stats: {
+          lastProofSubmittedAt: latest?.createdAt?.toISOString() ?? null,
+          totalProofsGenerated: total,
+        },
+        status: 'ok' as const,
+        uptime: Math.floor(process.uptime() * 1000),
+      },
+      200,
+      {
+        'Cache-Control': 'public, max-age=10',
+        'CDN-Cache-Control': 'public, max-age=10',
+      },
+    );
+  } catch {
+    logger.error('[http] GET /health failed');
     return c.json({ error: 'Internal Server Error' }, 500);
   }
 });
