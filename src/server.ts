@@ -137,7 +137,7 @@ const getVerificationsRoute = createRoute({
 
 const getHealthRoute = createRoute({
   method: 'get',
-  path: '/health',
+  path: '/api/health',
   tags: ['Health'],
   summary: 'Node health',
   description:
@@ -302,7 +302,7 @@ app.openapi(getHealthRoute, async (c) => {
       },
     );
   } catch {
-    logger.error('[http] GET /health failed');
+    logger.error('[http] GET /api/health failed');
     return c.json({ error: 'Internal Server Error' }, 500);
   }
 });
