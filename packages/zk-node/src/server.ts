@@ -84,23 +84,17 @@ const ErrorResponseSchema = z
 const HealthResponseSchema = z
   .object({
     stats: z.object({
-      lastProofSubmittedAt: z
-        .string()
-        .nullable()
-        .openapi({
-          description: 'ISO 8601 timestamp of the latest settled proof, null if none yet',
-          example: '2026-01-01T00:00:00.000Z',
-        }),
+      lastProofSubmittedAt: z.string().nullable().openapi({
+        description: 'ISO 8601 timestamp of the latest settled proof, null if none yet',
+        example: '2026-01-01T00:00:00.000Z',
+      }),
       totalProofsGenerated: z
         .number()
         .int()
         .openapi({ description: 'Approximate total number of settled verification records' }),
     }),
     status: z.literal('ok').openapi({ description: 'Node health status' }),
-    uptime: z
-      .number()
-      .int()
-      .openapi({ description: 'Process uptime in milliseconds' }),
+    uptime: z.number().int().openapi({ description: 'Process uptime in milliseconds' }),
   })
   .openapi('HealthResponse');
 

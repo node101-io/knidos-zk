@@ -13,6 +13,21 @@ packageExtensionsChecksum: sha256-+uGwLd+2gMH/GHgdwhwb3/JKzTuFCA6ZW/Pp2Oi0v2U=
 importers:
 
   .:
+    devDependencies:
+      oxlint:
+        specifier: ^1.59.0
+        version: 1.59.0
+      prettier:
+        specifier: ^3.8.1
+        version: 3.8.2
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/zk-node:
     dependencies:
       '@hono/node-server':
         specifier: ^1.19.14
@@ -72,21 +87,9 @@ importers:
       node-gyp:
         specifier: ^12.2.0
         version: 12.2.0
-      oxlint:
-        specifier: ^1.59.0
-        version: 1.59.0
-      prettier:
-        specifier: ^3.8.1
-        version: 3.8.2
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@25.6.0)(typescript@5.9.3)
-      tsx:
-        specifier: ^4.21.0
-        version: 4.21.0
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@25.6.0)(@vitest/coverage-v8@4.1.4)(jsdom@27.4.0(@noble/hashes@1.8.0)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(vite@8.0.8(@types/node@25.6.0)(esbuild@0.27.7)(tsx@4.21.0)(yaml@2.8.3))

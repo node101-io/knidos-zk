@@ -61,11 +61,7 @@ export async function processNoirJob(
         { session },
       );
 
-      await Task.updateOne(
-        { _id: taskId },
-        { $unset: { 'input.circuitInput': '' } },
-        { session },
-      );
+      await Task.updateOne({ _id: taskId }, { $unset: { 'input.circuitInput': '' } }, { session });
 
       await Task.createTask(
         {

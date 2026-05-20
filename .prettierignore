@@ -1,5 +1,7 @@
 dist
+packages/*/dist
 node_modules
+packages/*/node_modules
 noir_json_parser
 *.log
 pnpm-lock.yaml

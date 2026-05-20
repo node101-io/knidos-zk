@@ -8,5 +8,11 @@
   "rules": {
     "typescript/restrict-template-expressions": ["error", { "allowNumber": true }]
   },
-  "ignorePatterns": ["dist/**", "node_modules/**", "noir/**", "noir_json_parser/**", "*.config.js"]
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "noir/**",
+    "noir_json_parser/**",
+    "*.config.js"
+  ]
 }

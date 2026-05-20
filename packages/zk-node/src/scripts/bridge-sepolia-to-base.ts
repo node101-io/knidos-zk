@@ -49,10 +49,7 @@ const [balance, feeData] = await Promise.all([
 
 // Reserve worst-case fee (gasLimit * maxFeePerGas) + 20% buffer for fee
 // swings between estimation and inclusion.
-const gasReserve = feeData
-  .maxFeePerGas!.mul(GAS_LIMIT)
-  .mul(120)
-  .div(100);
+const gasReserve = feeData.maxFeePerGas!.mul(GAS_LIMIT).mul(120).div(100);
 
 const amountWei = process.argv[2]
   ? ethers.utils.parseEther(process.argv[2])

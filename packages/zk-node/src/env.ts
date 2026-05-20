@@ -14,19 +14,16 @@ const DEFAULT_REDIS_HOST = '127.0.0.1';
 const DEFAULT_REDIS_PORT = 6379;
 const DEFAULT_BB_PATH = path.join(os.homedir(), '.bb', 'bb');
 
-const commaSeparatedUrlListSchema = z.preprocess(
-  (value) => {
-    if (typeof value !== 'string') {
-      return value;
-    }
+const commaSeparatedUrlListSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
 
-    return value
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0);
-  },
-  z.array(z.url()).default([]),
-);
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}, z.array(z.url()).default([]));
 
 export const env = createEnv({
   server: {

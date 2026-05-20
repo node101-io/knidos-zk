@@ -69,11 +69,9 @@ describe('createPrimusClient', () => {
       });
 
     const { PrimaryFallbackJsonRpcProvider } = await import('../src/primus/rpc-provider.js');
-    const provider = new PrimaryFallbackJsonRpcProvider(
-      'https://primary.example',
-      84532,
-      ['https://fallback.example'],
-    );
+    const provider = new PrimaryFallbackJsonRpcProvider('https://primary.example', 84532, [
+      'https://fallback.example',
+    ]);
 
     await expect(provider.send('eth_blockNumber', [])).resolves.toBe('0x123');
     expect(sendSpy).toHaveBeenCalledTimes(2);
@@ -104,11 +102,9 @@ describe('createPrimusClient', () => {
       });
 
     const { PrimaryFallbackJsonRpcProvider } = await import('../src/primus/rpc-provider.js');
-    const provider = new PrimaryFallbackJsonRpcProvider(
-      'https://primary.example',
-      84532,
-      ['https://fallback.example'],
-    );
+    const provider = new PrimaryFallbackJsonRpcProvider('https://primary.example', 84532, [
+      'https://fallback.example',
+    ]);
 
     await expect(provider.send('eth_getTransactionReceipt', ['0xtx'])).resolves.toEqual({
       transactionHash: '0xreceipt',
@@ -133,11 +129,9 @@ describe('createPrimusClient', () => {
       });
 
     const { PrimaryFallbackJsonRpcProvider } = await import('../src/primus/rpc-provider.js');
-    const provider = new PrimaryFallbackJsonRpcProvider(
-      'https://primary.example',
-      84532,
-      ['https://fallback.example'],
-    );
+    const provider = new PrimaryFallbackJsonRpcProvider('https://primary.example', 84532, [
+      'https://fallback.example',
+    ]);
 
     await expect(provider.send('eth_sendRawTransaction', ['0xsigned'])).rejects.toMatchObject({
       status: 502,

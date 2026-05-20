@@ -102,10 +102,7 @@ export async function processZkVerifyJob(
 
   try {
     await session.withTransaction(async () => {
-      await Task.updateTaskStatus(
-        { taskId, status: 'COMPLETED' },
-        { session },
-      );
+      await Task.updateTaskStatus({ taskId, status: 'COMPLETED' }, { session });
 
       await VerificationRecord.create(
         [
@@ -121,9 +118,7 @@ export async function processZkVerifyJob(
             vkHash: computeVkHash(result.vk),
             publicSignals: result.publicSignals,
 
-            ...(result.includedInBlock?.txHash
-              ? { txHash: result.includedInBlock.txHash }
-              : {}),
+            ...(result.includedInBlock?.txHash ? { txHash: result.includedInBlock.txHash } : {}),
           },
         ],
         { session },

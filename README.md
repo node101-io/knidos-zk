@@ -55,6 +55,18 @@ For Base Sepolia reliability, keep `RPC_URL` as the primary endpoint and optiona
 
 Production logs go to `stdout` as JSON; inspect them with `docker compose logs`.
 
+## Repository layout
+
+This is a pnpm workspace.
+
+- `packages/zk-node/` — the daemon (`src/app.ts`) and HTTP API (`src/server.ts`) that together make up the proof pipeline. The package owns dependencies, the TypeScript build, lint, and tests.
+- `circuit/`, `noir_json_parser/`, `patches/` — Noir toolchain assets shared across packages; stay at the repo root.
+- `.env` lives at the repo root and is consumed by `docker compose` and by all runtime/dev scripts (which are defined in the root `package.json` and run with the repo root as cwd).
+
+Run everything from the repo root. `pnpm node`, `pnpm dev:node`, `pnpm queue:status`, etc. are defined at the root and reach into `packages/zk-node/`. `pnpm build`, `pnpm lint`, and `pnpm test` delegate via `pnpm --filter zk-node ...`.
+
+To add a new package, create `packages/<name>/` with its own `package.json` and `tsconfig.json` extending `tsconfig.base.json`; the workspace glob (`packages/*`) picks it up automatically.
+
 ## Build & Run
 
 ```bash
@@ -140,7 +152,7 @@ pnpm format
 ## Tests
 
 ```bash
-npx tsc --noEmit
+pnpm build       # type-checks the package via tsc
 pnpm test
 ```
 
@@ -178,7 +190,4 @@ pnpm primus:reclaim
 # See the script header for faucet links.
 pnpm primus:bridge             # defaults to 0.05 ETH
 pnpm primus:bridge 0.1         # custom amount
-
-# Drop the MongoDB database and flush Redis
-pnpm db:reset
 ```

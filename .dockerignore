@@ -1,6 +1,9 @@
 node_modules
+packages/*/node_modules
 dist
+packages/*/dist
 coverage
+packages/*/coverage
 circuit/target
 .env
 .env.local
@@ -8,6 +11,6 @@ circuit/target
 .vscode
 .idea
 *.log
-tests
+packages/*/tests
 .github
 .git

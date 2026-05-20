@@ -1,9 +1,13 @@
 import { existsSync } from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { defineConfig } from 'vitest/config';
 
-if (existsSync('.env')) {
-  process.loadEnvFile('.env');
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const ENV_FILE = path.join(REPO_ROOT, '.env');
+if (existsSync(ENV_FILE)) {
+  process.loadEnvFile(ENV_FILE);
 }
 
 const FAST_TIMEOUT = 30_000;

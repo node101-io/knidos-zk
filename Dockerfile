@@ -32,6 +32,7 @@ RUN curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/
 # ======================================
 FROM build-base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages/zk-node/package.json ./packages/zk-node/package.json
 COPY patches ./patches
 COPY noir_json_parser ./noir_json_parser
 RUN test -f noir_json_parser/Nargo.toml \
@@ -48,17 +49,20 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm-store \
 # builder: TypeScript compile + prune devDeps
 # ======================================
 FROM deps AS builder
-COPY tsconfig.json ./
-COPY src ./src
+COPY tsconfig.base.json ./
+COPY packages/zk-node/tsconfig.json ./packages/zk-node/tsconfig.json
+COPY packages/zk-node/src ./packages/zk-node/src
 # Primus ships the native addon source in the package tarball, but its
 # install script only auto-builds on Ubuntu/macOS. Our image is Debian,
-# so we must rebuild the addon explicitly after prune and fail the image
-# build if the `.node` artifact is still missing.
-RUN pnpm exec tsc \
- && pnpm prune --prod --ignore-scripts \
- && primus_sdk_dir="$(node -e "const path=require('path'); process.stdout.write(path.dirname(require.resolve('@primuslabs/network-core-sdk/package.json')));")" \
+# so we must rebuild the addon explicitly and fail the image build if
+# the `.node` artifact is still missing. We resolve the SDK path from
+# inside the package directory because workspace symlinks for that dep
+# live under packages/zk-node/node_modules in pnpm's workspace layout.
+RUN pnpm --filter zk-node exec tsc \
+ && primus_sdk_dir="$(cd packages/zk-node && node -e "const path=require('path'); process.stdout.write(path.dirname(require.resolve('@primuslabs/network-core-sdk/package.json')));")" \
+ && node_gyp_bin="$(cd packages/zk-node && node -e "process.stdout.write(require.resolve('node-gyp/bin/node-gyp.js'))")" \
  && cd "$primus_sdk_dir" \
- && node "$(node -e "process.stdout.write(require.resolve('node-gyp/bin/node-gyp.js'))")" rebuild \
+ && node "$node_gyp_bin" rebuild \
  && test -f build/Release/primus-zktls-native.node
 
 # ======================================
@@ -87,10 +91,12 @@ COPY --from=toolchain /root/.bb /opt/bb
 RUN mkdir -p /app && chown node:node /app
 WORKDIR /app
 
-COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=node:node /app/packages/zk-node/dist ./packages/zk-node/dist
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/packages/zk-node/node_modules ./packages/zk-node/node_modules
 COPY --from=builder --chown=node:node /app/noir_json_parser ./noir_json_parser
 COPY --from=builder --chown=node:node /app/package.json ./package.json
+COPY --from=builder --chown=node:node /app/packages/zk-node/package.json ./packages/zk-node/package.json
 COPY --chown=node:node circuit ./circuit
 
 # Pre-create the circuit/target mount point so the named volume inherits
@@ -102,4 +108,4 @@ USER node
 
 EXPOSE 3000
 
-CMD ["node", "dist/src/app.js"]
+CMD ["node", "packages/zk-node/dist/src/app.js"]
