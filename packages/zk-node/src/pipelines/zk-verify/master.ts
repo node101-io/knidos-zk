@@ -1,4 +1,6 @@
-import Task from '../../db/task.js';
+import { Task } from '../../db/task.js';
+
+import { markTaskQueued } from '../../db/task-helpers.js';
 import logger from '../../shared/logger.js';
 import { Master } from '../master.js';
 import type { ZkVerifyJobData } from '../types.js';
@@ -37,7 +39,7 @@ export class ZkVerifyMaster extends Master<ZkVerifyJobData> {
           },
         );
 
-        await Task.markTaskQueued(task._id.toString());
+        await markTaskQueued(task._id.toString());
 
         logger.info({ taskId: task._id.toString() }, '[zkVerify master] queued task');
       }

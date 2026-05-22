@@ -7,7 +7,10 @@
   },
   "scripts": {
     "build": "pnpm --filter zk-node build",
+    "build:challange": "pnpm --filter testnet-challange build",
     "clean": "pnpm --filter zk-node clean",
+    "dev:challange-api": "pnpm --filter testnet-challange dev:api",
+    "dev:challange-cli": "pnpm --filter testnet-challange dev:cli",
     "node": "node --env-file=.env packages/zk-node/dist/src/app.js",
     "server": "node --env-file=.env packages/zk-node/dist/src/server.js",
     "dev:node": "tsx watch --env-file=.env packages/zk-node/src/app.ts",

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-import Task from '../db/task.js';
+import { Task } from '../db/task.js';
 import { env } from '../env.js';
 import {
   getDistinctWaveEndTimesDesc,

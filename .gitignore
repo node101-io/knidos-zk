@@ -11,3 +11,5 @@ zkVerify/aggregation.json
 .DS_Store
 circuit-runs
 coverage
+.next
+next-env.d.ts

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-import Task, { type TaskType } from '../db/task.js';
+import { Task, type TaskType } from '../db/task.js';
 import { env } from '../env.js';
 
 // Usage:

@@ -1,10 +1,11 @@
 import cron from 'node-cron';
 
-import Task from '../db/task.js';
+import { Task } from '../db/task.js';
+import { type SupportedBinanceSymbol } from '../shared/binance-symbols.js';
+
 import { env } from '../env.js';
 import { parseZkTLSJobInput } from '../pipelines/validation.js';
 import { PROOF_TYPE } from '../pipelines/types.js';
-import type { SupportedBinanceSymbol } from '../shared/binance-symbols.js';
 import { normalizeDateInput } from '../shared/date-utils.js';
 import logger from '../shared/logger.js';
 import { getWindowBounds, getMissingSymbols, getWindowsToEnsure } from './scheduler-utils.js';

@@ -1,13 +1,10 @@
 import type { InputMap } from '@noir-lang/noir_js';
+import type { NoirProcessorResult } from '../../types/noir-processor-result.js';
 
 import type { NoirJobData } from '../types.js';
 import { runProofPipeline } from './runtime.js';
 
-export interface NoirProcessorResult {
-  vkHex: string;
-  proofHex: string;
-  publicInputs: string[];
-}
+export type { NoirProcessorResult };
 
 function bytesToHex(bytes: Uint8Array): string {
   return `0x${Buffer.from(bytes).toString('hex')}`;

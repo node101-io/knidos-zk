@@ -1,9 +1,6 @@
-import mongoose, { Schema, Types } from 'mongoose';
+import mongoose, { Schema, type Types } from 'mongoose';
 
-import {
-  SUPPORTED_BINANCE_SYMBOLS,
-  type SupportedBinanceSymbol,
-} from '../shared/binance-symbols.js';
+import { SUPPORTED_BINANCE_SYMBOLS, type SupportedBinanceSymbol } from '../shared/binance-symbols.js';
 
 export interface VerificationRecordInterface {
   zkVerifyTaskId: Types.ObjectId;
@@ -77,9 +74,6 @@ const VerificationRecordSchema = new Schema<VerificationRecordInterface>(
   },
 );
 
-const VerificationRecord = mongoose.model<VerificationRecordInterface>(
-  'VerificationRecord',
-  VerificationRecordSchema,
-);
-
-export default VerificationRecord;
+export const VerificationRecord =
+  (mongoose.models.VerificationRecord as mongoose.Model<VerificationRecordInterface> | undefined) ??
+  mongoose.model<VerificationRecordInterface>('VerificationRecord', VerificationRecordSchema);

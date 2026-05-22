@@ -1,4 +1,7 @@
-import Task from '../../db/task.js';
+import { Task } from '../../db/task.js';
+import { type SupportedBinanceSymbol } from '../../shared/binance-symbols.js';
+
+import { clearPrimusCheckpoint, setPrimusCheckpoint } from '../../db/task-helpers.js';
 import { env } from '../../env.js';
 import { fetchRawFills, type RawFills } from '../../utils/fetch-raw-fills.js';
 import { bytes32ToField2DecStrings } from '../../utils/bytes32-to-field2-dec-strings.js';
@@ -18,7 +21,6 @@ import {
   type DeferredTaskDecision,
 } from '../../primus/errors.js';
 import logger from '../../shared/logger.js';
-import type { SupportedBinanceSymbol } from '../../shared/binance-symbols.js';
 import { toTimestampMs } from '../../shared/date-utils.js';
 import type { NoirCircuitInput } from '../types.js';
 
@@ -90,7 +92,7 @@ async function resumePrimusFlow(
       const submitted = await submitWithCapacity();
       if (isDeferredTaskDecision(submitted)) return submitted;
       submit = submitted;
-      await Task.setPrimusCheckpoint(taskId, { submit });
+      await setPrimusCheckpoint(taskId, { submit });
     }
 
     let attest = fresh?.attest;
@@ -108,7 +110,7 @@ async function resumePrimusFlow(
           // re-submits and the contract assigns a different attestor.
           // Without this, the same dead attestor keeps being reused
           // for the full taskTimeoutMs window (~15 min).
-          await Task.clearPrimusCheckpoint(taskId);
+          await clearPrimusCheckpoint(taskId);
           logger.warn(
             { taskId, attempt, error: err },
             '[zkTLS processor] attestor transport failed, retrying with fresh submit',
@@ -117,7 +119,7 @@ async function resumePrimusFlow(
         }
         throw err;
       }
-      await Task.setPrimusCheckpoint(taskId, { submit, attest });
+      await setPrimusCheckpoint(taskId, { submit, attest });
     }
 
     const primus = await primusClient.sdk();

@@ -1,7 +1,9 @@
 import { Queue, type Job } from 'bullmq';
 import mongoose from 'mongoose';
 
-import Task from '../../db/task.js';
+import { Task } from '../../db/task.js';
+
+import { createTask, updateTaskStatus } from '../../db/task-helpers.js';
 import { redis } from '../../shared/redis.js';
 import type { TaskEventCtx } from '../../shared/task-event.js';
 import type { NoirJobData } from '../types.js';
@@ -37,7 +39,7 @@ export async function processNoirJob(
     zkTLSTaskId: parsedInput.zkTLSTaskId,
   });
 
-  await Task.updateTaskStatus({ taskId, status: 'RUNNING' });
+  await updateTaskStatus({ taskId, status: 'RUNNING' });
 
   const stopProof = ctx.timer('proofGen');
   const result = await runNoirProcessor(workerId, parsedInput);
@@ -52,7 +54,7 @@ export async function processNoirJob(
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      await Task.updateTaskStatus(
+      await updateTaskStatus(
         {
           taskId,
           status: 'COMPLETED',
@@ -63,7 +65,7 @@ export async function processNoirJob(
 
       await Task.updateOne({ _id: taskId }, { $unset: { 'input.circuitInput': '' } }, { session });
 
-      await Task.createTask(
+      await createTask(
         {
           type: 'zkVerify',
           input: {

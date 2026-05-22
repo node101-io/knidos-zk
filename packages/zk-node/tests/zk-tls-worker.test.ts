@@ -6,12 +6,20 @@ const mockUpdateTaskStatus = vi.fn();
 const mockCreateTask = vi.fn();
 const mockRunZkTLSProcessor = vi.fn();
 
-vi.mock('../src/db/task.js', () => ({
-  default: {
-    findById: (...args: unknown[]) => mockFindById(...args),
-    updateTaskStatus: (...args: unknown[]) => mockUpdateTaskStatus(...args),
-    createTask: (...args: unknown[]) => mockCreateTask(...args),
-  },
+vi.mock('../src/db/task.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/db/task.js')>('../src/db/task.js');
+  return {
+    ...actual,
+    Task: {
+      findById: (...args: unknown[]) => mockFindById(...args),
+      updateOne: vi.fn(),
+    },
+  };
+});
+
+vi.mock('../src/db/task-helpers.js', () => ({
+  updateTaskStatus: (...args: unknown[]) => mockUpdateTaskStatus(...args),
+  createTask: (...args: unknown[]) => mockCreateTask(...args),
 }));
 
 vi.mock('../src/pipelines/zk-tls/processor.js', () => ({

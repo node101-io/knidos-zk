@@ -1,7 +1,7 @@
 import { Job, Worker } from 'bullmq';
 import type { ConnectionOptions } from 'bullmq';
 
-import Task from '../db/task.js';
+import { updateTaskStatus } from '../db/task-helpers.js';
 import { classifyError } from '../primus/errors.js';
 import logger from '../shared/logger.js';
 import { createTaskEventCtx, type TaskEventCtx } from '../shared/task-event.js';
@@ -83,7 +83,7 @@ export abstract class Master<JobData extends { taskId: string }> {
       const willRetry = job.attemptsMade < attempts;
 
       try {
-        await Task.updateTaskStatus({
+        await updateTaskStatus({
           taskId: job.data.taskId,
           status: willRetry ? 'QUEUED' : 'FAILED',
           error: serializeError(err),

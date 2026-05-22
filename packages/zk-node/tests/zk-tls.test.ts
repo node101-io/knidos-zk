@@ -10,42 +10,48 @@ interface StoredTask {
 
 const taskStore = new Map<string, StoredTask>();
 
-vi.mock('../src/db/task.js', () => {
-  const TaskMock = {
-    createTask: vi.fn(
-      async (body: { type: string; input: Record<string, unknown> }): Promise<StoredTask> => {
-        const _id = new mongoose.Types.ObjectId();
-        const record: StoredTask = {
-          _id,
-          type: body.type,
-          input: body.input,
-          primus: null,
-        };
-        taskStore.set(_id.toString(), record);
-        return record;
-      },
-    ),
-    findById: vi.fn((id: string) => ({
-      lean: async () => taskStore.get(id) ?? null,
-    })),
-    setPrimusCheckpoint: vi.fn(async (id: string, checkpoint: unknown) => {
-      const doc = taskStore.get(id);
-      if (doc) doc.primus = checkpoint;
-    }),
-    clearPrimusCheckpoint: vi.fn(async (id: string) => {
-      const doc = taskStore.get(id);
-      if (doc) doc.primus = null;
-    }),
+vi.mock('../src/db/task.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/db/task.js')>('../src/db/task.js');
+  return {
+    ...actual,
+    Task: {
+      findById: vi.fn((id: string) => ({
+        lean: async () => taskStore.get(id) ?? null,
+      })),
+    },
   };
-  return { default: TaskMock };
 });
 
-const { default: Task } = await import('../src/db/task.js');
+vi.mock('../src/db/task-helpers.js', () => ({
+  createTask: vi.fn(
+    async (body: { type: string; input: Record<string, unknown> }): Promise<StoredTask> => {
+      const _id = new mongoose.Types.ObjectId();
+      const record: StoredTask = {
+        _id,
+        type: body.type,
+        input: body.input,
+        primus: null,
+      };
+      taskStore.set(_id.toString(), record);
+      return record;
+    },
+  ),
+  setPrimusCheckpoint: vi.fn(async (id: string, checkpoint: unknown) => {
+    const doc = taskStore.get(id);
+    if (doc) doc.primus = checkpoint;
+  }),
+  clearPrimusCheckpoint: vi.fn(async (id: string) => {
+    const doc = taskStore.get(id);
+    if (doc) doc.primus = null;
+  }),
+}));
+
+const { createTask } = await import('../src/db/task-helpers.js');
 const { runZkTLSProcessor } = await import('../src/pipelines/zk-tls/processor.js');
 
 describe('zk-tls processor', () => {
   it('fetches fills and produces valid NoirCircuitInput', async () => {
-    const task = await Task.createTask({
+    const task = await createTask({
       type: 'zkTLS',
       input: {
         startTime: new Date(1769172979000),

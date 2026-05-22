@@ -6,8 +6,9 @@ import { createMiddleware } from 'hono/factory';
 import mongoose from 'mongoose';
 import { Types } from 'mongoose';
 
-import RegisteredVk from './db/registered-vk.js';
-import VerificationRecord from './db/verification-record.js';
+import { RegisteredVk } from './db/registered-vk.js';
+import { VerificationRecord } from './db/verification-record.js';
+
 import { env } from './env.js';
 import { renderNodeStatus } from './pages/node-status.js';
 import { getDeferredTasks, getQueueStatus } from './services/queue-status.js';

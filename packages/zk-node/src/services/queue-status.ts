@@ -1,4 +1,4 @@
-import Task from '../db/task.js';
+import { Task } from '../db/task.js';
 
 const PIPELINE_ORDER = ['zkTLS', 'noir', 'zkVerify'] as const;
 

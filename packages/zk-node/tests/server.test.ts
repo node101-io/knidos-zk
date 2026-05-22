@@ -28,19 +28,31 @@ vi.mock('@hono/node-server', () => ({
 
 const mockAggregate = vi.fn();
 const mockFindOne = vi.fn();
-vi.mock('../src/db/verification-record.js', () => ({
-  default: {
-    aggregate: (...args: unknown[]) => mockAggregate(...args),
-    findOne: (...args: unknown[]) => mockFindOne(...args),
-  },
-}));
-
 const mockRegisteredVkFindOne = vi.fn();
-vi.mock('../src/db/registered-vk.js', () => ({
-  default: {
-    findOne: (...args: unknown[]) => mockRegisteredVkFindOne(...args),
-  },
-}));
+vi.mock('../src/db/verification-record.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/db/verification-record.js')>(
+    '../src/db/verification-record.js',
+  );
+  return {
+    ...actual,
+    VerificationRecord: {
+      aggregate: (...args: unknown[]) => mockAggregate(...args),
+      findOne: (...args: unknown[]) => mockFindOne(...args),
+      estimatedDocumentCount: vi.fn(),
+    },
+  };
+});
+vi.mock('../src/db/registered-vk.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/db/registered-vk.js')>(
+    '../src/db/registered-vk.js',
+  );
+  return {
+    ...actual,
+    RegisteredVk: {
+      findOne: (...args: unknown[]) => mockRegisteredVkFindOne(...args),
+    },
+  };
+});
 
 vi.mock('../src/shared/logger.js', () => ({
   default: { info: vi.fn(), error: vi.fn() },

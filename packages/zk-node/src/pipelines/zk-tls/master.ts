@@ -1,4 +1,6 @@
-import Task from '../../db/task.js';
+import { Task } from '../../db/task.js';
+
+import { markTaskQueued } from '../../db/task-helpers.js';
 import logger from '../../shared/logger.js';
 import { Master } from '../master.js';
 import type { ZkTLSJobData } from '../types.js';
@@ -39,7 +41,7 @@ export class ZkTLSMaster extends Master<ZkTLSJobData> {
         },
       );
 
-      await Task.markTaskQueued(task._id.toString());
+      await markTaskQueued(task._id.toString());
 
       logger.info(
         { taskId: task._id.toString() },

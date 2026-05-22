@@ -3,7 +3,7 @@ import path from 'path';
 
 import mongoose from 'mongoose';
 
-import Task from '../db/task.js';
+import { createTask } from '../db/task-helpers.js';
 import { env } from '../env.js';
 import { runZkTLSProcessor } from '../pipelines/zk-tls/processor.js';
 import type { NoirCircuitInput } from '../pipelines/types.js';
@@ -28,7 +28,7 @@ function toCompactFixture(input: NoirCircuitInput) {
 
 await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
 
-const task = await Task.createTask({
+const task = await createTask({
   type: 'zkTLS',
   input: {
     startTime: new Date(START_TIME),

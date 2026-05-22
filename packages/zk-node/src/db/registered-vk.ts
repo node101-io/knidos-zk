@@ -1,11 +1,4 @@
 import mongoose, { Schema } from 'mongoose';
-import * as zkv from 'zkverifyjs';
-import type { zkVerifySession } from 'zkverifyjs';
-
-const { UltrahonkVariant } = zkv;
-
-import logger from '../shared/logger.js';
-import { computeVkHash } from '../shared/vk-hash.js';
 
 export type ZkVerifyNetwork = 'volta' | 'mainnet';
 
@@ -16,14 +9,6 @@ export interface RegisteredVkInterface {
   network: ZkVerifyNetwork;
   createdAt: Date;
   updatedAt: Date;
-}
-
-interface RegisteredVkModelType extends mongoose.Model<RegisteredVkInterface> {
-  findOrRegister(args: {
-    vk: string;
-    network: ZkVerifyNetwork;
-    session: zkVerifySession;
-  }): Promise<RegisteredVkInterface>;
 }
 
 const RegisteredVkSchema = new Schema<RegisteredVkInterface>(
@@ -42,45 +27,6 @@ const RegisteredVkSchema = new Schema<RegisteredVkInterface>(
 
 RegisteredVkSchema.index({ vkHash: 1, network: 1 }, { unique: true });
 
-RegisteredVkSchema.statics.findOrRegister = async function (args: {
-  vk: string;
-  network: ZkVerifyNetwork;
-  session: zkVerifySession;
-}): Promise<RegisteredVkInterface> {
-  const { vk, network, session } = args;
-  const vkHash = computeVkHash(vk);
-
-  const existing = await this.findOne({ vkHash, network });
-  if (existing) return existing;
-
-  logger.info({ vkHash, network }, '[registered-vk] registering verification key on zkverify');
-  const { transactionResult } = await session
-    .registerVerificationKey()
-    .ultrahonk({ variant: UltrahonkVariant.Plain })
-    .execute(vk);
-
-  const registration = await transactionResult;
-  if (!registration.statementHash) {
-    throw new Error('[registered-vk] zkverify did not return a statementHash after registration');
-  }
-
-  const upserted = await this.findOneAndUpdate(
-    { vkHash, network },
-    { $setOnInsert: { vkHash, vk, network, statementHash: registration.statementHash } },
-    { returnDocument: 'after', upsert: true, runValidators: true, setDefaultsOnInsert: true },
-  );
-
-  logger.info(
-    { vkHash, statementHash: registration.statementHash, network },
-    '[registered-vk] registered and persisted verification key',
-  );
-
-  return upserted;
-};
-
-const RegisteredVk = mongoose.model<RegisteredVkInterface, RegisteredVkModelType>(
-  'RegisteredVk',
-  RegisteredVkSchema,
-);
-
-export default RegisteredVk;
+export const RegisteredVk =
+  (mongoose.models.RegisteredVk as mongoose.Model<RegisteredVkInterface> | undefined) ??
+  mongoose.model<RegisteredVkInterface>('RegisteredVk', RegisteredVkSchema);

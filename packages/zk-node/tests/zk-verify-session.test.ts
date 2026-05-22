@@ -54,10 +54,8 @@ vi.mock('zkverifyjs', () => {
   };
 });
 
-vi.mock('../src/db/registered-vk.js', () => ({
-  default: {
-    findOrRegister: vi.fn(async () => ({ statementHash: '0xstatement' })),
-  },
+vi.mock('../src/db/registered-vk-helpers.js', () => ({
+  findOrRegisterVk: vi.fn(async () => ({ statementHash: '0xstatement' })),
 }));
 
 const input = {

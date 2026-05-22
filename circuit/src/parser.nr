@@ -2,6 +2,9 @@ use json_parser::JSON8kb;
 
 global MAX_FILLS: u32 = 32;
 global MAX_STRING_LENGHT: u32 = 16;
+global DECIMAL_SCALE: i64 = 100000000;
+global MAX_FRACTION_DIGITS: u32 = 8;
+global MAX_INTEGER_DIGITS: u32 = 10;
 
 fn isAllowedSymbol(symbol: BoundedVec<u8, 16>) -> bool {
   let btc = BoundedVec::from_array("BTCUSDT".as_bytes());
@@ -44,7 +47,7 @@ pub fn trimRawFills(
   out
 }
 
-pub fn stringToSignedInteger1e6(string: BoundedVec<u8, 16>) -> (i64, bool) {
+pub fn stringToSignedInteger1e8(string: BoundedVec<u8, 16>) -> (i64, bool) {
   let bytes = string.storage();
   let stringLen = string.len();
   let mut valid = stringLen > 0;
@@ -77,18 +80,19 @@ pub fn stringToSignedInteger1e6(string: BoundedVec<u8, 16>) -> (i64, bool) {
   }
 
   let startPosition: u32 = if isNegative {1} else {0};
-  valid = valid & (pointPosition < stringLen);
-  valid = valid & (startPosition < pointPosition);
+  let hasPoint = pointPosition < stringLen;
+  let integerEnd = if hasPoint { pointPosition } else { stringLen };
+  valid = valid & (startPosition < integerEnd);
 
   for i in 0..MAX_STRING_LENGHT {
     let inIntegerPart =
-      ((i as u32) >= startPosition) & ((i as u32) < pointPosition) & ((i as u32) < stringLen);
+      ((i as u32) >= startPosition) & ((i as u32) < integerEnd) & ((i as u32) < stringLen);
     let byte = bytes[i];
     let isDigit = (byte >= 48) & (byte <= 57);
     let digit = (byte as i64) - 48;
     valid = valid & (!inIntegerPart | isDigit);
 
-    if inIntegerPart & isDigit & (digitsBeforePoint < 12) {
+    if inIntegerPart & isDigit & (digitsBeforePoint < MAX_INTEGER_DIGITS) {
       integerPart = integerPart * 10 + digit;
     }
 
@@ -102,24 +106,25 @@ pub fn stringToSignedInteger1e6(string: BoundedVec<u8, 16>) -> (i64, bool) {
     let digit = (byte as i64) - 48;
     valid = valid & (!inFractionPart | isDigit);
 
-    if inFractionPart & isDigit & (digitsAfterPoint < 6) {
+    if inFractionPart & isDigit & (digitsAfterPoint < MAX_FRACTION_DIGITS) {
       fractionPart = fractionPart * 10 + digit;
     }
 
     digitsAfterPoint += (inFractionPart & isDigit) as u32;
   }
 
-  valid = valid & (digitsBeforePoint > 0) & (digitsBeforePoint <= 12);
-  valid = valid & (digitsAfterPoint > 0) & (digitsAfterPoint <= 6);
+  valid = valid & (digitsBeforePoint > 0) & (digitsBeforePoint <= MAX_INTEGER_DIGITS);
+  valid = valid & (!hasPoint | ((digitsAfterPoint > 0) & (digitsAfterPoint <= MAX_FRACTION_DIGITS)));
+  valid = valid & (hasPoint | (digitsAfterPoint == 0));
 
   let mut scaledFractionPart = fractionPart;
-  for i in 0..6 {
+  for i in 0..MAX_FRACTION_DIGITS {
     if (i as u32) >= digitsAfterPoint {
       scaledFractionPart *= 10;
     }
   }
 
-  let mut totalNumber = integerPart * 1000000 + scaledFractionPart;
+  let mut totalNumber = integerPart * DECIMAL_SCALE + scaledFractionPart;
 
   if(isNegative) {
     totalNumber = totalNumber * -1;
@@ -134,8 +139,8 @@ pub fn calculateChecksum(fill: JSON8kb) -> (i64, bool){
   let hasRealizedPnl = realizedPnlString.is_some();
   let hasCommission = commissionString.is_some();
 
-  let (realizedPnlNumber, realizedPnlValid) = stringToSignedInteger1e6(realizedPnlString.unwrap_unchecked());
-  let (commissionNumber, commissionValid) = stringToSignedInteger1e6(commissionString.unwrap_unchecked());
+  let (realizedPnlNumber, realizedPnlValid) = stringToSignedInteger1e8(realizedPnlString.unwrap_unchecked());
+  let (commissionNumber, commissionValid) = stringToSignedInteger1e8(commissionString.unwrap_unchecked());
   let profit = realizedPnlNumber - commissionNumber;
   let valid = hasRealizedPnl & hasCommission & realizedPnlValid & commissionValid;
   (profit, valid)

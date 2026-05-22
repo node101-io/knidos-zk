@@ -1,4 +1,6 @@
-import Task from '../db/task.js';
+import { Task } from '../db/task.js';
+
+import { updateTaskStatus } from '../db/task-helpers.js';
 import logger from '../shared/logger.js';
 
 export async function runCleanupOnce(): Promise<void> {
@@ -12,7 +14,7 @@ export async function runCleanupOnce(): Promise<void> {
   for (const task of recoverableTasks) {
     const taskId = task._id.toString();
 
-    await Task.updateTaskStatus({
+    await updateTaskStatus({
       taskId,
       status: 'PENDING',
       error: {

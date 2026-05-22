@@ -1,0 +1,47 @@
+{
+  "name": "testnet-challange",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "knidos-challenge": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "pnpm build:sign-page && tsup",
+    "build:sign-page": "vite build",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist sign-page/dist",
+    "dev:api": "tsx watch --env-file=../../.env src/api/index.ts",
+    "dev:cli": "NODE_ENV=development pnpm build:sign-page && NODE_ENV=development tsup --onSuccess 'NODE_ENV=development node dist/cli.js'",
+    "start:api": "node --env-file=../../.env dist/api.js",
+    "snapshot-records": "tsx scripts/snapshot-records.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.14",
+    "@inquirer/prompts": "^8.0.5",
+    "@rainbow-me/rainbowkit": "^2.2.4",
+    "@tanstack/react-query": "^5.59.0",
+    "hono": "^4.12.12",
+    "mongoose": "^9.4.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "siwe": "^3.0.0",
+    "viem": "^2.40.1",
+    "wagmi": "^2.13.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.4",
+    "vite-plugin-singlefile": "^2.0.3"
+  }
+}

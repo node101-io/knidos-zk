@@ -5,11 +5,18 @@ const mockFindOne = vi.fn();
 const mockMarkTaskQueued = vi.fn();
 const mockQueueAdd = vi.fn();
 
-vi.mock('../src/db/task.js', () => ({
-  default: {
-    findOne: (...args: unknown[]) => mockFindOne(...args),
-    markTaskQueued: (...args: unknown[]) => mockMarkTaskQueued(...args),
-  },
+vi.mock('../src/db/task.js', async () => {
+  const actual = await vi.importActual<typeof import('../src/db/task.js')>('../src/db/task.js');
+  return {
+    ...actual,
+    Task: {
+      findOne: (...args: unknown[]) => mockFindOne(...args),
+    },
+  };
+});
+
+vi.mock('../src/db/task-helpers.js', () => ({
+  markTaskQueued: (...args: unknown[]) => mockMarkTaskQueued(...args),
 }));
 
 vi.mock('../src/pipelines/zk-tls/worker.js', () => ({

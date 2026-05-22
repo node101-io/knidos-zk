@@ -60,6 +60,7 @@ Production logs go to `stdout` as JSON; inspect them with `docker compose logs`.
 This is a pnpm workspace.
 
 - `packages/zk-node/` — the daemon (`src/app.ts`) and HTTP API (`src/server.ts`) that together make up the proof pipeline. The package owns dependencies, the TypeScript build, lint, and tests.
+- `packages/testnet-challange/` — the testnet challenge: a Hono API (`src/api/`, served via `Dockerfile.api`) plus an end-user CLI (`src/cli/`) that ships as a multi-arch Docker image. End-users `docker run` the CLI; it compiles the Noir circuit on their machine, derives the VK, and grades a hardcoded set of records they verify on-chain.
 - `circuit/`, `noir_json_parser/`, `patches/` — Noir toolchain assets shared across packages; stay at the repo root.
 - `.env` lives at the repo root and is consumed by `docker compose` and by all runtime/dev scripts (which are defined in the root `package.json` and run with the repo root as cwd).
 
@@ -141,6 +142,61 @@ docker compose down                                    # tear down stack (keeps 
 ```
 
 Docker engine is enabled on boot (`systemctl enable docker`). With `restart: unless-stopped` on every service, containers come back automatically after host reboot or crash — no PM2 or dedicated systemd unit required.
+
+## Testnet Challenge
+
+A separate, decoupled package (`packages/testnet-challange/`) consisting of two pieces:
+
+- **Backend API** (`src/api/`, deployed via `docker compose` on the same host) — accepts SIWE-signed submissions, scores them against the deterministic corruption mask, and persists completed addresses to MongoDB.
+- **End-user CLI** (`src/cli/`, distributed as `ghcr.io/node101-io/knidos-challenge:latest`) — runs on the user's machine; compiles the Noir circuit, derives the VK, presents 5 records for the user to verify against zkVerify on-chain, submits answers.
+
+### Endpoints
+
+- `GET  /api/health` — liveness
+- `POST /api/submit` — `{ message, signature, answers[] }` → SIWE verify, score, upsert into `completed_addresses` on 5/5
+- `GET  /api/completed?cursor=<id>` — paginated list of completed addresses for the knidos.zk site to poll and sync. Returns `{ data: [{ address, completed_at }], next_cursor }`.
+
+### Backend deploy
+
+The API has no toolchain (no `bb`, no `nargo`, no `circuit.json`) — it ships from `packages/testnet-challange/Dockerfile.api` as a minimal Node + Hono image. MongoDB is shared with `zk-node` (Atlas in production, reads `MONGO_URI` from `.env`).
+
+First-time:
+
+```bash
+docker compose up -d --build challenge-api
+docker compose ps challenge-api
+curl -fsS http://localhost:3001/api/health
+```
+
+Updates after a code change:
+
+```bash
+git pull
+docker compose up -d --build --no-deps challenge-api
+```
+
+The service exposes `:3001` on the host. Point `knidos.node101.io/challange/*` at it via nginx (handled outside this repo).
+
+### CLI image publish
+
+The CLI image is published by `.github/workflows/testnet-challange-cli-image.yml` on every push to `main` that touches `packages/testnet-challange/**` or the circuit. It builds multi-arch (`linux/amd64`, `linux/arm64`) and pushes to GHCR with `latest` + the short SHA tag.
+
+End-users only need Docker installed; no clone, no toolchain:
+
+```bash
+docker run --rm -it ghcr.io/node101-io/knidos-challenge:latest
+```
+
+### Refreshing the bundled records
+
+`src/cli/data/records.json` is committed and frozen at image build time. To resample 5 random records from the last 7 days:
+
+```bash
+pnpm --filter testnet-challange snapshot-records
+git commit -am "chore(challange): refresh records snapshot"
+```
+
+The dump source is `test.verificationrecords.json` at the repo root.
 
 ## Lint & Format
 

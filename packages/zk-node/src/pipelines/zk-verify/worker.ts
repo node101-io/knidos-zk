@@ -1,13 +1,15 @@
 import { Queue, type Job } from 'bullmq';
 import mongoose from 'mongoose';
 
-import Task from '../../db/task.js';
-import VerificationRecord from '../../db/verification-record.js';
+import { Task } from '../../db/task.js';
+import { VerificationRecord } from '../../db/verification-record.js';
+import { computeVkHash } from '../../shared/vk-hash.js';
+import { type NoirProcessorResult } from '../../types/noir-processor-result.js';
+
+import { updateTaskStatus } from '../../db/task-helpers.js';
 import { redis } from '../../shared/redis.js';
 import type { TaskEventCtx } from '../../shared/task-event.js';
-import { computeVkHash } from '../../shared/vk-hash.js';
 import type { ZkVerifyJobData } from '../types.js';
-import type { NoirProcessorResult } from '../noir/processor.js';
 import { parseZkVerifyJobInput } from '../validation.js';
 import { runZkVerifyProcessor } from './processor.js';
 
@@ -47,7 +49,7 @@ export async function processZkVerifyJob(
     windowEnd: parsedInput.endTime,
   });
 
-  await Task.updateTaskStatus({ taskId, status: 'RUNNING' });
+  await updateTaskStatus({ taskId, status: 'RUNNING' });
 
   for (;;) {
     const previousCompletedTask = await Task.findOne({
@@ -102,7 +104,7 @@ export async function processZkVerifyJob(
 
   try {
     await session.withTransaction(async () => {
-      await Task.updateTaskStatus({ taskId, status: 'COMPLETED' }, { session });
+      await updateTaskStatus({ taskId, status: 'COMPLETED' }, { session });
 
       await VerificationRecord.create(
         [

@@ -1,7 +1,9 @@
 import { Queue, type Job } from 'bullmq';
 import mongoose from 'mongoose';
 
-import Task from '../../db/task.js';
+import { Task } from '../../db/task.js';
+
+import { createTask, updateTaskStatus } from '../../db/task-helpers.js';
 import { redis } from '../../shared/redis.js';
 import type { TaskEventCtx } from '../../shared/task-event.js';
 import { classifyError, decideZkTLSError } from '../../primus/errors.js';
@@ -22,7 +24,7 @@ async function recordOutcome(task: TaskRecord, outcome: Outcome, ctx: TaskEventC
   const taskId = task._id.toString();
   if (outcome.kind === 'defer') {
     const deferCount = (task.deferCount ?? 0) + 1;
-    await Task.updateTaskStatus({
+    await updateTaskStatus({
       taskId,
       status: 'DEFERRED',
       error: serializeError(outcome.error),
@@ -40,7 +42,7 @@ async function recordOutcome(task: TaskRecord, outcome: Outcome, ctx: TaskEventC
     });
     return;
   }
-  await Task.updateTaskStatus({
+  await updateTaskStatus({
     taskId,
     status: 'FAILED',
     error: serializeError(outcome.error),
@@ -77,7 +79,7 @@ export async function processZkTLSJob(
     windowEnd: parsedInput.endTime,
   });
 
-  await Task.updateTaskStatus({ taskId, status: 'RUNNING' });
+  await updateTaskStatus({ taskId, status: 'RUNNING' });
 
   let result;
   try {
@@ -116,9 +118,9 @@ export async function processZkTLSJob(
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      await Task.updateTaskStatus({ taskId, status: 'COMPLETED' }, { session });
+      await updateTaskStatus({ taskId, status: 'COMPLETED' }, { session });
       await Task.updateOne({ _id: taskId }, { $unset: { primus: '' } }, { session });
-      await Task.createTask(
+      await createTask(
         {
           type: 'noir',
           input: {

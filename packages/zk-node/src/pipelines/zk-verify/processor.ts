@@ -4,7 +4,7 @@ const { zkVerifySession, UltrahonkVariant } = zkv;
 type UltrahonkVariant = zkv.UltrahonkVariant;
 type VerifyTransactionInfo = zkv.VerifyTransactionInfo;
 
-import RegisteredVk from '../../db/registered-vk.js';
+import { findOrRegisterVk } from '../../db/registered-vk-helpers.js';
 import { env } from '../../env.js';
 import logger from '../../shared/logger.js';
 
@@ -88,7 +88,7 @@ export async function runZkVerifyProcessor(
   const session = await getSession();
   const owner = sessionPromise;
 
-  const registered = await RegisteredVk.findOrRegister({
+  const registered = await findOrRegisterVk({
     vk,
     network: env.ZKVERIFY_NETWORK,
     session,
