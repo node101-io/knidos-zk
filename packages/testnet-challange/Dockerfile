@@ -52,7 +52,11 @@ COPY circuit /circuit
 COPY noir_json_parser /noir_json_parser
 COPY patches /patches
 # Apply our patch to noir_json_parser if not already applied (idempotent).
+# `rm -rf .git` first: a freshly-checked-out submodule has a .git *file*
+# pointing at the parent repo's modules/, which doesn't exist inside the
+# build context — `git init` would otherwise follow the dangling pointer.
 RUN cd /noir_json_parser \
+ && rm -rf .git \
  && git init -q \
  && (git apply --check /patches/noir_json_parser.patch 2>/dev/null \
        && git apply /patches/noir_json_parser.patch \
