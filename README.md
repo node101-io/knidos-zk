@@ -154,7 +154,7 @@ A separate, decoupled package (`packages/testnet-challange/`) consisting of two 
 
 - `GET  /api/health` — liveness
 - `POST /api/submit` — `{ message, signature, answers[] }` → SIWE verify, score, upsert into `completed_addresses` on 5/5
-- `GET  /api/completed?cursor=<id>` — paginated list of completed addresses for the knidos.zk site to poll and sync. Returns `{ data: [{ address, completed_at }], next_cursor }`.
+- `GET  /api/completed?cursor=<id>` — paginated list of completed addresses for the knidos.xyz site to poll and sync. Returns `{ data: [{ address, completed_at }], next_cursor }`.
 
 ### Backend deploy
 

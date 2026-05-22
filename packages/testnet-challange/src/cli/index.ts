@@ -66,7 +66,7 @@ async function main(): Promise<void> {
       console.log(`  🎉 ${result.score}/${RECORD_COUNT} — passed`);
       console.log('');
       console.log(`  Address ${credentials.address} is now marked as completed.`);
-      console.log('  Visit knidos.zk to claim your achievement.');
+      console.log('  Visit knidos.xyz to claim your achievement.');
       console.log('');
       return;
     }
