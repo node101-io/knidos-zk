@@ -2,7 +2,7 @@
 # Built with `docker buildx build --platform linux/amd64,linux/arm64 ...` in CI.
 
 # ───── Stage 1: fetch bb binary for target arch
-FROM debian:bookworm-slim AS bb-fetch
+FROM debian:trixie-slim AS bb-fetch
 ARG TARGETARCH
 ARG BB_VERSION=v0.84.0
 RUN apt-get update \
@@ -21,7 +21,7 @@ RUN set -eux; \
     /usr/local/bin/bb --version
 
 # ───── Stage 2: fetch nargo binary for target arch
-FROM debian:bookworm-slim AS nargo-fetch
+FROM debian:trixie-slim AS nargo-fetch
 ARG TARGETARCH
 ARG NARGO_VERSION=v1.0.0-beta.6
 RUN apt-get update \
@@ -43,7 +43,7 @@ RUN set -eux; \
 # This populates ~/.nargo/git/ with sha256/poseidon/noir_sort sources so
 # runtime compile doesn't need network. The resulting target/ is discarded;
 # user always re-compiles at CLI start.
-FROM debian:bookworm-slim AS warmup
+FROM debian:trixie-slim AS warmup
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates git \
  && rm -rf /var/lib/apt/lists/*
@@ -61,7 +61,7 @@ WORKDIR /circuit
 RUN nargo compile && rm -rf /circuit/target
 
 # ───── Stage 4: bundle CLI + collect production deps via `pnpm deploy`
-FROM node:22-bookworm-slim AS builder
+FROM node:22-trixie-slim AS builder
 WORKDIR /repo
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
@@ -78,7 +78,7 @@ RUN pnpm --filter testnet-challange build
 RUN pnpm --filter testnet-challange --prod deploy --legacy /out
 
 # ───── Stage 5: runtime image
-FROM node:22-bookworm-slim
+FROM node:22-trixie-slim
 WORKDIR /app
 
 COPY --from=bb-fetch    /usr/local/bin/bb    /usr/local/bin/bb
