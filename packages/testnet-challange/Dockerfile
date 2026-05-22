@@ -96,9 +96,10 @@ COPY --from=warmup /circuit           /app/circuit
 COPY --from=warmup /noir_json_parser  /app/noir_json_parser
 
 # Cached git deps (sha256 / poseidon / noir_sort) so `nargo compile` works
-# offline. Identical content to what `nargo` would fetch fresh from GitHub —
-# users can verify by running `nargo compile` themselves locally.
-COPY --from=warmup /root/.nargo /root/.nargo
+# offline. nargo writes its git-dep cache to ~/nargo/<host>/<owner>/<repo>/
+# (no leading dot). Identical content to what `nargo` would fetch fresh from
+# GitHub — users can verify by running `nargo compile` themselves locally.
+COPY --from=warmup /root/nargo /root/nargo
 
 COPY --from=builder /out/dist /app/dist
 COPY --from=builder /out/node_modules /app/node_modules

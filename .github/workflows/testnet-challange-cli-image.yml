@@ -5,7 +5,12 @@ on:
     branches: [main]
     paths:
       - 'packages/testnet-challange/**'
-      - 'circuit/target/circuit.json'
+      # Noir circuit source — the image runs `nargo compile` on this at build
+      # time and also bundles it for the user to recompile on their machine.
+      - 'circuit/src/**'
+      - 'circuit/Nargo.toml'
+      # Patch applied to the noir_json_parser submodule during warmup.
+      - 'patches/**'
       - 'pnpm-lock.yaml'
       - '.github/workflows/testnet-challange-cli-image.yml'
   workflow_dispatch:
