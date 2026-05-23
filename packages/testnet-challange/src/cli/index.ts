@@ -10,7 +10,6 @@ import { connectWallet } from './flow/connect-wallet.js';
 import { deriveVerificationKey } from './flow/derive-vk.js';
 import { collectAnswers } from './flow/present-records.js';
 import { submitAnswers } from './lib/api-client.js';
-import { API_URL } from './lib/constants.js';
 import recordsData from '../data/records.json' with { type: 'json' };
 
 const MAX_RETRIES_PER_SESSION = 50;
@@ -36,7 +35,6 @@ process.on('SIGTERM', () => process.exit(143));
 async function main(): Promise<void> {
   console.log('');
   console.log('Knidos Testnet Challenge');
-  console.log(`API: ${API_URL}`);
   console.log('');
 
   const credentials = await connectWallet();
@@ -50,7 +48,7 @@ async function main(): Promise<void> {
   const compiled = await compileCircuit();
   console.log(`  ✓ Compiled bytecode in ${(compiled.elapsedMs / 1000).toFixed(1)}s`);
   console.log('');
-  console.log('  Deriving verification key… (~30 sec, ~6 GB peak RAM)');
+  console.log('  Deriving verification key… (~30 sec)');
   const vk = await deriveVerificationKey(compiled.bytecodePath);
   console.log(`  ✓ Derived VK in ${(vk.elapsedMs / 1000).toFixed(1)}s`);
   console.log(`    VK hash = ${vk.vkHashHex}`);
@@ -72,7 +70,7 @@ async function main(): Promise<void> {
     previousAnswers = answers;
 
     console.log('');
-    console.log('  Checking your answers…');
+    console.log('  Submitting answers…');
     const checkJitter = (Math.random() * 2 - 1) * CHECK_DELAY_JITTER_MS;
     await new Promise<void>((resolve) =>
       setTimeout(resolve, CHECK_DELAY_BASE_MS + checkJitter),
@@ -97,8 +95,6 @@ async function main(): Promise<void> {
       continue;
     }
 
-    console.log('');
-    console.log('  Submitting answers…');
     const result = await submitAnswers({
       message: credentials.message,
       signature: credentials.signature,
@@ -110,7 +106,6 @@ async function main(): Promise<void> {
       console.log(`  🎉 ${result.score}/${RECORD_COUNT} — passed`);
       console.log('');
       console.log(`  Address ${credentials.address} is now marked as completed.`);
-      console.log('  Visit knidos.xyz to claim your achievement.');
       console.log('');
       return;
     }

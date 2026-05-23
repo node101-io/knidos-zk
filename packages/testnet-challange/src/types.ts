@@ -7,14 +7,20 @@ export interface PresentedRecord {
   // Used by the 'tx' corruption state to swap out txHash without producing
   // a dead link.
   decoyTxHash: string;
+  // A real on-chain tx with the *same* current vkHash, but settled
+  // (createdAt) before this record's startTime — i.e. a proof that was
+  // committed before the data window it claims to cover even existed.
+  // Used by the 'time' corruption state.
+  decoyTimeTxHash: string;
 }
 
-export type CorruptionState = 'valid' | 'inputs' | 'tx';
+export type CorruptionState = 'valid' | 'inputs' | 'tx' | 'time';
 
 export const CORRUPTION_STATES: readonly CorruptionState[] = Object.freeze([
   'valid',
   'inputs',
   'tx',
+  'time',
 ]);
 
 // What the user answers per record — just a binary verdict.

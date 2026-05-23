@@ -24,6 +24,7 @@ const OUT_PATH = path.resolve(__dirname, '../src/data/records.json');
 interface SampledRecord {
   publicSignals: string[];
   txHash: string;
+  startTime: Date;
 }
 
 async function main(): Promise<void> {
@@ -42,12 +43,38 @@ async function main(): Promise<void> {
     const targetVkHash = latest.vkHash;
     console.log(`latest record vkHash: ${targetVkHash}`);
 
+    // To guarantee a 'time' decoy is findable for every sampled record, we
+    // must only sample records whose startTime is later than the createdAt
+    // of the (RECORD_COUNT+1)th oldest record in the current-vkHash pool.
+    // That way, even if every other sampled record also lands in that
+    // earliest-tail and gets excluded, at least one valid decoy remains.
+    const earliestPool = (await col
+      .aggregate([
+        { $match: { vkHash: targetVkHash, txHash: { $exists: true, $ne: null } } },
+        { $sort: { createdAt: 1 } },
+        { $limit: RECORD_COUNT + 1 },
+        { $project: { _id: 0, createdAt: 1 } },
+      ])
+      .toArray()) as unknown as { createdAt: Date }[];
+    if (earliestPool.length < RECORD_COUNT + 1) {
+      throw new Error(
+        `pool for vkHash ${targetVkHash} has fewer than ${RECORD_COUNT + 1} records; need more history to construct time-decoys`,
+      );
+    }
+    const sampleableAfter = earliestPool[RECORD_COUNT]!.createdAt;
+
     // Pass 1: pick one record per distinct fillsCommitment pair (first two
     // public signals) so the user sees as many genuinely different proofs as
     // the pool allows — not just different time windows over the same batch.
     const distinct = (await col
       .aggregate([
-        { $match: { vkHash: targetVkHash, txHash: { $exists: true, $ne: null } } },
+        {
+          $match: {
+            vkHash: targetVkHash,
+            txHash: { $exists: true, $ne: null },
+            startTime: { $gt: sampleableAfter },
+          },
+        },
         {
           $group: {
             _id: {
@@ -59,7 +86,7 @@ async function main(): Promise<void> {
         },
         { $replaceRoot: { newRoot: '$doc' } },
         { $sample: { size: RECORD_COUNT } },
-        { $project: { _id: 0, publicSignals: 1, txHash: 1 } },
+        { $project: { _id: 0, publicSignals: 1, txHash: 1, startTime: 1 } },
       ])
       .toArray()) as unknown as SampledRecord[];
 
@@ -75,10 +102,11 @@ async function main(): Promise<void> {
             $match: {
               vkHash: targetVkHash,
               txHash: { $exists: true, $ne: null, $nin: usedTxHashes },
+              startTime: { $gt: sampleableAfter },
             },
           },
           { $sample: { size: remaining } },
-          { $project: { _id: 0, publicSignals: 1, txHash: 1 } },
+          { $project: { _id: 0, publicSignals: 1, txHash: 1, startTime: 1 } },
         ])
         .toArray()) as unknown as SampledRecord[];
       sampled = [...distinct, ...fillers];
@@ -116,14 +144,47 @@ async function main(): Promise<void> {
       );
     }
 
+    // Time decoys: real on-chain txs with the *current* vkHash, but settled
+    // (createdAt) before the displayed record's own startTime — so the
+    // explorer shows a tx that was mined before the data window it claims
+    // to cover even existed. Used by the 'time' corruption mode. We pick
+    // one per sampled record to ensure the temporal predicate holds for
+    // that specific record's startTime.
+    const sampledTxHashes = sampled.map((r) => r.txHash);
+    const timeDecoyTxHashes: string[] = [];
+    for (const r of sampled) {
+      const [pick] = (await col
+        .aggregate([
+          {
+            $match: {
+              vkHash: targetVkHash,
+              txHash: { $exists: true, $ne: null, $nin: sampledTxHashes },
+              createdAt: { $lt: r.startTime },
+            },
+          },
+          { $sample: { size: 1 } },
+          { $project: { _id: 0, txHash: 1 } },
+        ])
+        .toArray()) as unknown as { txHash: string }[];
+      if (!pick) {
+        throw new Error(
+          `no current-vkHash decoy with createdAt < ${r.startTime.toISOString()} found for record txHash ${r.txHash}`,
+        );
+      }
+      timeDecoyTxHashes.push(pick.txHash);
+    }
+
     const out: PresentedRecord[] = sampled.map((r, i) => ({
       publicSignals: r.publicSignals,
       txHash: r.txHash,
       decoyTxHash: decoys[i]!.txHash,
+      decoyTimeTxHash: timeDecoyTxHashes[i]!,
     }));
 
     await fs.writeFile(OUT_PATH, JSON.stringify(out, null, 2) + '\n');
-    console.log(`Wrote ${OUT_PATH} (${out.length} records + ${decoys.length} decoy txHashes)`);
+    console.log(
+      `Wrote ${OUT_PATH} (${out.length} records + ${decoys.length} stale-vk decoys + ${timeDecoyTxHashes.length} time decoys)`,
+    );
   } finally {
     await mongoose.disconnect();
   }

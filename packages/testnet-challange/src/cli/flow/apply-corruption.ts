@@ -23,6 +23,12 @@ export function applyCorruption(
         // link still works, but the on-chain VkOrHash points at a stale VK
         // that doesn't match what the user just derived.
         return { ...r, txHash: r.decoyTxHash };
+      case 'time':
+        // Swap in a real tx with the *same* current VK, but settled before
+        // this record's startTime — on the explorer, VkOrHash matches but
+        // the block time predates the data window the proof claims to
+        // cover (impossible: can't prove statements about future data).
+        return { ...r, txHash: r.decoyTimeTxHash };
     }
   });
 }
