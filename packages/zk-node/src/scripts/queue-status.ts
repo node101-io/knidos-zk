@@ -8,8 +8,13 @@ await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
 const status = await getQueueStatus();
 const renamed = Object.fromEntries(
   Object.entries(status).map(([type, counts]) => {
-    const { SUCCESS, ...rest } = counts;
-    return [type, { ...rest, 'SUCCESS (last 1h)': SUCCESS ?? 0 }];
+    const { SUCCESS, DEFERRED, DEFERRED_SETTLE, ...rest } = counts;
+    const settle = DEFERRED_SETTLE ?? 0;
+    const deferredCell = settle > 0 ? `${DEFERRED ?? 0} (${settle} settle)` : (DEFERRED ?? 0);
+    return [
+      type,
+      { ...rest, DEFERRED: deferredCell, 'SUCCESS (last 1h)': SUCCESS ?? 0 },
+    ];
   }),
 );
 

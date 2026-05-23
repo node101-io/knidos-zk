@@ -3,7 +3,11 @@ import { type SupportedBinanceSymbol } from '../../shared/binance-symbols.js';
 
 import { clearPrimusCheckpoint, setPrimusCheckpoint } from '../../db/task-helpers.js';
 import { env } from '../../env.js';
-import { fetchRawFills, type RawFills } from '../../utils/fetch-raw-fills.js';
+import {
+  buildUserTradesUrl,
+  fetchRawFillsByUrl,
+  type RawFills,
+} from '../../utils/fetch-raw-fills.js';
 import { bytes32ToField2DecStrings } from '../../utils/bytes32-to-field2-dec-strings.js';
 import { hexToFixedBytes } from '../../utils/hex-to-fixed-bytes.js';
 import { padRawFills } from '../../utils/pad-raw-fills.js';
@@ -44,6 +48,12 @@ export type ZkTLSProcessorResult =
 // timeout is ~12s).
 const ATTEST_MAX_ATTEMPTS = 3;
 
+// A Primus attestation's URL embeds the Binance `timestamp`, and Binance
+// rejects requests where `timestamp` is more than `recvWindow` ms behind
+// server time (we use 60s). We re-attest if a cached attest result is older
+// than this cutoff so the refetch never runs into `-1021`.
+const ATTESTED_URL_MAX_AGE_MS = 50_000;
+
 export async function runZkTLSProcessor(
   taskId: string,
   input: ZkTLSProcessorInput,
@@ -51,23 +61,24 @@ export async function runZkTLSProcessor(
   const startTimeMs = toTimestampMs(input.startTime);
   const endTimeMs = toTimestampMs(input.endTime);
 
-  const [rawFills, fillsCommitmentOrDefer] = await Promise.all([
-    fetchRawFills(
-      env.BINANCE_API_URL,
-      env.BINANCE_API_KEY,
-      env.BINANCE_API_SECRET,
-      input.symbol,
-      startTimeMs,
-      endTimeMs,
-    ),
-    resumePrimusFlow(taskId, input.symbol, startTimeMs, endTimeMs),
-  ]);
-  if (isDeferredTaskDecision(fillsCommitmentOrDefer)) return fillsCommitmentOrDefer;
+  // The scheduler stages tasks as DEFERRED until 5 minutes past endTime
+  // (see services/scheduler.ts) so that by the time we get here, Binance's
+  // read replicas have settled and both fetches below see the same body.
+  const primusResult = await resumePrimusFlow(taskId, input.symbol, startTimeMs, endTimeMs);
+  if (isDeferredTaskDecision(primusResult)) return primusResult;
+
+  const { fillsCommitment, url } = primusResult;
+  const rawFills = await fetchRawFillsByUrl(url, env.BINANCE_API_KEY);
 
   return {
     action: 'completed',
-    input: buildNoirInput(fillsCommitmentOrDefer, rawFills, startTimeMs, endTimeMs, input),
+    input: buildNoirInput(fillsCommitment, rawFills, startTimeMs, endTimeMs, input),
   };
+}
+
+interface PrimusFlowSuccess {
+  fillsCommitment: string;
+  url: string;
 }
 
 async function resumePrimusFlow(
@@ -75,19 +86,19 @@ async function resumePrimusFlow(
   symbol: SupportedBinanceSymbol,
   startTimeMs: number,
   endTimeMs: number,
-): Promise<string | DeferredTaskDecision> {
+): Promise<PrimusFlowSuccess | DeferredTaskDecision> {
   const taskTimeoutMs = await primusClient.taskTimeoutMs();
   let lastAttestError: unknown;
 
   for (let attempt = 1; attempt <= ATTEST_MAX_ATTEMPTS; attempt++) {
     const doc = await Task.findById(taskId).lean();
     const checkpoint = (doc?.primus ?? null) as PrimusCheckpoint | null;
-    const fresh =
+    const submitFresh =
       checkpoint && Date.now() - checkpoint.submit.submittedAt <= taskTimeoutMs ? checkpoint : null;
 
     let submit: PrimusSubmit;
-    if (fresh?.submit) {
-      submit = fresh.submit;
+    if (submitFresh?.submit) {
+      submit = submitFresh.submit;
     } else {
       const submitted = await submitWithCapacity();
       if (isDeferredTaskDecision(submitted)) return submitted;
@@ -95,14 +106,28 @@ async function resumePrimusFlow(
       await setPrimusCheckpoint(taskId, { submit });
     }
 
-    let attest = fresh?.attest;
+    // A cached attest pins the URL we'll refetch from. If the URL's Binance
+    // `timestamp` is already older than the cutoff, the refetch would hit
+    // `-1021 Timestamp outside of recvWindow`; re-attest with a fresh URL.
+    let attest = submitFresh?.attest;
+    if (attest && Date.now() - attest.attestedAt > ATTESTED_URL_MAX_AGE_MS) {
+      attest = undefined;
+    }
+
     if (!attest) {
+      const url = buildUserTradesUrl(
+        env.BINANCE_API_URL,
+        env.BINANCE_API_SECRET,
+        symbol,
+        startTimeMs,
+        endTimeMs,
+      );
       // A fresh SDK each attempt forces findFastestWs to re-run, so a
       // retry that targets a different attestor doesn't carry over any
       // cached pick from the previous one.
       const primus = await primusClient.sdk();
       try {
-        attest = await attestPrimusTask(primus, submit, symbol, startTimeMs, endTimeMs);
+        attest = await attestPrimusTask(primus, submit, url);
       } catch (err) {
         lastAttestError = err;
         if (attempt < ATTEST_MAX_ATTEMPTS && isAttestorTransport(err)) {
@@ -123,7 +148,8 @@ async function resumePrimusFlow(
     }
 
     const primus = await primusClient.sdk();
-    return verifyPrimusTask(primus, submit, attest);
+    const fillsCommitment = await verifyPrimusTask(primus, submit, attest);
+    return { fillsCommitment, url: attest.url };
   }
 
   throw lastAttestError ?? new Error('attestation_retry_exhausted');

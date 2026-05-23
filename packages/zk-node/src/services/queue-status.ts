@@ -17,13 +17,19 @@ export interface DeferredTaskResult {
 export async function getQueueStatus(): Promise<QueueStatusResult> {
   const since = new Date(Date.now() - SUCCESS_WINDOW_MS);
 
-  const [statusRows, successRows] = await Promise.all([
+  const [statusRows, successRows, settleRows] = await Promise.all([
     Task.aggregate([
       { $match: { status: { $ne: 'COMPLETED' } } },
       { $group: { _id: { type: '$type', status: '$status' }, count: { $sum: 1 } } },
     ]),
     Task.aggregate([
       { $match: { status: 'COMPLETED', finishedAt: { $gte: since } } },
+      { $group: { _id: '$type', count: { $sum: 1 } } },
+    ]),
+    // Within DEFERRED, how many are the scheduler's normal-flow settle wait
+    // (await_window_settle) vs. something the operator needs to investigate.
+    Task.aggregate([
+      { $match: { status: 'DEFERRED', deferReason: 'await_window_settle' } },
       { $group: { _id: '$type', count: { $sum: 1 } } },
     ]),
   ]);
@@ -43,6 +49,12 @@ export async function getQueueStatus(): Promise<QueueStatusResult> {
     counts[type].SUCCESS = row.count as number;
   }
 
+  for (const row of settleRows) {
+    const type = row._id as string;
+    counts[type] ??= {};
+    counts[type].DEFERRED_SETTLE = row.count as number;
+  }
+
   const table: QueueStatusResult = {};
 
   for (const type of PIPELINE_ORDER) {
@@ -51,6 +63,7 @@ export async function getQueueStatus(): Promise<QueueStatusResult> {
       QUEUED: 0,
       RUNNING: 0,
       DEFERRED: 0,
+      DEFERRED_SETTLE: 0,
       FAILED: 0,
       SUCCESS: 0,
       ...counts[type],
@@ -62,7 +75,14 @@ export async function getQueueStatus(): Promise<QueueStatusResult> {
 
 export async function getDeferredTasks(limit = 20): Promise<DeferredTaskResult[]> {
   const tasks = await Task.find(
-    { status: 'DEFERRED' },
+    {
+      status: 'DEFERRED',
+      // 'await_window_settle' is the scheduler's normal-flow defer — every
+      // freshly-scheduled zkTLS task spends ~5 minutes here before the
+      // master picks it up. Hide them from the status page so operators
+      // only see actually-stuck tasks (rate limits, transient errors).
+      deferReason: { $ne: 'await_window_settle' },
+    },
     {
       type: 1,
       deferReason: 1,

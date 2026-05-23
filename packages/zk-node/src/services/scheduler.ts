@@ -13,6 +13,14 @@ import { getWindowBounds, getMissingSymbols, getWindowsToEnsure } from './schedu
 const DEFAULT_BASE_BALANCE = 100000000;
 const DEFAULT_THRESHOLD = 50000000;
 
+// Wait this long after the trading window closes before the master is
+// allowed to pick up the task. Binance's userTrades endpoint reads from
+// eventually-consistent replicas around the cutoff; without the settle
+// window, the zk-node fetch and the Primus attestor fetch can land on
+// out-of-sync replicas and produce different response bodies — which
+// breaks the noir circuit's sha256(rawFills) == fillsCommitment check.
+const WINDOW_SETTLE_WAIT_MS = 5 * 60 * 1000;
+
 async function ensureZkTLSTask(
   startTime: Date,
   endTime: Date,
@@ -32,12 +40,20 @@ async function ensureZkTLSTask(
     'input.endTime': input.endTime,
     'input.symbol': input.symbol,
   } as const;
+  const deferUntil = new Date(endTime.getTime() + WINDOW_SETTLE_WAIT_MS);
   const updateResult = await Task.updateOne(
     identityQuery,
     {
+      // Tasks land in DEFERRED so the master only grabs them once the
+      // settle window has elapsed. Catch-up runs for past windows get a
+      // deferUntil that's already in the past — the master picks those
+      // up immediately, no special-case needed.
       $setOnInsert: {
         type: 'zkTLS',
         input,
+        status: 'DEFERRED',
+        deferUntil,
+        deferReason: 'await_window_settle',
       },
     },
     { upsert: true },

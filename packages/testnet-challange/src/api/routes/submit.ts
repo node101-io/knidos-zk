@@ -20,7 +20,10 @@ submitRoutes.post('/api/submit', async (c) => {
   const json = await c.req.json().catch(() => null);
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {
-    return c.json({ error: 'invalid body' }, 400);
+    return c.json(
+      { error: 'The CLI sent an invalid request to the server. This is a bug — please report it.' },
+      400,
+    );
   }
 
   const { message, signature, answers } = parsed.data;
@@ -29,14 +32,23 @@ submitRoutes.post('/api/submit', async (c) => {
   try {
     parsedMsg = parseSiweMessage(message);
   } catch {
-    return c.json({ error: 'malformed SIWE message' }, 400);
+    return c.json(
+      { error: 'We could not read your wallet signature. Re-run the CLI and sign again.' },
+      400,
+    );
   }
 
   // Reject expired signatures so a captured sig can't be replayed forever.
   if (parsedMsg.expirationTime) {
     const exp = new Date(parsedMsg.expirationTime).getTime();
     if (!Number.isFinite(exp) || exp < Date.now()) {
-      return c.json({ error: 'SIWE message expired' }, 401);
+      return c.json(
+        {
+          error:
+            'Your wallet signature has expired (signatures are valid for ~10 minutes). Re-run the CLI to sign again.',
+        },
+        401,
+      );
     }
   }
 
@@ -44,7 +56,10 @@ submitRoutes.post('/api/submit', async (c) => {
   try {
     address = verifySiwePersonalSig(message, signature);
   } catch {
-    return c.json({ error: 'signature verification failed' }, 401);
+    return c.json(
+      { error: 'We could not verify your wallet signature. Re-run the CLI and sign again.' },
+      401,
+    );
   }
 
   const expected = expectedVerdicts(getCorruptionMask(address));

@@ -13,6 +13,9 @@ interface SiweCredentials {
   signature: string;
 }
 
+// How long the SIWE signature is valid before /api/submit refuses it.
+const SIWE_EXPIRY_MS = 10 * 60_000;
+
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -71,7 +74,7 @@ export async function connectWallet(): Promise<SiweCredentials> {
           chainId: 1,
           nonce: randomNonce(),
           issuedAt: new Date().toISOString(),
-          expirationTime: new Date(Date.now() + 10 * 60_000).toISOString(),
+          expirationTime: new Date(Date.now() + SIWE_EXPIRY_MS).toISOString(),
         });
         issued.set(address, { message });
         return send(res, 200, JSON.stringify({ message }), 'application/json');
@@ -116,6 +119,7 @@ export async function connectWallet(): Promise<SiweCredentials> {
   if (!addr || typeof addr !== 'object') throw new Error('failed to bind local server');
   const url = `http://127.0.0.1:${addr.port}`;
 
+  const expiryMinutes = Math.round(SIWE_EXPIRY_MS / 60_000);
   console.log('');
   console.log('  Step 1 of 2 — Connect your wallet');
   console.log('');
@@ -124,6 +128,7 @@ export async function connectWallet(): Promise<SiweCredentials> {
   console.log(`      ${url}`);
   console.log('');
   console.log('  Sign the message in your wallet, then return here.');
+  console.log(`  Heads up: you have ~${expiryMinutes} minutes to finish before the signature expires.`);
   console.log('');
 
   try {

@@ -1,5 +1,3 @@
-import { createHmac } from 'crypto';
-
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 import { BigNumber, ethers } from 'ethers';
 
@@ -20,6 +18,12 @@ export interface PrimusSubmit {
 
 export interface PrimusAttest {
   reportTxHash: string;
+  // The exact Binance URL the attestor was asked to fetch + the wall-clock
+  // moment we built it. We later refetch this same URL ourselves so both
+  // sides see the same response body; `attestedAt` lets the caller decide
+  // whether the URL is still within Binance's 60s recvWindow.
+  url: string;
+  attestedAt: number;
 }
 
 // What we persist in the task doc between worker runs. `attest` is
@@ -82,19 +86,9 @@ export async function submitPrimusTaskRaw(): Promise<PrimusSubmit> {
 export async function attestPrimusTask(
   primus: PrimusNetwork,
   submit: PrimusSubmit,
-  symbol: string,
-  startTimeMs: number,
-  endTimeMs: number,
+  url: string,
 ): Promise<PrimusAttest> {
-  const queryString = new URLSearchParams({
-    symbol,
-    startTime: String(startTimeMs),
-    endTime: String(endTimeMs),
-    recvWindow: '60000',
-    timestamp: String(Date.now()),
-  }).toString();
-  const signature = createHmac('sha256', env.BINANCE_API_SECRET).update(queryString).digest('hex');
-
+  const attestedAt = Date.now();
   const result = await primus.attest({
     address: env.PRIMUS_USER_ADDRESS,
     taskId: submit.taskId,
@@ -102,7 +96,7 @@ export async function attestPrimusTask(
     taskAttestors: submit.taskAttestors,
     requests: [
       {
-        url: `${env.BINANCE_API_URL}/fapi/v1/userTrades?${queryString}&signature=${signature}`,
+        url,
         method: 'GET',
         header: { 'X-MBX-APIKEY': env.BINANCE_API_KEY },
         body: '',
@@ -119,7 +113,7 @@ export async function attestPrimusTask(
   if (!reportTxHash) {
     throw new Error('attestation_report_missing');
   }
-  return { reportTxHash };
+  return { reportTxHash, url, attestedAt };
 }
 
 // Returns the on-chain-verified fillsCommitment (SHA256 of the Binance

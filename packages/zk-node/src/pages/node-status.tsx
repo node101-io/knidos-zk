@@ -32,9 +32,14 @@ export function renderNodeStatus(
           {Object.entries(status).map(([type, counts]) => (
             <tr>
               <td>{type}</td>
-              {HEADERS.map((h) => (
-                <td>{counts[h] ?? 0}</td>
-              ))}
+              {HEADERS.map((h) => {
+                const value = counts[h] ?? 0;
+                if (h === 'DEFERRED') {
+                  const settle = counts.DEFERRED_SETTLE ?? 0;
+                  return <td>{settle > 0 ? `${value} (${settle} settle)` : value}</td>;
+                }
+                return <td>{value}</td>;
+              })}
             </tr>
           ))}
         </table>

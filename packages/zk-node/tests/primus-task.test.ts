@@ -1,4 +1,3 @@
-import { createHmac } from 'crypto';
 
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 import { BigNumber } from 'ethers';
@@ -49,7 +48,11 @@ const submit = {
   submittedAt: 1,
 };
 
-const attest = { reportTxHash: '0xreport-tx' };
+const attest = {
+  reportTxHash: '0xreport-tx',
+  url: 'https://test.binance/fapi/v1/userTrades?stub',
+  attestedAt: 1,
+};
 
 beforeEach(() => {
   mockSubmitTaskCall.mockReset();
@@ -126,13 +129,14 @@ describe('submitPrimusTaskRaw', () => {
 });
 
 describe('attestPrimusTask', () => {
-  it('builds a signed Binance userTrades request and passes it to the SDK', async () => {
+  it('passes the supplied url through to the Primus SDK and echoes it back', async () => {
     const primus = buildPrimusMock();
     vi.useFakeTimers();
     vi.setSystemTime(new Date(3_000));
     try {
       const { attestPrimusTask } = await import('../src/primus/task.js');
-      const result = await attestPrimusTask(primus, submit, 'BTCUSDT', 1_000, 2_000);
+      const url = `${env.BINANCE_API_URL}/fapi/v1/userTrades?symbol=BTCUSDT&signature=stub`;
+      const result = await attestPrimusTask(primus, submit, url);
 
       expect(primus.attest).toHaveBeenCalledTimes(1);
       const call = primus.attest.mock.calls[0]?.[0] as {
@@ -153,15 +157,7 @@ describe('attestPrimusTask', () => {
       expect(call.taskTxHash).toBe(submit.taskTxHash);
       expect(call.taskAttestors).toEqual(submit.taskAttestors);
 
-      const url = call.requests[0]!.url;
-      const expectedQuery =
-        'symbol=BTCUSDT&startTime=1000&endTime=2000&recvWindow=60000&timestamp=3000';
-      const expectedSig = createHmac('sha256', env.BINANCE_API_SECRET)
-        .update(expectedQuery)
-        .digest('hex');
-      expect(url).toBe(
-        `${env.BINANCE_API_URL}/fapi/v1/userTrades?${expectedQuery}&signature=${expectedSig}`,
-      );
+      expect(call.requests[0]!.url).toBe(url);
       expect(call.requests[0]!.method).toBe('GET');
       expect(call.requests[0]!.header).toEqual({ 'X-MBX-APIKEY': env.BINANCE_API_KEY });
       expect(call.requests[0]!.body).toBe('');
@@ -171,7 +167,7 @@ describe('attestPrimusTask', () => {
       expect(call.extendedParams).toBe(JSON.stringify({ attUrlOptimization: true }));
       expect(call).not.toHaveProperty('getAllJsonResponse');
       expect(call.attMode).toEqual({ algorithmType: 'mpctls', resultType: 'cipher' });
-      expect(result.reportTxHash).toBe('0xreport-tx');
+      expect(result).toEqual({ reportTxHash: '0xreport-tx', url, attestedAt: 3_000 });
     } finally {
       vi.useRealTimers();
     }
@@ -181,7 +177,7 @@ describe('attestPrimusTask', () => {
     const primus = buildPrimusMock({ attest: vi.fn().mockResolvedValue([{}]) });
     const { attestPrimusTask } = await import('../src/primus/task.js');
 
-    await expect(attestPrimusTask(primus, submit, 'BTCUSDT', 1, 2)).rejects.toThrow(
+    await expect(attestPrimusTask(primus, submit, 'https://stub')).rejects.toThrow(
       'attestation_report_missing',
     );
   });
