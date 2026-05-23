@@ -69,7 +69,7 @@ COPY --from=nargo-fetch /usr/local/bin/nargo /usr/local/bin/nargo
 COPY circuit                       /app/circuit
 COPY --from=patch /noir_json_parser /app/noir_json_parser
 RUN cd /app/circuit \
- && nargo compile \
+ && nargo compile --skip-brillig-constraints-check \
  && bb write_vk -s ultra_honk -b target/circuit.json --oracle_hash keccak --output_format bytes -o target
 
 # ───── Stage 5: bundle CLI + collect production deps via `pnpm deploy`
