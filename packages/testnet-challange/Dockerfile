@@ -70,7 +70,7 @@ COPY circuit                       /app/circuit
 COPY --from=patch /noir_json_parser /app/noir_json_parser
 RUN cd /app/circuit \
  && nargo compile \
- && bb write_vk --scheme ultra_honk -b target/circuit.json -o target --output_format bytes
+ && bb write_vk -s ultra_honk -b target/circuit.json --oracle_hash keccak --output_format bytes -o target
 
 # ───── Stage 5: bundle CLI + collect production deps via `pnpm deploy`
 FROM node:22-trixie-slim AS builder

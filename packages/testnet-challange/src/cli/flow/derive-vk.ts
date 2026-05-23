@@ -1,5 +1,6 @@
-import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
+
+import { keccak_256 } from '@noble/hashes/sha3';
 
 import { BAKED_VK_PATH } from '../lib/constants.js';
 
@@ -11,16 +12,21 @@ interface VkResult {
 
 const FAKE_DERIVE_MS = 10_000;
 
-// bb's ultra_honk VK derivation needs ~6 GB peak RAM, which OOM-kills on a
-// default-config Docker Desktop VM. We instead pre-derive once at image
-// build time and bake the bytes into the image — the hash formula here is
-// unchanged from the prior subprocess version, so the displayed hex is
-// bit-identical to what bb would have produced on the user's machine.
+// `bb write_vk -s ultra_honk --oracle_hash keccak` produces ~1760 bytes; we
+// pre-derive once at image build time (~6 GB peak RAM is too heavy to push
+// onto the user's Docker Desktop) and bake the bytes into the image.
+//
+// The hash we display matches zkverify's on-chain `statementHash` for the
+// ultrahonk pallet's V0_84 variant: `keccak256( 0x00 ‖ raw_vk_bytes )`.
+// The leading byte is the SCALE enum tag for `VersionedVk::V0_84`. Source:
+// https://github.com/zkVerify/zkVerify/blob/main/verifiers/ultrahonk/src/lib.rs#L311-L327
 export async function deriveVerificationKey(_bytecodePath: string): Promise<VkResult> {
   const start = Date.now();
   await new Promise<void>((resolve) => setTimeout(resolve, FAKE_DERIVE_MS));
   const vkBytes = await fs.readFile(BAKED_VK_PATH);
-  const vkHex = '0x' + vkBytes.toString('hex');
-  const vkHashHex = '0x' + createHash('sha256').update(vkHex).digest('hex');
+  const tagged = new Uint8Array(1 + vkBytes.length);
+  tagged[0] = 0x00;
+  tagged.set(vkBytes, 1);
+  const vkHashHex = '0x' + Buffer.from(keccak_256(tagged)).toString('hex');
   return { vkBytes, vkHashHex, elapsedMs: Date.now() - start };
 }
