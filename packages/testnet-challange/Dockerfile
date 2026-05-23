@@ -1,5 +1,5 @@
 # Multi-stage, multi-arch image for the Knidos testnet challenge CLI.
-# Built with `docker buildx build --platform linux/amd64,linux/arm64 ...` in CI.
+# Built with `docker buildx build --platform linux/amd64,linux/arm64 ...`.
 
 # ───── Stage 1: fetch bb binary for target arch
 FROM debian:trixie-slim AS bb-fetch
@@ -17,8 +17,7 @@ RUN set -eux; \
     curl -fLsS -o /tmp/bb.tgz \
       "https://github.com/AztecProtocol/aztec-packages/releases/download/${BB_VERSION}/${BB_ASSET}"; \
     tar -xzf /tmp/bb.tgz -C /usr/local/bin/; \
-    chmod +x /usr/local/bin/bb; \
-    /usr/local/bin/bb --version
+    chmod +x /usr/local/bin/bb
 
 # ───── Stage 2: fetch nargo binary for target arch
 FROM debian:trixie-slim AS nargo-fetch
@@ -36,33 +35,25 @@ RUN set -eux; \
     curl -fLsS -o /tmp/nargo.tgz \
       "https://github.com/noir-lang/noir/releases/download/${NARGO_VERSION}/${NARGO_ASSET}"; \
     tar -xzf /tmp/nargo.tgz -C /usr/local/bin/; \
-    chmod +x /usr/local/bin/nargo; \
-    /usr/local/bin/nargo --version
+    chmod +x /usr/local/bin/nargo
 
-# ───── Stage 3: warm the nargo git cache by compiling once
-# This populates ~/.nargo/git/ with sha256/poseidon/noir_sort sources so
-# runtime compile doesn't need network. The resulting target/ is discarded;
-# user always re-compiles at CLI start.
-FROM debian:trixie-slim AS warmup
+# ───── Stage 3: apply our patch to noir_json_parser
+# Stripping the submodule .git file first: a freshly-checked-out submodule
+# has a .git *file* pointing at the parent repo's modules/, which doesn't
+# exist inside the build context — `git init` would otherwise follow the
+# dangling pointer.
+FROM debian:trixie-slim AS patch
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates git \
+ && apt-get install -y --no-install-recommends git \
  && rm -rf /var/lib/apt/lists/*
-COPY --from=nargo-fetch /usr/local/bin/nargo /usr/local/bin/nargo
-COPY circuit /circuit
 COPY noir_json_parser /noir_json_parser
 COPY patches /patches
-# Apply our patch to noir_json_parser if not already applied (idempotent).
-# `rm -rf .git` first: a freshly-checked-out submodule has a .git *file*
-# pointing at the parent repo's modules/, which doesn't exist inside the
-# build context — `git init` would otherwise follow the dangling pointer.
 RUN cd /noir_json_parser \
  && rm -rf .git \
  && git init -q \
  && (git apply --check /patches/noir_json_parser.patch 2>/dev/null \
        && git apply /patches/noir_json_parser.patch \
        || echo "patch already applied")
-WORKDIR /circuit
-RUN nargo compile && rm -rf /circuit/target
 
 # ───── Stage 4: bundle CLI + collect production deps via `pnpm deploy`
 FROM node:22-trixie-slim AS builder
@@ -79,31 +70,40 @@ COPY packages/testnet-challange/sign-page packages/testnet-challange/sign-page
 ENV npm_config_ignore_scripts=true
 RUN pnpm install --frozen-lockfile --filter testnet-challange
 RUN pnpm --filter testnet-challange build
-RUN pnpm --filter testnet-challange --prod deploy --legacy /out
 
-# ───── Stage 5: runtime image
-FROM node:22-trixie-slim
+# ───── Stage 5: install the few runtime deps tsup couldn't bundle
+# tsup inlines every dep into dist/cli.js (~6 MB) except @inquirer/prompts
+# (barrel re-exports) and @noble/{curves,hashes} (mixed CJS/ESM internals
+# defeat esbuild's static analysis — they're used by our siwe-lite). Pull
+# just those at their workspace-pinned versions so the runtime image
+# carries ~10 MB of node_modules instead of the full deploy.
+FROM node:22-trixie-slim AS cli-runtime-deps
+WORKDIR /deps
+RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /var/lib/apt/lists/*
+COPY packages/testnet-challange/package.json /tmp/full.json
+RUN jq '{name:"cli-runtime",version:"0.0.0",type:"module",dependencies:(.dependencies | with_entries(select(.key | IN("@inquirer/prompts","@noble/curves","@noble/hashes"))))}' /tmp/full.json > package.json \
+ && npm install --omit=optional --no-package-lock --no-audit --no-fund --silent
+
+# ───── Stage 6: runtime image (distroless = no shell, no apt, just node+glibc)
+FROM gcr.io/distroless/nodejs22-debian12
 WORKDIR /app
 
 COPY --from=bb-fetch    /usr/local/bin/bb    /usr/local/bin/bb
 COPY --from=nargo-fetch /usr/local/bin/nargo /usr/local/bin/nargo
 
-# Noir source: user compiles this at CLI start (`nargo compile`) so the
-# whole circuit.json → vk derivation chain runs on their machine. Take the
-# patched copy from the warmup stage so noir_json_parser already has the
-# upstream fix applied.
-COPY --from=warmup /circuit           /app/circuit
-COPY --from=warmup /noir_json_parser  /app/noir_json_parser
+# Noir source: user runs `nargo compile` against this at CLI start, so the
+# whole circuit.json → VK derivation chain runs on their machine. Their
+# nargo fetches the sha256/poseidon/noir_sort git deps fresh on first run
+# (needs network — they have it for SIWE anyway).
+COPY circuit                       /app/circuit
+COPY --from=patch /noir_json_parser /app/noir_json_parser
 
-# Cached git deps (sha256 / poseidon / noir_sort) so `nargo compile` works
-# offline. nargo writes its git-dep cache to ~/nargo/<host>/<owner>/<repo>/
-# (no leading dot). Identical content to what `nargo` would fetch fresh from
-# GitHub — users can verify by running `nargo compile` themselves locally.
-COPY --from=warmup /root/nargo /root/nargo
-
-COPY --from=builder /out/dist /app/dist
-COPY --from=builder /out/node_modules /app/node_modules
-COPY --from=builder /out/package.json /app/package.json
+COPY --from=builder           /repo/packages/testnet-challange/dist/cli.js     /app/dist/cli.js
+COPY --from=builder           /repo/packages/testnet-challange/dist/cli.js.map /app/dist/cli.js.map
+COPY --from=cli-runtime-deps  /deps/node_modules                                /app/node_modules
+COPY --from=cli-runtime-deps  /deps/package.json                                /app/package.json
 
 ENV NODE_ENV=production
-ENTRYPOINT ["node", "/app/dist/cli.js"]
+# Distroless's default ENTRYPOINT is `/nodejs/bin/node`. Passing the script
+# path as CMD combines to `node /app/dist/cli.js`.
+CMD ["/app/dist/cli.js"]

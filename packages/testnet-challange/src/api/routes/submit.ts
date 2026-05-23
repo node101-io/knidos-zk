@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { SiweMessage } from 'siwe';
 import { z } from 'zod';
 
 import { expectedVerdicts, getCorruptionMask, scoreAnswers } from '../../corruption.js';
+import { parseSiweMessage, verifySiwePersonalSig } from '../../siwe-lite.js';
 import { ANSWER_VERDICTS, RECORD_COUNT, type AnswerVerdict } from '../../types.js';
 import { CompletedAddress } from '../db/completed-address.js';
 
@@ -25,29 +25,28 @@ submitRoutes.post('/api/submit', async (c) => {
 
   const { message, signature, answers } = parsed.data;
 
-  let siwe: SiweMessage;
+  let parsedMsg;
   try {
-    siwe = new SiweMessage(message);
+    parsedMsg = parseSiweMessage(message);
   } catch {
     return c.json({ error: 'malformed SIWE message' }, 400);
   }
 
   // Reject expired signatures so a captured sig can't be replayed forever.
-  if (siwe.expirationTime) {
-    const exp = new Date(siwe.expirationTime).getTime();
+  if (parsedMsg.expirationTime) {
+    const exp = new Date(parsedMsg.expirationTime).getTime();
     if (!Number.isFinite(exp) || exp < Date.now()) {
       return c.json({ error: 'SIWE message expired' }, 401);
     }
   }
 
+  let address: string;
   try {
-    const result = await siwe.verify({ signature });
-    if (!result.success) throw new Error('verify returned false');
+    address = verifySiwePersonalSig(message, signature);
   } catch {
     return c.json({ error: 'signature verification failed' }, 401);
   }
 
-  const address = siwe.address.toLowerCase();
   const expected = expectedVerdicts(getCorruptionMask(address));
   const score = scoreAnswers(expected, answers as AnswerVerdict[]);
   const passed = score === RECORD_COUNT;

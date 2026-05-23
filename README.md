@@ -179,7 +179,16 @@ The service exposes `:3001` on the host. Point `knidos.node101.io/challange/*` a
 
 ### CLI image publish
 
-The CLI image is published by `.github/workflows/testnet-challange-cli-image.yml` on every push to `main` that touches `packages/testnet-challange/**` or the circuit. It builds multi-arch (`linux/amd64`, `linux/arm64`) and pushes to GHCR with `latest` + the short SHA tag.
+`.github/workflows/testnet-challange-cli-image.yml` builds + pushes the multi-arch image (`linux/amd64`, `linux/arm64`) to `ghcr.io/node101-io/knidos-challenge` with `latest` + short-SHA tags. The workflow is **manual-only** (`workflow_dispatch`) — GitHub Actions doesn't run it on every push. Trigger it whenever you want a new image to ship:
+
+```bash
+gh workflow run testnet-challange-cli-image.yml
+```
+
+(or via the GitHub UI: Actions → "testnet-challange-cli image" → Run workflow.)
+
+amd64 and arm64 build in parallel on their own native runners (`ubuntu-latest` and `ubuntu-24.04-arm`) — no QEMU emulation, so a full build takes ~20–25 min. A final `merge` job stitches both single-arch images into a multi-arch manifest list. Uses the built-in `GITHUB_TOKEN` — no PAT or local docker login needed.
+
 
 End-users only need Docker installed; no clone, no toolchain:
 

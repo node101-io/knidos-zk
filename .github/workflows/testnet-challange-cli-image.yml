@@ -1,18 +1,10 @@
 name: testnet-challange-cli image
 
+# Manual trigger only. Two parallel jobs build amd64 and arm64 natively on
+# their own GitHub-hosted runners (no QEMU emulation tax). A final `merge`
+# job stitches both digests into a single multi-arch manifest list and
+# publishes `latest` + the short SHA tag.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'packages/testnet-challange/**'
-      # Noir circuit source — the image runs `nargo compile` on this at build
-      # time and also bundles it for the user to recompile on their machine.
-      - 'circuit/src/**'
-      - 'circuit/Nargo.toml'
-      # Patch applied to the noir_json_parser submodule during warmup.
-      - 'patches/**'
-      - 'pnpm-lock.yaml'
-      - '.github/workflows/testnet-challange-cli-image.yml'
   workflow_dispatch:
 
 permissions:
@@ -24,15 +16,20 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
         with:
-          # noir_json_parser is a git submodule referenced from circuit/Nargo.toml
-          # and the docker warmup stage runs `nargo compile` which fails without it.
           submodules: recursive
 
-      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -41,18 +38,61 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compute tags
-        id: tags
-        run: |
-          short_sha="${GITHUB_SHA::7}"
-          echo "tags=${IMAGE}:latest,${IMAGE}:${short_sha}" >> "$GITHUB_OUTPUT"
-
-      - uses: docker/build-push-action@v6
+      - name: Build + push by digest
+        id: build
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: packages/testnet-challange/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.tags.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          # `push-by-digest` uploads a single-arch image referenced only by
+          # digest; the merge job assembles the manifest list afterward.
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          # docker/build-push-action@v6 exposes the pushed image digest via
+          # the `digest` output. Save it under a per-platform filename so
+          # the merge job can collect both.
+          digest='${{ steps.build.outputs.digest }}'
+          platform='${{ matrix.platform }}'
+          echo "$digest" > "/tmp/digests/${platform//\//-}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-arch manifest + push tags
+        working-directory: /tmp/digests
+        run: |
+          short_sha="${GITHUB_SHA::7}"
+          # `imagetools create` takes per-arch digest refs and produces a
+          # manifest list, tagging it with both `latest` and the short SHA.
+          docker buildx imagetools create \
+            -t "${IMAGE}:latest" \
+            -t "${IMAGE}:${short_sha}" \
+            $(printf "${IMAGE}@%s " $(cat *))

@@ -1,7 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
-import { SiweMessage } from 'siwe';
-import { getAddress } from 'viem';
+import { parseSiweMessage, prepareSiweMessage } from '../../siwe-lite.js';
 
 // Vite builds the browser-side React + RainbowKit sign-page (under
 // ../../../sign-page/) into a single self-contained HTML with JS/CSS
@@ -62,10 +61,8 @@ export async function connectWallet(): Promise<SiweCredentials> {
         if (!rawAddress || !/^0x[0-9a-fA-F]{40}$/.test(rawAddress)) {
           return send(res, 400, JSON.stringify({ error: 'bad address' }), 'application/json');
         }
-        // SIWE requires EIP-55 checksummed addresses in the message; MetaMask
-        // sometimes returns lowercase.
-        const address = getAddress(rawAddress);
-        const siwe = new SiweMessage({
+        const address = rawAddress.toLowerCase();
+        const message = prepareSiweMessage({
           domain: req.headers.host ?? 'localhost',
           address,
           statement: 'Sign in to Knidos Testnet Challenge.',
@@ -76,8 +73,7 @@ export async function connectWallet(): Promise<SiweCredentials> {
           issuedAt: new Date().toISOString(),
           expirationTime: new Date(Date.now() + 10 * 60_000).toISOString(),
         });
-        const message = siwe.prepareMessage();
-        issued.set(address.toLowerCase(), { message });
+        issued.set(address, { message });
         return send(res, 200, JSON.stringify({ message }), 'application/json');
       }
 
@@ -87,14 +83,14 @@ export async function connectWallet(): Promise<SiweCredentials> {
         if (typeof parsed.message !== 'string' || typeof parsed.signature !== 'string') {
           return send(res, 400, JSON.stringify({ error: 'bad body' }), 'application/json');
         }
-        const siwe = new SiweMessage(parsed.message);
-        const challenge = issued.get(siwe.address.toLowerCase());
+        const { address: msgAddress } = parseSiweMessage(parsed.message);
+        const challenge = issued.get(msgAddress.toLowerCase());
         if (!challenge || challenge.message !== parsed.message) {
           return send(res, 400, JSON.stringify({ error: 'unknown challenge' }), 'application/json');
         }
         send(res, 200, JSON.stringify({ ok: true }), 'application/json');
         resolveResult({
-          address: siwe.address.toLowerCase(),
+          address: msgAddress.toLowerCase(),
           message: parsed.message,
           signature: parsed.signature,
         });
