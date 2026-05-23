@@ -1,13 +1,4 @@
-import { createHash } from 'node:crypto';
-
 import type { CorruptionState, PresentedRecord } from '../../types.js';
-
-// Deterministic decoy txhash: hash the real txhash, hex-encode 32 bytes,
-// prepend 0x. Looks real but points to a tx that doesn't exist.
-function decoyTxHash(real: string): string {
-  const h = createHash('sha256').update(real).digest('hex');
-  return `0x${h}`;
-}
 
 export function applyCorruption(
   records: PresentedRecord[],
@@ -28,7 +19,10 @@ export function applyCorruption(
         return { ...r, publicSignals: ps };
       }
       case 'tx':
-        return { ...r, txHash: decoyTxHash(r.txHash) };
+        // Swap in a real tx from a previous circuit version — the explorer
+        // link still works, but the on-chain VkOrHash points at a stale VK
+        // that doesn't match what the user just derived.
+        return { ...r, txHash: r.decoyTxHash };
     }
   });
 }

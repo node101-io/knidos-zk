@@ -1,6 +1,12 @@
 export interface PresentedRecord {
   publicSignals: string[];
   txHash: string;
+  // A real on-chain tx from a previous circuit version (different vkHash) —
+  // the explorer link opens to a genuine settled proof, but the proof
+  // verifies against a stale VK so anyone double-checking sees a mismatch.
+  // Used by the 'tx' corruption state to swap out txHash without producing
+  // a dead link.
+  decoyTxHash: string;
 }
 
 export type CorruptionState = 'valid' | 'inputs' | 'tx';

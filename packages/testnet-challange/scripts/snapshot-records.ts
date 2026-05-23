@@ -93,13 +93,37 @@ async function main(): Promise<void> {
       `picked ${sampled.length} records (${distinct.length} distinct fillsCommitment pairs)`,
     );
 
-    const out: PresentedRecord[] = sampled.map((r) => ({
+    // Decoys: real txHashes from previous circuit versions (different
+    // vkHash). The 'tx' corruption mode swaps these in, so the explorer
+    // link opens to a genuine settled proof — but one that verifies
+    // against a stale VK, so a vigilant user spots the mismatch.
+    const decoys = (await col
+      .aggregate([
+        {
+          $match: {
+            vkHash: { $ne: targetVkHash },
+            txHash: { $exists: true, $ne: null },
+          },
+        },
+        { $sample: { size: RECORD_COUNT } },
+        { $project: { _id: 0, txHash: 1 } },
+      ])
+      .toArray()) as unknown as { txHash: string }[];
+
+    if (decoys.length < RECORD_COUNT) {
+      throw new Error(
+        `need ${RECORD_COUNT} decoy txHashes under a different vkHash, only ${decoys.length} available`,
+      );
+    }
+
+    const out: PresentedRecord[] = sampled.map((r, i) => ({
       publicSignals: r.publicSignals,
       txHash: r.txHash,
+      decoyTxHash: decoys[i]!.txHash,
     }));
 
     await fs.writeFile(OUT_PATH, JSON.stringify(out, null, 2) + '\n');
-    console.log(`Wrote ${OUT_PATH} (${out.length} records)`);
+    console.log(`Wrote ${OUT_PATH} (${out.length} records + ${decoys.length} decoy txHashes)`);
   } finally {
     await mongoose.disconnect();
   }
