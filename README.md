@@ -193,21 +193,22 @@ amd64 and arm64 build in parallel on their own native runners (`ubuntu-latest` a
 End-users only need Docker installed; no clone, no toolchain:
 
 ```bash
-docker run --rm -it -p 7878:7878 ghcr.io/node101-io/knidos-challenge:latest
+docker run --rm -it --pull=always -p 7878:7878 ghcr.io/node101-io/knidos-challenge:latest
 ```
 
-The CLI spins up a tiny local web server inside the container for the SIWE wallet-connect flow; `-p 7878:7878` forwards it so the user can open the URL in their browser. The port is hard-coded in the image (via `ENV KNIDOS_PORT` and `EXPOSE 7878`) so the same number appears on both sides of the colon.
+- `--pull=always` makes Docker check GHCR for an updated digest on every run and pull only the changed layers (a quick HEAD request when the image is already current). Without it, `docker run` happily reuses a stale local copy of `latest` even after we ship a new image.
+- `-p 7878:7878` forwards the CLI's local web server (used for the SIWE wallet-connect flow) onto the host so the user can open the URL in their browser. The port is hard-coded in the image (via `ENV KNIDOS_PORT` and `EXPOSE 7878`) so the same number appears on both sides of the colon.
 
 ### Refreshing the bundled records
 
-`src/cli/data/records.json` is committed and frozen at image build time. To resample 5 random records from the last 7 days:
+`src/data/records.json` is committed and frozen at image build time. To resample 5 fresh records that share the latest VK on zkverify:
 
 ```bash
 pnpm --filter testnet-challange snapshot-records
 git commit -am "chore(challange): refresh records snapshot"
 ```
 
-The dump source is `test.verificationrecords.json` at the repo root.
+The script connects to the prod MongoDB via `MONGO_URI` in `.env.prod`, picks the most recent task's `vkHash`, then samples up to 5 records under that vkHash — preferring distinct `fillsCommitment` pairs, padding with additional records from the same pool if there aren't enough distinct ones.
 
 ## Lint & Format
 
