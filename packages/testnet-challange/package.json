@@ -17,7 +17,7 @@
     "dev:api": "tsx watch --env-file=../../.env src/api/index.ts",
     "dev:cli": "NODE_ENV=development pnpm build:sign-page && NODE_ENV=development tsup --onSuccess 'NODE_ENV=development node dist/cli.js'",
     "start:api": "node --env-file=../../.env dist/api.js",
-    "snapshot-records": "tsx scripts/snapshot-records.ts"
+    "snapshot-records": "tsx --env-file=../../.env.prod scripts/snapshot-records.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.14",

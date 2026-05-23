@@ -11,7 +11,7 @@ import { deriveVerificationKey } from './flow/derive-vk.js';
 import { collectAnswers } from './flow/present-records.js';
 import { submitAnswers } from './lib/api-client.js';
 import { API_URL } from './lib/constants.js';
-import recordsData from './data/records.json' with { type: 'json' };
+import recordsData from '../data/records.json' with { type: 'json' };
 
 const MAX_RETRIES_PER_SESSION = 50;
 
