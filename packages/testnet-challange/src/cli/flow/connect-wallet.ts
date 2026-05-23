@@ -105,7 +105,13 @@ export async function connectWallet(): Promise<SiweCredentials> {
     }
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  // When run inside a container, the user provides KNIDOS_PORT (matching the
+  // host-side `-p` mapping) and we bind 0.0.0.0 so the host can reach us.
+  // Bare host runs: random port on loopback.
+  const portEnv = process.env.KNIDOS_PORT;
+  const listenPort = portEnv ? Number(portEnv) : 0;
+  const listenHost = portEnv ? '0.0.0.0' : '127.0.0.1';
+  await new Promise<void>((resolve) => server.listen(listenPort, listenHost, resolve));
   const addr = server.address();
   if (!addr || typeof addr !== 'object') throw new Error('failed to bind local server');
   const url = `http://127.0.0.1:${addr.port}`;

@@ -193,8 +193,10 @@ amd64 and arm64 build in parallel on their own native runners (`ubuntu-latest` a
 End-users only need Docker installed; no clone, no toolchain:
 
 ```bash
-docker run --rm -it ghcr.io/node101-io/knidos-challenge:latest
+docker run --rm -it -p 7878:7878 ghcr.io/node101-io/knidos-challenge:latest
 ```
+
+The CLI spins up a tiny local web server inside the container for the SIWE wallet-connect flow; `-p 7878:7878` forwards it so the user can open the URL in their browser. The port is hard-coded in the image (via `ENV KNIDOS_PORT` and `EXPOSE 7878`) so the same number appears on both sides of the colon.
 
 ### Refreshing the bundled records
 

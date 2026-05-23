@@ -104,6 +104,10 @@ COPY --from=cli-runtime-deps  /deps/node_modules                                
 COPY --from=cli-runtime-deps  /deps/package.json                                /app/package.json
 
 ENV NODE_ENV=production
+# Pre-baked into the image so end-users don't need `-e KNIDOS_PORT=…` on the
+# `docker run` line — they only need `-p 7878:7878` to forward the port.
+ENV KNIDOS_PORT=7878
+EXPOSE 7878
 # Distroless's default ENTRYPOINT is `/nodejs/bin/node`. Passing the script
 # path as CMD combines to `node /app/dist/cli.js`.
 CMD ["/app/dist/cli.js"]

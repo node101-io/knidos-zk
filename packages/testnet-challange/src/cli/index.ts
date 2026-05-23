@@ -21,6 +21,12 @@ if (records.length !== RECORD_COUNT) {
   throw new Error(`bundled records.json must contain exactly ${RECORD_COUNT} records, got ${records.length}`);
 }
 
+// In distroless containers Node runs as PID 1, and Linux skips the default
+// SIGINT/SIGTERM handlers for PID 1 — so Ctrl+C wouldn't kill the process
+// without an explicit listener.
+process.on('SIGINT', () => process.exit(130));
+process.on('SIGTERM', () => process.exit(143));
+
 async function main(): Promise<void> {
   console.log('');
   console.log('Knidos Testnet Challenge');
