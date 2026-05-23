@@ -60,7 +60,7 @@ Production logs go to `stdout` as JSON; inspect them with `docker compose logs`.
 This is a pnpm workspace.
 
 - `packages/zk-node/` — the daemon (`src/app.ts`) and HTTP API (`src/server.ts`) that together make up the proof pipeline. The package owns dependencies, the TypeScript build, lint, and tests.
-- `packages/testnet-challange/` — the testnet challenge: a Hono API (`src/api/`, served via `Dockerfile.api`) plus an end-user CLI (`src/cli/`) that ships as a multi-arch Docker image. End-users `docker run` the CLI; it compiles the Noir circuit on their machine, derives the VK, and grades a hardcoded set of records they verify on-chain.
+- `packages/testnet-challange/` — the testnet challenge: a Hono API (`src/api/`, served via `Dockerfile.api`) plus an end-user CLI (`src/cli/`) that ships as a multi-arch Docker image. End-users `docker run` the CLI; it walks them through SIWE wallet-connect, displays the circuit's verification key, and grades a hardcoded set of records they verify on-chain.
 - `circuit/`, `noir_json_parser/`, `patches/` — Noir toolchain assets shared across packages; stay at the repo root.
 - `.env` lives at the repo root and is consumed by `docker compose` and by all runtime/dev scripts (which are defined in the root `package.json` and run with the repo root as cwd).
 
@@ -148,7 +148,7 @@ Docker engine is enabled on boot (`systemctl enable docker`). With `restart: unl
 A separate, decoupled package (`packages/testnet-challange/`) consisting of two pieces:
 
 - **Backend API** (`src/api/`, deployed via `docker compose` on the same host) — accepts SIWE-signed submissions, scores them against the deterministic corruption mask, and persists completed addresses to MongoDB.
-- **End-user CLI** (`src/cli/`, distributed as `ghcr.io/node101-io/knidos-challenge:latest`) — runs on the user's machine; compiles the Noir circuit, derives the VK, presents 5 records for the user to verify against zkVerify on-chain, submits answers.
+- **End-user CLI** (`src/cli/`, distributed as `ghcr.io/node101-io/knidos-challenge:latest`) — runs on the user's machine; ships with the verification key pre-derived at image build time (bb's ultra_honk derivation peaks at ~6 GB RAM and is too heavy to push onto the end user's Docker Desktop), then presents 5 records for the user to verify against zkVerify on-chain and submits answers.
 
 ### Endpoints
 
@@ -187,7 +187,7 @@ gh workflow run testnet-challange-cli-image.yml
 
 (or via the GitHub UI: Actions → "testnet-challange-cli image" → Run workflow.)
 
-amd64 and arm64 build in parallel on their own native runners (`ubuntu-latest` and `ubuntu-24.04-arm`) — no QEMU emulation, so a full build takes ~20–25 min. A final `merge` job stitches both single-arch images into a multi-arch manifest list. Uses the built-in `GITHUB_TOKEN` — no PAT or local docker login needed.
+amd64 and arm64 build in parallel on their own native runners (`ubuntu-latest` and `ubuntu-24.04-arm`) — no QEMU emulation. The `vk-warmup` stage runs `nargo compile` + `bb write_vk` once per arch (~3 min, ~6 GB peak RAM — needs the GHA runner's headroom, won't fit on a default Docker Desktop). Final image is ~140 MB. A `merge` job stitches both single-arch images into a multi-arch manifest list. Uses the built-in `GITHUB_TOKEN` — no PAT or local docker login needed.
 
 
 End-users only need Docker installed; no clone, no toolchain:

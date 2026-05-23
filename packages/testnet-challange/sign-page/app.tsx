@@ -29,13 +29,16 @@ const config = getDefaultConfig({
   // there can sign here without a "chain not configured" error. We only need
   // a signature; the chain itself is not used by the challenge.
   chains: [mainnet, optimism, polygon, base, arbitrum, avalanche, avalancheFuji, baseSepolia],
+  // This page is a per-run CLI handoff. Persisting wagmi state across the
+  // fixed localhost origin can rehydrate stale connector stubs on the next run.
+  storage: null,
   ssr: false,
 });
 
 const queryClient = new QueryClient();
 
 function SignFlow() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, isReconnecting, status: accountStatus } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const [status, setStatus] = useState<{ kind: 'idle' | 'busy' | 'ok' | 'err'; text: string }>({
     kind: 'idle',
@@ -44,7 +47,9 @@ function SignFlow() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (!isConnected || !address || done) return;
+    if (accountStatus !== 'connected' || isReconnecting || !isConnected || !address || done) {
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -82,7 +87,7 @@ function SignFlow() {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, address, done, signMessageAsync]);
+  }, [accountStatus, isReconnecting, isConnected, address, done, signMessageAsync]);
 
   return (
     <main

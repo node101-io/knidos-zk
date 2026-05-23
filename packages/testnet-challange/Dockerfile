@@ -55,7 +55,24 @@ RUN cd /noir_json_parser \
        && git apply /patches/noir_json_parser.patch \
        || echo "patch already applied")
 
-# ───── Stage 4: bundle CLI + collect production deps via `pnpm deploy`
+# ───── Stage 4: pre-derive the verification key
+# bb's ultra_honk VK derivation needs ~6 GB peak RAM, which OOM-kills on a
+# default-config Docker Desktop VM. We run it once here (GHA runners have
+# plenty of memory) and ship the resulting bytes in the runtime image.
+# nargo+bb stay in this stage only — neither ends up in the final image.
+FROM debian:trixie-slim AS vk-warmup
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates git curl jq \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=bb-fetch    /usr/local/bin/bb    /usr/local/bin/bb
+COPY --from=nargo-fetch /usr/local/bin/nargo /usr/local/bin/nargo
+COPY circuit                       /app/circuit
+COPY --from=patch /noir_json_parser /app/noir_json_parser
+RUN cd /app/circuit \
+ && nargo compile \
+ && bb write_vk --scheme ultra_honk -b target/circuit.json -o target --output_format bytes
+
+# ───── Stage 5: bundle CLI + collect production deps via `pnpm deploy`
 FROM node:22-trixie-slim AS builder
 WORKDIR /repo
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
@@ -71,7 +88,7 @@ ENV npm_config_ignore_scripts=true
 RUN pnpm install --frozen-lockfile --filter testnet-challange
 RUN pnpm --filter testnet-challange build
 
-# ───── Stage 5: install the few runtime deps tsup couldn't bundle
+# ───── Stage 6: install the few runtime deps tsup couldn't bundle
 # tsup inlines every dep into dist/cli.js (~6 MB) except @inquirer/prompts
 # (barrel re-exports) and @noble/{curves,hashes} (mixed CJS/ESM internals
 # defeat esbuild's static analysis — they're used by our siwe-lite). Pull
@@ -84,29 +101,14 @@ COPY packages/testnet-challange/package.json /tmp/full.json
 RUN jq '{name:"cli-runtime",version:"0.0.0",type:"module",dependencies:(.dependencies | with_entries(select(.key | IN("@inquirer/prompts","@noble/curves","@noble/hashes"))))}' /tmp/full.json > package.json \
  && npm install --omit=optional --no-package-lock --no-audit --no-fund --silent
 
-# ───── Stage 6: runtime image
-# Bare debian:trixie-slim + only the node binary copied from node:22-trixie-slim
-# (skipping npm/yarn/headers we don't need at runtime — saves ~60 MB vs the
-# full node:slim base). git is needed because nargo shells out to `git clone`
-# to fetch the Noir library deps (sha256, etc.) on first compile.
-FROM debian:trixie-slim
+# ───── Stage 7: runtime image (distroless — no shell, no apt, just node+glibc)
+# With nargo+bb gone, we have nothing to shell out to at runtime, so we go
+# back to the smallest viable base. The pre-derived VK from the warmup stage
+# ships as a tiny file at /app/vk; cli.js reads + hashes it on demand.
+FROM gcr.io/distroless/nodejs22-debian12
 WORKDIR /app
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates git \
- && rm -rf /var/lib/apt/lists/*
-
-COPY --from=node:22-trixie-slim /usr/local/bin/node /usr/local/bin/node
-
-COPY --from=bb-fetch    /usr/local/bin/bb    /usr/local/bin/bb
-COPY --from=nargo-fetch /usr/local/bin/nargo /usr/local/bin/nargo
-
-# Noir source: user runs `nargo compile` against this at CLI start, so the
-# whole circuit.json → VK derivation chain runs on their machine. Nargo
-# git-clones the sha256 library on first run.
-COPY circuit                       /app/circuit
-COPY --from=patch /noir_json_parser /app/noir_json_parser
-
+COPY --from=vk-warmup         /app/circuit/target/vk                            /app/vk
 COPY --from=builder           /repo/packages/testnet-challange/dist/cli.js     /app/dist/cli.js
 COPY --from=builder           /repo/packages/testnet-challange/dist/cli.js.map /app/dist/cli.js.map
 COPY --from=cli-runtime-deps  /deps/node_modules                                /app/node_modules
@@ -117,4 +119,6 @@ ENV NODE_ENV=production
 # `docker run` line — they only need `-p 7878:7878` to forward the port.
 ENV KNIDOS_PORT=7878
 EXPOSE 7878
-CMD ["node", "/app/dist/cli.js"]
+# Distroless's default ENTRYPOINT is `/nodejs/bin/node`. Passing the script
+# path as CMD combines to `node /app/dist/cli.js`.
+CMD ["/app/dist/cli.js"]
