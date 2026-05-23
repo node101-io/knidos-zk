@@ -84,17 +84,26 @@ COPY packages/testnet-challange/package.json /tmp/full.json
 RUN jq '{name:"cli-runtime",version:"0.0.0",type:"module",dependencies:(.dependencies | with_entries(select(.key | IN("@inquirer/prompts","@noble/curves","@noble/hashes"))))}' /tmp/full.json > package.json \
  && npm install --omit=optional --no-package-lock --no-audit --no-fund --silent
 
-# ───── Stage 6: runtime image (distroless = no shell, no apt, just node+glibc)
-FROM gcr.io/distroless/nodejs22-debian12
+# ───── Stage 6: runtime image
+# Bare debian:trixie-slim + only the node binary copied from node:22-trixie-slim
+# (skipping npm/yarn/headers we don't need at runtime — saves ~60 MB vs the
+# full node:slim base). git is needed because nargo shells out to `git clone`
+# to fetch the Noir library deps (sha256, etc.) on first compile.
+FROM debian:trixie-slim
 WORKDIR /app
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates git \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=node:22-trixie-slim /usr/local/bin/node /usr/local/bin/node
 
 COPY --from=bb-fetch    /usr/local/bin/bb    /usr/local/bin/bb
 COPY --from=nargo-fetch /usr/local/bin/nargo /usr/local/bin/nargo
 
 # Noir source: user runs `nargo compile` against this at CLI start, so the
-# whole circuit.json → VK derivation chain runs on their machine. Their
-# nargo fetches the sha256/poseidon/noir_sort git deps fresh on first run
-# (needs network — they have it for SIWE anyway).
+# whole circuit.json → VK derivation chain runs on their machine. Nargo
+# git-clones the sha256 library on first run.
 COPY circuit                       /app/circuit
 COPY --from=patch /noir_json_parser /app/noir_json_parser
 
@@ -108,6 +117,4 @@ ENV NODE_ENV=production
 # `docker run` line — they only need `-p 7878:7878` to forward the port.
 ENV KNIDOS_PORT=7878
 EXPOSE 7878
-# Distroless's default ENTRYPOINT is `/nodejs/bin/node`. Passing the script
-# path as CMD combines to `node /app/dist/cli.js`.
-CMD ["/app/dist/cli.js"]
+CMD ["node", "/app/dist/cli.js"]
