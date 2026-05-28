@@ -37,6 +37,11 @@ export const ANSWER_VERDICTS: readonly AnswerVerdict[] = Object.freeze([
 
 export const RECORD_COUNT = 5;
 
+// Minimum correct answers required to mark an address as completed. We
+// store the actual score in the DB too, so consumers can distinguish a
+// 3/5 finish from a perfect run.
+export const PASS_THRESHOLD = 3;
+
 // Wire types ----------------------------------------------------------------
 
 export interface SubmitRequest {
@@ -53,6 +58,7 @@ export interface SubmitResponse {
 export interface CompletedEntry {
   address: string;
   completed_at: string;
+  score: number;
 }
 
 export interface CompletedListResponse {

@@ -3,7 +3,7 @@
 import { confirm } from '@inquirer/prompts';
 
 import { expectedVerdicts, getCorruptionMask, scoreAnswers } from '../corruption.js';
-import { RECORD_COUNT, type AnswerVerdict, type PresentedRecord } from '../types.js';
+import { PASS_THRESHOLD, RECORD_COUNT, type AnswerVerdict, type PresentedRecord } from '../types.js';
 import { applyCorruption } from './flow/apply-corruption.js';
 import { compileCircuit } from './flow/compile-circuit.js';
 import { connectWallet } from './flow/connect-wallet.js';
@@ -80,9 +80,9 @@ async function main(): Promise<void> {
 
     const localScore = scoreAnswers(expected, answers);
 
-    if (localScore !== RECORD_COUNT) {
+    if (localScore < PASS_THRESHOLD) {
       console.log('');
-      console.log(`  ${localScore}/${RECORD_COUNT} correct`);
+      console.log(`  ${localScore}/${RECORD_COUNT} correct — need at least ${PASS_THRESHOLD} to pass`);
       console.log('');
       const retry = await confirm({
         message: 'Try again with different answers?',
