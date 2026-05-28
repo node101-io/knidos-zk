@@ -281,7 +281,7 @@ const openApiDoc = {
 app.doc31('/api/openapi', openApiDoc);
 app.doc31('/api/openapi.json', openApiDoc);
 
-app.get('/api/docs', swaggerUI({ url: '/api/openapi' }));
+app.get('/api/docs', swaggerUI({ url: './openapi' }));
 
 try {
   await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
