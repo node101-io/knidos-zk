@@ -4,3 +4,8 @@ declare module '*.html' {
   const content: string;
   export default content;
 }
+
+declare module '*.ans' {
+  const content: string;
+  export default content;
+}

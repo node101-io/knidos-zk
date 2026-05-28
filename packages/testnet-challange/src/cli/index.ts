@@ -11,6 +11,7 @@ import { deriveVerificationKey } from './flow/derive-vk.js';
 import { collectAnswers } from './flow/present-records.js';
 import { submitAnswers } from './lib/api-client.js';
 import recordsData from '../data/records.json' with { type: 'json' };
+import logo from './assets/logo.ans';
 
 const MAX_RETRIES_PER_SESSION = 50;
 
@@ -34,7 +35,8 @@ process.on('SIGTERM', () => process.exit(143));
 
 async function main(): Promise<void> {
   console.log('');
-  console.log('Knidos Testnet Challenge');
+  console.log(logo);
+  console.log('Welcome to Knidos ZK Proof Challenge');
   console.log('');
 
   const credentials = await connectWallet();

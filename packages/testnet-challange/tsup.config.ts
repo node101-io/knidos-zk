@@ -28,6 +28,7 @@ export default defineConfig([
       '.html': 'text',
       '.js': 'text',
       '.css': 'text',
+      '.ans': 'text',
     },
   },
   {
