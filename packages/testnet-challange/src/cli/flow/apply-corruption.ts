@@ -21,8 +21,14 @@ export function applyCorruption(
       case 'tx':
         // Swap in a real tx from a previous circuit version — the explorer
         // link still works, but the on-chain VkOrHash points at a stale VK
-        // that doesn't match what the user just derived.
-        return { ...r, txHash: r.decoyTxHash };
+        // that doesn't match what the user just derived. Public signals are
+        // swapped in too so the displayed inputs match the on-chain proof;
+        // VK mismatch is the sole intended detection vector.
+        return {
+          ...r,
+          txHash: r.decoyTxHash,
+          publicSignals: r.decoyPublicSignals,
+        };
       case 'time':
         // Swap in a real tx with the *same* current VK, but settled before
         // this record's startTime — on the explorer, VkOrHash matches but

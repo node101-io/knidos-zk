@@ -7,6 +7,10 @@ export interface PresentedRecord {
   // Used by the 'tx' corruption state to swap out txHash without producing
   // a dead link.
   decoyTxHash: string;
+  // The on-chain publicSignals committed by `decoyTxHash`. Swapped in
+  // alongside `decoyTxHash` so the displayed inputs match what the explorer
+  // shows — the only mismatch the user should see is the stale VK.
+  decoyPublicSignals: string[];
   // A real on-chain tx with the *same* current vkHash, but settled
   // (createdAt) before this record's startTime — i.e. a proof that was
   // committed before the data window it claims to cover even existed.

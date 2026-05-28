@@ -21,6 +21,12 @@ import { RECORD_COUNT, type PresentedRecord } from '../src/types.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.resolve(__dirname, '../src/data/records.json');
 
+// Minimum gap between a time-decoy's settlement (createdAt) and the
+// displayed record's startTime. Anything smaller (a few minutes, an hour)
+// is too easy to overlook on the explorer — 24h makes the temporal
+// mismatch unambiguous at a glance.
+const TIME_DECOY_MIN_GAP_MS = 24 * 60 * 60 * 1000;
+
 interface SampledRecord {
   publicSignals: string[];
   txHash: string;
@@ -45,9 +51,11 @@ async function main(): Promise<void> {
 
     // To guarantee a 'time' decoy is findable for every sampled record, we
     // must only sample records whose startTime is later than the createdAt
-    // of the (RECORD_COUNT+1)th oldest record in the current-vkHash pool.
-    // That way, even if every other sampled record also lands in that
-    // earliest-tail and gets excluded, at least one valid decoy remains.
+    // of the (RECORD_COUNT+1)th oldest record in the current-vkHash pool —
+    // *plus* the minimum gap we require between decoy.createdAt and
+    // sampled.startTime. That way, even if every other sampled record also
+    // lands in that earliest-tail and gets excluded, at least one decoy
+    // with the required temporal distance remains.
     const earliestPool = (await col
       .aggregate([
         { $match: { vkHash: targetVkHash, txHash: { $exists: true, $ne: null } } },
@@ -61,7 +69,9 @@ async function main(): Promise<void> {
         `pool for vkHash ${targetVkHash} has fewer than ${RECORD_COUNT + 1} records; need more history to construct time-decoys`,
       );
     }
-    const sampleableAfter = earliestPool[RECORD_COUNT]!.createdAt;
+    const sampleableAfter = new Date(
+      earliestPool[RECORD_COUNT]!.createdAt.getTime() + TIME_DECOY_MIN_GAP_MS,
+    );
 
     // Pass 1: pick one record per distinct fillsCommitment pair (first two
     // public signals) so the user sees as many genuinely different proofs as
@@ -124,19 +134,22 @@ async function main(): Promise<void> {
     // Decoys: real txHashes from previous circuit versions (different
     // vkHash). The 'tx' corruption mode swaps these in, so the explorer
     // link opens to a genuine settled proof — but one that verifies
-    // against a stale VK, so a vigilant user spots the mismatch.
+    // against a stale VK, so a vigilant user spots the mismatch. We pull
+    // publicSignals too so the displayed inputs match what the on-chain
+    // proof actually commits to; VK mismatch is the sole intended tell.
     const decoys = (await col
       .aggregate([
         {
           $match: {
             vkHash: { $ne: targetVkHash },
             txHash: { $exists: true, $ne: null },
+            publicSignals: { $exists: true, $ne: null },
           },
         },
         { $sample: { size: RECORD_COUNT } },
-        { $project: { _id: 0, txHash: 1 } },
+        { $project: { _id: 0, txHash: 1, publicSignals: 1 } },
       ])
-      .toArray()) as unknown as { txHash: string }[];
+      .toArray()) as unknown as { txHash: string; publicSignals: string[] }[];
 
     if (decoys.length < RECORD_COUNT) {
       throw new Error(
@@ -145,21 +158,24 @@ async function main(): Promise<void> {
     }
 
     // Time decoys: real on-chain txs with the *current* vkHash, but settled
-    // (createdAt) before the displayed record's own startTime — so the
-    // explorer shows a tx that was mined before the data window it claims
-    // to cover even existed. Used by the 'time' corruption mode. We pick
-    // one per sampled record to ensure the temporal predicate holds for
-    // that specific record's startTime.
+    // (createdAt) at least TIME_DECOY_MIN_GAP_MS before the displayed
+    // record's own startTime — so the explorer shows a tx mined well
+    // before the data window it claims to cover. The gap is enforced so
+    // the mismatch is glanceable (a sub-hour delta is too easy to miss).
+    // Used by the 'time' corruption mode. We pick one per sampled record
+    // to ensure the temporal predicate holds for that specific record's
+    // startTime.
     const sampledTxHashes = sampled.map((r) => r.txHash);
     const timeDecoyTxHashes: string[] = [];
     for (const r of sampled) {
+      const decoyMaxCreatedAt = new Date(r.startTime.getTime() - TIME_DECOY_MIN_GAP_MS);
       const [pick] = (await col
         .aggregate([
           {
             $match: {
               vkHash: targetVkHash,
               txHash: { $exists: true, $ne: null, $nin: sampledTxHashes },
-              createdAt: { $lt: r.startTime },
+              createdAt: { $lt: decoyMaxCreatedAt },
             },
           },
           { $sample: { size: 1 } },
@@ -168,7 +184,7 @@ async function main(): Promise<void> {
         .toArray()) as unknown as { txHash: string }[];
       if (!pick) {
         throw new Error(
-          `no current-vkHash decoy with createdAt < ${r.startTime.toISOString()} found for record txHash ${r.txHash}`,
+          `no current-vkHash decoy with createdAt < ${decoyMaxCreatedAt.toISOString()} found for record txHash ${r.txHash}`,
         );
       }
       timeDecoyTxHashes.push(pick.txHash);
@@ -178,6 +194,7 @@ async function main(): Promise<void> {
       publicSignals: r.publicSignals,
       txHash: r.txHash,
       decoyTxHash: decoys[i]!.txHash,
+      decoyPublicSignals: decoys[i]!.publicSignals,
       decoyTimeTxHash: timeDecoyTxHashes[i]!,
     }));
 

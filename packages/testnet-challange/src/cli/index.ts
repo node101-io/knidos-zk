@@ -46,7 +46,7 @@ async function main(): Promise<void> {
 
   console.log('  Step 2 of 2 — Verify and grade the records');
   console.log('');
-  console.log('  Compiling circuit from Noir source… (~1.5 min)');
+  console.log('  Compiling circuit from Noir source… (~30 sec)');
   const compiled = await compileCircuit();
   console.log(`  ✓ Compiled bytecode in ${(compiled.elapsedMs / 1000).toFixed(1)}s`);
   console.log('');
