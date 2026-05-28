@@ -210,6 +210,14 @@ git commit -am "chore(challange): refresh records snapshot"
 
 The script connects to the prod MongoDB via `MONGO_URI` in `.env.prod`, picks the most recent task's `vkHash`, then samples up to 5 records under that vkHash — preferring distinct `fillsCommitment` pairs, padding with additional records from the same pool if there aren't enough distinct ones.
 
+### Deriving the VK from source
+
+```bash
+scripts/verify-vk.sh
+```
+
+Asserts `nargo`/`bb` versions match the Dockerfile pins, runs `nargo compile` + `bb write_vk`, prints the resulting `0x<sha256>` (matches zkverify's `statementHash`). Output lands at `circuit/target/vk`.
+
 ## Lint & Format
 
 ```bash
