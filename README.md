@@ -53,7 +53,21 @@ The runtime expects Binance Futures API credentials and a `BINANCE_SYMBOLS` CSV 
 
 For Base Sepolia reliability, keep `RPC_URL` as the primary endpoint and optionally set `RPC_FALLBACK_URLS` to a comma-separated list of secondary RPCs. Read-only JSON-RPC calls will fail over across that list on transient 429/5xx or transport errors; `eth_sendRawTransaction` stays pinned to the primary endpoint.
 
-Production logs go to `stdout` as JSON; inspect them with `docker compose logs`.
+Production logs go to `stdout` as JSON (one object per line) so they stay `jq`-filterable:
+
+```bash
+# raw JSON
+docker compose logs -f node
+
+# pretty (human) view without touching the env — pipe the JSON back through the
+# pino-pretty binary that already ships inside the container (no host tooling)
+docker compose logs -f node | docker compose exec -T node packages/zk-node/node_modules/.bin/pino-pretty
+
+# filter to one pipeline's task attempts (workerLabel is one of: zkTLS, noir, zkVerify)
+docker compose logs node | jq -R 'fromjson? | select(.workerLabel=="zkTLS")'
+```
+
+The pretty pipe keeps the on-disk logs as JSON (so `jq` still works) and only prettifies what you're reading right now. On a machine that has the workspace checked out with deps installed (e.g. local dev), `pnpm logs:pretty` is a shortcut for that same command. To make the daemon emit the colorized stream permanently instead, set `LOG_FORMAT=pretty` (`pino-pretty` is a runtime dependency, so it ships in the image; no host-side tooling or `npx`). `LOG_FORMAT` defaults to `json` (except `pretty` in local development); `LOG_FORMAT=json` forces JSON anywhere.
 
 ## Repository layout
 
@@ -136,7 +150,7 @@ docker compose up -d --build
 docker compose ps                                      # service status + health
 docker compose logs -f node                            # daemon logs (wide events)
 docker compose logs -f server                          # HTTP server logs
-docker compose logs --since 1h node | jq 'select(.event=="task.attempt")'
+docker compose logs --since 1h node | jq -R 'fromjson? | select(.event=="task.attempt")'
 docker compose restart node                            # restart single service (no rebuild)
 docker compose down                                    # tear down stack (keeps volumes)
 ```

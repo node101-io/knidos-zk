@@ -47,6 +47,12 @@ export const env = createEnv({
     REDIS_HOST: z.string().min(1).default(DEFAULT_REDIS_HOST),
     REDIS_PORT: z.coerce.number().int().positive().default(DEFAULT_REDIS_PORT),
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    // JSON everywhere except local development (pretty is the nicer DX there).
+    // zod defaults can only see the raw env, so mirror NODE_ENV's own
+    // 'development' fallback here. Override with LOG_FORMAT in any environment.
+    LOG_FORMAT: z
+      .enum(['json', 'pretty'])
+      .default((process.env.NODE_ENV ?? 'development') === 'development' ? 'pretty' : 'json'),
     PORT: z.coerce.number().int().positive().default(3000),
     API_KEY: z.string().min(1, 'API_KEY cannot be empty'),
     STATUS_PASSWORD: z.string().min(1, 'STATUS_PASSWORD cannot be empty'),

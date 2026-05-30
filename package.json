@@ -15,6 +15,8 @@
     "server": "node --env-file=.env packages/zk-node/dist/src/server.js",
     "dev:node": "tsx watch --env-file=.env packages/zk-node/src/app.ts",
     "dev:server": "tsx watch --env-file=.env packages/zk-node/src/server.ts",
+    "logs": "docker compose logs -f node",
+    "logs:pretty": "docker compose logs -f node | docker compose exec -T node packages/zk-node/node_modules/.bin/pino-pretty",
     "tasks:retry": "tsx --env-file=.env packages/zk-node/src/scripts/retry-failed-tasks.ts",
     "tasks:failures": "tsx --env-file=.env packages/zk-node/src/scripts/failure-summary.ts",
     "tasks:prune-waves": "tsx --env-file=.env packages/zk-node/src/scripts/prune-task-waves.ts",
