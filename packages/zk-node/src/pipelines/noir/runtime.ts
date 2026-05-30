@@ -174,13 +174,18 @@ async function initSharedNoirRuntime(): Promise<SharedNoirRuntime> {
   const vkPath = path.join(vkDir, 'vk');
   const vkFieldsPath = path.join(vkDir, 'vk_fields.json');
   const vkStartedAt = Date.now();
-  // Reuse cached VK unless circuit.json was recompiled (newer mtime)
-  const [artifactStat, vkStat] = await Promise.all([
+  // Reuse cached VK unless circuit.json was recompiled or fields output is missing.
+  const [artifactStat, vkStat, vkFieldsStat] = await Promise.all([
     fs.stat(artifactPath).catch(() => null),
     fs.stat(vkPath).catch(() => null),
+    fs.stat(vkFieldsPath).catch(() => null),
   ]);
   const vkCached =
-    vkStat !== null && artifactStat !== null && vkStat.mtimeMs >= artifactStat.mtimeMs;
+    artifactStat !== null &&
+    vkStat !== null &&
+    vkFieldsStat !== null &&
+    vkStat.mtimeMs >= artifactStat.mtimeMs &&
+    vkFieldsStat.mtimeMs >= artifactStat.mtimeMs;
 
   if (vkCached) {
     logger.info('[noir runtime] warmup: vk cached, skipping write_vk');

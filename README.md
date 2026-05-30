@@ -4,7 +4,7 @@ Zero-knowledge proof pipeline for verifying Binance Futures trading data. Combin
 
 ## Prerequisites
 
-- **Node.js** >= 22
+- **Node.js** >= 24
 - **pnpm** (pinned via `corepack`, see Setup)
 - **nargo** v1.0.0-beta.6 (Noir compiler)
 - **bb** v0.84.0 (native Barretenberg CLI)

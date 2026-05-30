@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": "22.x"
+    "node": "24.x"
   },
   "scripts": {
     "build": "pnpm --filter zk-node build",
@@ -39,10 +39,6 @@
     "postinstall": "git submodule update --init && cd noir_json_parser && git apply --check ../patches/noir_json_parser.patch 2>/dev/null && git apply ../patches/noir_json_parser.patch || echo 'Patch already applied'"
   },
   "pnpm": {
-    "overrides": {
-      "@polkadot/util": "13.5.9",
-      "@polkadot/util-crypto": "13.5.9"
-    },
     "packageExtensions": {
       "@primuslabs/network-core-sdk": {
         "dependencies": {

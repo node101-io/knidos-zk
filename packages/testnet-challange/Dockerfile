@@ -73,7 +73,7 @@ RUN cd /app/circuit \
  && bb write_vk -s ultra_honk -b target/circuit.json --oracle_hash keccak --output_format bytes -o target
 
 # ───── Stage 5: bundle CLI + collect production deps via `pnpm deploy`
-FROM node:22-trixie-slim AS builder
+FROM node:24-trixie-slim AS builder
 WORKDIR /repo
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
@@ -94,7 +94,7 @@ RUN pnpm --filter testnet-challange build
 # defeat esbuild's static analysis — they're used by our siwe-lite). Pull
 # just those at their workspace-pinned versions so the runtime image
 # carries ~10 MB of node_modules instead of the full deploy.
-FROM node:22-trixie-slim AS cli-runtime-deps
+FROM node:24-trixie-slim AS cli-runtime-deps
 WORKDIR /deps
 RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /var/lib/apt/lists/*
 COPY packages/testnet-challange/package.json /tmp/full.json
@@ -105,7 +105,7 @@ RUN jq '{name:"cli-runtime",version:"0.0.0",type:"module",dependencies:(.depende
 # With nargo+bb gone, we have nothing to shell out to at runtime, so we go
 # back to the smallest viable base. The pre-derived VK from the warmup stage
 # ships as a tiny file at /app/vk; cli.js reads + hashes it on demand.
-FROM gcr.io/distroless/nodejs22-debian12
+FROM gcr.io/distroless/nodejs24-debian12
 WORKDIR /app
 
 COPY --from=vk-warmup         /app/circuit/target/vk                            /app/vk

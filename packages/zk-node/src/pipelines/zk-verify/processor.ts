@@ -1,20 +1,22 @@
-import * as zkv from 'zkverifyjs';
-
-const { zkVerifySession, UltrahonkVariant, UltrahonkVersion } = zkv;
-type UltrahonkVariant = zkv.UltrahonkVariant;
-type VerifyTransactionInfo = zkv.VerifyTransactionInfo;
-
 import { findOrRegisterVk } from '../../db/registered-vk-helpers.js';
 import { env } from '../../env.js';
 import logger from '../../shared/logger.js';
+import {
+  UltrahonkVariant,
+  UltrahonkVersion,
+  zkVerifySession,
+  type UltrahonkVariant as UltrahonkVariantType,
+  type VerifyTransactionInfo,
+  type zkVerifySession as zkVerifySessionType,
+} from '../../shared/zkverifyjs.js';
 
 const VERIFY_TIMEOUT_MS = 60 * 1000;
 
-let sessionPromise: Promise<zkv.zkVerifySession> | null = null;
+let sessionPromise: Promise<zkVerifySessionType> | null = null;
 
 // Owner identity prevents a late 'disconnected' handler from an old WS
 // from clearing a replacement session that already swapped in.
-async function invalidate(owner: Promise<zkv.zkVerifySession>): Promise<void> {
+async function invalidate(owner: Promise<zkVerifySessionType>): Promise<void> {
   if (sessionPromise !== owner) return;
   sessionPromise = null;
   try {
@@ -24,7 +26,7 @@ async function invalidate(owner: Promise<zkv.zkVerifySession>): Promise<void> {
   }
 }
 
-async function getSession(): Promise<zkv.zkVerifySession> {
+async function getSession(): Promise<zkVerifySessionType> {
   if (sessionPromise) {
     try {
       const session = await sessionPromise;
@@ -70,7 +72,7 @@ export interface ZkVerifyProcessorInput {
 }
 
 export interface ZkVerifyProcessorResult {
-  variant: UltrahonkVariant;
+  variant: UltrahonkVariantType;
   vk: string;
   proof: string;
   publicSignals: string[];

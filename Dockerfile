@@ -5,7 +5,7 @@
 # Has: node, pnpm, git, curl, python3, make, g++
 # Used by: toolchain, deps, builder
 # ======================================
-FROM node:22-trixie-slim AS build-base
+FROM node:24-trixie-slim AS build-base
 ENV DEBIAN_FRONTEND=noninteractive \
     NPM_CONFIG_UPDATE_NOTIFIER=false
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -70,7 +70,7 @@ RUN pnpm --filter zk-node exec tsc \
 # Runtime deps: curl (bb downloads SRS data on first run), git (nargo git deps),
 # jq (bb output parsing), ca-certs
 # ======================================
-FROM node:22-trixie-slim AS runtime
+FROM node:24-trixie-slim AS runtime
 ENV DEBIAN_FRONTEND=noninteractive \
     NODE_ENV=production \
     NPM_CONFIG_UPDATE_NOTIFIER=false \

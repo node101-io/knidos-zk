@@ -1,12 +1,10 @@
-import * as zkv from 'zkverifyjs';
 import type { zkVerifySession } from 'zkverifyjs';
 
 import { RegisteredVk, type RegisteredVkInterface, type ZkVerifyNetwork } from './registered-vk.js';
 import { computeVkHash } from '../shared/vk-hash.js';
+import { UltrahonkVariant, UltrahonkVersion } from '../shared/zkverifyjs.js';
 
 import logger from '../shared/logger.js';
-
-const { UltrahonkVariant, UltrahonkVersion } = zkv;
 
 export async function findOrRegisterVk(args: {
   vk: string;
