@@ -81,7 +81,9 @@ export interface DeferredTaskDecision<Reason extends string = string> {
 export type ZkTLSDeferReason =
   | 'primus_rate_limited'
   | 'primus_attestor_transient'
-  | 'primus_rpc_transient';
+  | 'primus_rpc_transient'
+  | 'binance_response_invalid'
+  | 'primus_commitment_mismatch';
 
 export type ZkTLSErrorDecision = DeferredTaskDecision<ZkTLSDeferReason> | { action: 'fail' };
 

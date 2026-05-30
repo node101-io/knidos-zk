@@ -46,10 +46,6 @@ export async function fetchRawFillsByUrl(url: string, apiKey: string): Promise<R
       signal: controller.signal,
     });
 
-    if (!response.ok) {
-      throw new Error(`Binance request failed: ${response.status} ${response.statusText}`);
-    }
-
     return new Uint8Array(await response.arrayBuffer());
   } finally {
     clearTimeout(timeoutId);

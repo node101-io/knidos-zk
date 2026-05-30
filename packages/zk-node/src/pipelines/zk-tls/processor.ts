@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 import { Task } from '../../db/task.js';
 import { type SupportedBinanceSymbol } from '../../shared/binance-symbols.js';
 
@@ -20,6 +22,8 @@ import {
 import { primusClient } from '../../primus/client.js';
 import { submitWithCapacity } from '../../primus/capacity.js';
 import {
+  deferTaskDecision,
+  getTransientRpcDelayMs,
   isAttestorTransport,
   isDeferredTaskDecision,
   type DeferredTaskDecision,
@@ -53,6 +57,9 @@ const ATTEST_MAX_ATTEMPTS = 3;
 // server time (we use 60s). We re-attest if a cached attest result is older
 // than this cutoff so the refetch never runs into `-1021`.
 const ATTESTED_URL_MAX_AGE_MS = 50_000;
+const BODY_PREVIEW_LENGTH = 512;
+
+type ZkTLSGuardDeferReason = 'binance_response_invalid' | 'primus_commitment_mismatch';
 
 export async function runZkTLSProcessor(
   taskId: string,
@@ -69,6 +76,8 @@ export async function runZkTLSProcessor(
 
   const { fillsCommitment, url } = primusResult;
   const rawFills = await fetchRawFillsByUrl(url, env.BINANCE_API_KEY);
+  const guardResult = await validateAttestedFills(taskId, rawFills, fillsCommitment);
+  if (guardResult !== true) return guardResult;
 
   return {
     action: 'completed',
@@ -153,6 +162,76 @@ async function resumePrimusFlow(
   }
 
   throw lastAttestError ?? new Error('attestation_retry_exhausted');
+}
+
+async function validateAttestedFills(
+  taskId: string,
+  rawFills: RawFills,
+  fillsCommitment: string,
+): Promise<true | DeferredTaskDecision<ZkTLSGuardDeferReason>> {
+  const rawBuffer = Buffer.from(rawFills);
+  const bodyText = rawBuffer.toString('utf8');
+  const bodyPreview = bodyText.slice(0, BODY_PREVIEW_LENGTH);
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(bodyText) as unknown;
+  } catch {
+    return deferAfterGuardFailure(
+      taskId,
+      'binance_response_invalid',
+      guardError('binance_response_invalid', 'Binance userTrades response is not JSON', {
+        bodyPreview,
+      }),
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    return deferAfterGuardFailure(
+      taskId,
+      'binance_response_invalid',
+      guardError('binance_response_invalid', 'Binance userTrades response is not a JSON array', {
+        bodyPreview,
+      }),
+    );
+  }
+
+  const expectedCommitment = Buffer.from(hexToFixedBytes(fillsCommitment, 32)).toString('hex');
+  const actualCommitment = createHash('sha256').update(rawBuffer).digest('hex');
+  if (actualCommitment !== expectedCommitment) {
+    return deferAfterGuardFailure(
+      taskId,
+      'primus_commitment_mismatch',
+      guardError(
+        'primus_commitment_mismatch',
+        'Primus fills commitment does not match the fetched Binance response',
+        { expectedCommitment, actualCommitment, rawFillsLength: rawFills.length, bodyPreview },
+      ),
+    );
+  }
+
+  return true;
+}
+
+async function deferAfterGuardFailure(
+  taskId: string,
+  reason: ZkTLSGuardDeferReason,
+  sourceError: unknown,
+): Promise<DeferredTaskDecision<ZkTLSGuardDeferReason>> {
+  await clearPrimusCheckpoint(taskId);
+  return deferTaskDecision({
+    reason,
+    deferUntil: new Date(Date.now() + getTransientRpcDelayMs()),
+    sourceError,
+  });
+}
+
+function guardError(
+  reason: ZkTLSGuardDeferReason,
+  message: string,
+  details: Record<string, unknown>,
+): Record<string, unknown> {
+  return { name: 'ZkTLSGuardError', message, reason, ...details };
 }
 
 function buildNoirInput(
