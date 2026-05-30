@@ -51,6 +51,7 @@ vi.mock('zkverifyjs', () => {
       }),
     },
     UltrahonkVariant: { Plain: 'Plain' },
+    UltrahonkVersion: { V0_84: 'V0_84', V3_0: 'V3_0', Legacy: 'Legacy' },
   };
 });
 
