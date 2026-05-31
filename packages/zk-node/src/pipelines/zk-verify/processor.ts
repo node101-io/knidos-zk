@@ -3,7 +3,6 @@ import { env } from '../../env.js';
 import logger from '../../shared/logger.js';
 import {
   UltrahonkVariant,
-  UltrahonkVersion,
   zkVerifySession,
   type UltrahonkVariant as UltrahonkVariantType,
   type VerifyTransactionInfo,
@@ -85,10 +84,6 @@ export async function runZkVerifyProcessor(
   input: ZkVerifyProcessorInput,
 ): Promise<ZkVerifyProcessorResult> {
   const variant = UltrahonkVariant.Plain;
-  // Proofs are produced by Barretenberg 0.84.0 (see Dockerfile / scripts/verify-vk.sh).
-  // Runtime rt-zkverify-1.6.2 replaced the old `Plain` proof enum with versioned
-  // variants (V0_84 / V3_0 / Legacy), so the version must be declared explicitly.
-  const version = UltrahonkVersion.V0_84;
   const { vk, proof, publicSignals } = input;
 
   const session = await getSession();
@@ -102,7 +97,7 @@ export async function runZkVerifyProcessor(
 
   const { transactionResult } = await session
     .verify()
-    .ultrahonk({ version, variant })
+    .ultrahonk({ variant })
     .withRegisteredVk()
     .execute({
       proofData: { vk: registered.statementHash, proof, publicSignals },

@@ -2,7 +2,7 @@ import type { zkVerifySession } from 'zkverifyjs';
 
 import { RegisteredVk, type RegisteredVkInterface, type ZkVerifyNetwork } from './registered-vk.js';
 import { computeVkHash } from '../shared/vk-hash.js';
-import { UltrahonkVariant, UltrahonkVersion } from '../shared/zkverifyjs.js';
+import { UltrahonkVariant } from '../shared/zkverifyjs.js';
 
 import logger from '../shared/logger.js';
 
@@ -20,7 +20,7 @@ export async function findOrRegisterVk(args: {
   logger.info({ vkHash, network }, '[registered-vk] registering verification key on zkverify');
   const { transactionResult } = await session
     .registerVerificationKey()
-    .ultrahonk({ version: UltrahonkVersion.V0_84, variant: UltrahonkVariant.Plain })
+    .ultrahonk({ variant: UltrahonkVariant.Plain })
     .execute(vk);
 
   const registration = await transactionResult;
