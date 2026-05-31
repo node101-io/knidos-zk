@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import { Cron } from 'croner';
 
 import { Task } from '../db/task.js';
 import { type SupportedBinanceSymbol } from '../shared/binance-symbols.js';
@@ -118,6 +118,7 @@ async function catchUpMissedSlots(): Promise<void> {
       createdTasks,
       from: latestEndTime,
       to: currentWindowEnd,
+      windowsEnsured: windowsToEnsure.length,
     },
     '[scheduler] catch-up completed',
   );
@@ -128,21 +129,17 @@ export async function startScheduler(): Promise<void> {
 
   const cronExpr = `*/${env.ZKTLS_WINDOW_MINUTES} * * * *`;
 
-  cron.schedule(cronExpr, async () => {
-    const { startTime, endTime } = getWindowBounds(Date.now());
+  const schedulerCron = new Cron(cronExpr, {
+    protect: () => {
+      logger.warn('[scheduler] previous window ensure still running, skipping tick');
+    },
+  });
 
+  schedulerCron.schedule(async () => {
     try {
-      const createdTasks = await ensureWindowTasks(startTime, endTime);
-      logger.info(
-        {
-          startTime,
-          endTime,
-          createdTasks,
-        },
-        '[scheduler] window ensured',
-      );
+      await catchUpMissedSlots();
     } catch (error) {
-      logger.error({ error, windowEnd: endTime }, '[scheduler] failed to ensure window');
+      logger.error({ error }, '[scheduler] failed to catch up windows');
     }
   });
 
