@@ -74,7 +74,7 @@ The pretty pipe keeps the on-disk logs as JSON (so `jq` still works) and only pr
 This is a pnpm workspace.
 
 - `packages/zk-node/` — the daemon (`src/app.ts`) and HTTP API (`src/server.ts`) that together make up the proof pipeline. The package owns dependencies, the TypeScript build, lint, and tests.
-- `packages/testnet-challange/` — the testnet challenge: a Hono API (`src/api/`, served via `Dockerfile.api`) plus an end-user CLI (`src/cli/`) that ships as a multi-arch Docker image. End-users `docker run` the CLI; it walks them through SIWE wallet-connect, displays the circuit's verification key, and grades a hardcoded set of records they verify on-chain.
+- `packages/testnet-challenge/` — the testnet challenge: a Hono API (`src/api/`, served via `Dockerfile.api`) plus an end-user CLI (`src/cli/`) that ships as a multi-arch Docker image. End-users `docker run` the CLI; it walks them through SIWE wallet-connect, displays the circuit's verification key, and grades a hardcoded set of records they verify on-chain.
 - `circuit/`, `noir_json_parser/`, `patches/` — Noir toolchain assets shared across packages; stay at the repo root.
 - `.env` lives at the repo root and is consumed by `docker compose` and by all runtime/dev scripts (which are defined in the root `package.json` and run with the repo root as cwd).
 
@@ -159,7 +159,7 @@ Docker engine is enabled on boot (`systemctl enable docker`). With `restart: unl
 
 ## Testnet Challenge
 
-A separate, decoupled package (`packages/testnet-challange/`) consisting of two pieces:
+A separate, decoupled package (`packages/testnet-challenge/`) consisting of two pieces:
 
 - **Backend API** (`src/api/`, deployed via `docker compose` on the same host) — accepts SIWE-signed submissions, scores them against the deterministic corruption mask, and persists completed addresses to MongoDB.
 - **End-user CLI** (`src/cli/`, distributed as `ghcr.io/node101-io/knidos-challenge:latest`) — runs on the user's machine; ships with the verification key pre-derived at image build time (bb's ultra_honk derivation peaks at ~6 GB RAM and is too heavy to push onto the end user's Docker Desktop), then presents 5 records for the user to verify against zkVerify on-chain and submits answers.
@@ -172,7 +172,7 @@ A separate, decoupled package (`packages/testnet-challange/`) consisting of two 
 
 ### Backend deploy
 
-The API has no toolchain (no `bb`, no `nargo`, no `circuit.json`) — it ships from `packages/testnet-challange/Dockerfile.api` as a minimal Node + Hono image. MongoDB is shared with `zk-node` (Atlas in production, reads `MONGO_URI` from `.env`).
+The API has no toolchain (no `bb`, no `nargo`, no `circuit.json`) — it ships from `packages/testnet-challenge/Dockerfile.api` as a minimal Node + Hono image. MongoDB is shared with `zk-node` (Atlas in production, reads `MONGO_URI` from `.env`).
 
 First-time:
 
@@ -189,17 +189,17 @@ git pull
 docker compose up -d --build --no-deps challenge-api
 ```
 
-The service exposes `:3001` on the host. Point `knidos.node101.io/challange/*` at it via nginx (handled outside this repo).
+The service exposes `:3001` on the host. Point `knidos.node101.io/challenge/*` at it via nginx (handled outside this repo).
 
 ### CLI image publish
 
-`.github/workflows/testnet-challange-cli-image.yml` builds + pushes the multi-arch image (`linux/amd64`, `linux/arm64`) to `ghcr.io/node101-io/knidos-challenge` with `latest` + short-SHA tags. The workflow is **manual-only** (`workflow_dispatch`) — GitHub Actions doesn't run it on every push. Trigger it whenever you want a new image to ship:
+`.github/workflows/testnet-challenge-cli-image.yml` builds + pushes the multi-arch image (`linux/amd64`, `linux/arm64`) to `ghcr.io/node101-io/knidos-challenge` with `latest` + short-SHA tags. The workflow is **manual-only** (`workflow_dispatch`) — GitHub Actions doesn't run it on every push. Trigger it whenever you want a new image to ship:
 
 ```bash
-gh workflow run testnet-challange-cli-image.yml
+gh workflow run testnet-challenge-cli-image.yml
 ```
 
-(or via the GitHub UI: Actions → "testnet-challange-cli image" → Run workflow.)
+(or via the GitHub UI: Actions → "testnet-challenge-cli image" → Run workflow.)
 
 amd64 and arm64 build in parallel on their own native runners (`ubuntu-latest` and `ubuntu-24.04-arm`) — no QEMU emulation. The `vk-warmup` stage runs `nargo compile` + `bb write_vk` once per arch (~3 min, ~6 GB peak RAM — needs the GHA runner's headroom, won't fit on a default Docker Desktop). Final image is ~140 MB. A `merge` job stitches both single-arch images into a multi-arch manifest list. Uses the built-in `GITHUB_TOKEN` — no PAT or local docker login needed.
 
@@ -218,8 +218,8 @@ docker run --rm -it --pull=always -p 7878:7878 ghcr.io/node101-io/knidos-challen
 `src/data/records.json` is committed and frozen at image build time. To resample 5 fresh records that share the latest VK on zkverify:
 
 ```bash
-pnpm --filter testnet-challange snapshot-records
-git commit -am "chore(challange): refresh records snapshot"
+pnpm --filter testnet-challenge snapshot-records
+git commit -am "chore(challenge): refresh records snapshot"
 ```
 
 The script connects to the prod MongoDB via `MONGO_URI` in `.env.prod`, picks the most recent task's `vkHash`, then samples up to 5 records under that vkHash — preferring distinct `fillsCommitment` pairs, padding with additional records from the same pool if there aren't enough distinct ones.

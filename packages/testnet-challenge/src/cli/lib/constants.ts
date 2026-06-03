@@ -1,7 +1,7 @@
 // NODE_ENV switches between dev (localhost backend) and prod (deployed
 // backend). The container sets NODE_ENV=production, so `docker run` with
 // no flags hits the prod URL.
-const PROD_API_URL = 'https://knidos.node101.io/challange';
+const PROD_API_URL = 'https://knidos.node101.io/challenge';
 const DEV_API_URL = 'http://localhost:3000';
 
 export const API_URL =

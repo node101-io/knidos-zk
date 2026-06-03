@@ -3,7 +3,7 @@
 # Slim image for the Knidos testnet challenge backend API.
 # No bb/nargo/circuit — this image just runs the Hono server.
 # Built from repo root:
-#   docker build -f packages/testnet-challange/Dockerfile.api -t knidos-challenge-api .
+#   docker build -f packages/testnet-challenge/Dockerfile.api -t knidos-challenge-api .
 
 # ───── Stage 1: install workspace deps (cached by lockfile)
 FROM node:24-trixie-slim AS deps
@@ -12,7 +12,7 @@ RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json .npmrc ./
 COPY packages/zk-node/package.json packages/zk-node/
-COPY packages/testnet-challange/package.json packages/testnet-challange/
+COPY packages/testnet-challenge/package.json packages/testnet-challenge/
 
 ENV npm_config_ignore_scripts=true
 # `--mount=type=cache,id=pnpm` keeps the pnpm store across builds (the
@@ -20,21 +20,21 @@ ENV npm_config_ignore_scripts=true
 # Matches the cache id used by the zk-node Dockerfile so both share it.
 RUN --mount=type=cache,id=pnpm,target=/pnpm-store \
     pnpm config set store-dir /pnpm-store \
- && pnpm install --frozen-lockfile --filter testnet-challange
+ && pnpm install --frozen-lockfile --filter testnet-challenge
 
 # ───── Stage 2: build (tsc + tsup + vite)
 FROM deps AS builder
-COPY packages/testnet-challange/tsconfig.json packages/testnet-challange/tsup.config.ts packages/testnet-challange/vite.config.ts packages/testnet-challange/
-COPY packages/testnet-challange/src packages/testnet-challange/src
-COPY packages/testnet-challange/sign-page packages/testnet-challange/sign-page
+COPY packages/testnet-challenge/tsconfig.json packages/testnet-challenge/tsup.config.ts packages/testnet-challenge/vite.config.ts packages/testnet-challenge/
+COPY packages/testnet-challenge/src packages/testnet-challenge/src
+COPY packages/testnet-challenge/sign-page packages/testnet-challenge/sign-page
 
-RUN pnpm --filter testnet-challange build
+RUN pnpm --filter testnet-challenge build
 
 # `pnpm deploy --prod` reuses the populated store from the cache mount
 # (~15s) instead of re-fetching every package fresh (~17 min on a cold
 # build).
 RUN --mount=type=cache,id=pnpm,target=/pnpm-store \
-    pnpm --filter testnet-challange --prod deploy --legacy /out
+    pnpm --filter testnet-challenge --prod deploy --legacy /out
 
 # ───── Stage 3: runtime (distroless = no shell, no apt, just node+glibc)
 FROM gcr.io/distroless/nodejs24-debian12

@@ -8,7 +8,7 @@
 // remaining slots are filled with additional records from the same vkHash
 // pool (duplicate fillsCommitment allowed, txHash always unique).
 //
-//   pnpm --filter testnet-challange snapshot-records
+//   pnpm --filter testnet-challenge snapshot-records
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';

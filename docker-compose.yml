@@ -64,7 +64,7 @@ services:
   challenge-api:
     build:
       context: .
-      dockerfile: packages/testnet-challange/Dockerfile.api
+      dockerfile: packages/testnet-challenge/Dockerfile.api
     image: knidos-challenge-api:latest
     restart: unless-stopped
     env_file: .env

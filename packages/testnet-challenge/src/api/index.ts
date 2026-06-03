@@ -287,7 +287,7 @@ try {
   await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
   console.log('[server] connected to mongodb');
   serve({ fetch: app.fetch, port: env.PORT }, ({ port }) => {
-    console.log(`[server] testnet-challange-api listening on :${port}`);
+    console.log(`[server] testnet-challenge-api listening on :${port}`);
   });
 } catch (error) {
   console.error('[server] fatal error', error);

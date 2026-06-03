@@ -79,14 +79,14 @@ RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json .npmrc ./
 COPY packages/zk-node/package.json packages/zk-node/
-COPY packages/testnet-challange/package.json packages/testnet-challange/
-COPY packages/testnet-challange/tsconfig.json packages/testnet-challange/tsup.config.ts packages/testnet-challange/vite.config.ts packages/testnet-challange/
-COPY packages/testnet-challange/src packages/testnet-challange/src
-COPY packages/testnet-challange/sign-page packages/testnet-challange/sign-page
+COPY packages/testnet-challenge/package.json packages/testnet-challenge/
+COPY packages/testnet-challenge/tsconfig.json packages/testnet-challenge/tsup.config.ts packages/testnet-challenge/vite.config.ts packages/testnet-challenge/
+COPY packages/testnet-challenge/src packages/testnet-challenge/src
+COPY packages/testnet-challenge/sign-page packages/testnet-challenge/sign-page
 
 ENV npm_config_ignore_scripts=true
-RUN pnpm install --frozen-lockfile --filter testnet-challange
-RUN pnpm --filter testnet-challange build
+RUN pnpm install --frozen-lockfile --filter testnet-challenge
+RUN pnpm --filter testnet-challenge build
 
 # ───── Stage 6: install the few runtime deps tsup couldn't bundle
 # tsup inlines every dep into dist/cli.js (~6 MB) except @inquirer/prompts
@@ -97,7 +97,7 @@ RUN pnpm --filter testnet-challange build
 FROM node:24-trixie-slim AS cli-runtime-deps
 WORKDIR /deps
 RUN apt-get update && apt-get install -y --no-install-recommends jq && rm -rf /var/lib/apt/lists/*
-COPY packages/testnet-challange/package.json /tmp/full.json
+COPY packages/testnet-challenge/package.json /tmp/full.json
 RUN jq '{name:"cli-runtime",version:"0.0.0",type:"module",dependencies:(.dependencies | with_entries(select(.key | IN("@inquirer/prompts","@noble/curves","@noble/hashes"))))}' /tmp/full.json > package.json \
  && npm install --omit=optional --no-package-lock --no-audit --no-fund --silent
 
@@ -109,8 +109,8 @@ FROM gcr.io/distroless/nodejs24-debian12
 WORKDIR /app
 
 COPY --from=vk-warmup         /app/circuit/target/vk                            /app/vk
-COPY --from=builder           /repo/packages/testnet-challange/dist/cli.js     /app/dist/cli.js
-COPY --from=builder           /repo/packages/testnet-challange/dist/cli.js.map /app/dist/cli.js.map
+COPY --from=builder           /repo/packages/testnet-challenge/dist/cli.js     /app/dist/cli.js
+COPY --from=builder           /repo/packages/testnet-challenge/dist/cli.js.map /app/dist/cli.js.map
 COPY --from=cli-runtime-deps  /deps/node_modules                                /app/node_modules
 COPY --from=cli-runtime-deps  /deps/package.json                                /app/package.json
 

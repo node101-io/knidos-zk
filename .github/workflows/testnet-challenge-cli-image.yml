@@ -1,4 +1,4 @@
-name: testnet-challange-cli image
+name: testnet-challenge-cli image
 
 # Manual trigger only. Two parallel jobs build amd64 and arm64 natively on
 # their own GitHub-hosted runners (no QEMU emulation tax). A final `merge`
@@ -43,7 +43,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: packages/testnet-challange/Dockerfile
+          file: packages/testnet-challenge/Dockerfile
           platforms: ${{ matrix.platform }}
           # `push-by-digest` uploads a single-arch image referenced only by
           # digest; the merge job assembles the manifest list afterward.

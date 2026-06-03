@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Derive the circuit's verification key from source. Asserts that nargo + bb
-# versions match the pins in packages/testnet-challange/Dockerfile so the
+# versions match the pins in packages/testnet-challenge/Dockerfile so the
 # result is reproducible.
 #
 # Usage:
@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-# Pinned versions — keep in sync with packages/testnet-challange/Dockerfile.
+# Pinned versions — keep in sync with packages/testnet-challenge/Dockerfile.
 NARGO_REQUIRED="1.0.0-beta.6"
 BB_REQUIRED="0.84.0"
 
