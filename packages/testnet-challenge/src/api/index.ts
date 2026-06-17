@@ -10,8 +10,8 @@ import { expectedVerdicts, getCorruptionMask, scoreAnswers } from '../corruption
 import { parseSiweMessage, verifySiwePersonalSig } from '../siwe-lite.js';
 import {
   ANSWER_VERDICTS,
-  PASS_THRESHOLD,
   RECORD_COUNT,
+  RECORD_THRESHOLD,
   type AnswerVerdict,
 } from '../types.js';
 import { CompletedAddress } from './db/completed-address.js';
@@ -49,12 +49,11 @@ const CompletedQuerySchema = z.object({
   min_score: z.coerce
     .number()
     .int()
-    .min(PASS_THRESHOLD)
+    .min(RECORD_THRESHOLD)
     .max(RECORD_COUNT)
-    .optional()
     .openapi({
-      param: { name: 'min_score', in: 'query' },
-      description: `Only return entries whose best score is >= this value (${PASS_THRESHOLD}..${RECORD_COUNT}).`,
+      param: { name: 'min_score', in: 'query', required: true },
+      description: `Required. Only return entries whose best score is >= this value (${RECORD_THRESHOLD}..${RECORD_COUNT}).`,
       example: 5,
     }),
 });
@@ -75,10 +74,10 @@ const CompletedItemSchema = z
     score: z
       .number()
       .int()
-      .min(PASS_THRESHOLD)
+      .min(RECORD_THRESHOLD)
       .max(RECORD_COUNT)
       .openapi({
-        description: `Best score this address has reached (${PASS_THRESHOLD}..${RECORD_COUNT}). Entries created before scores were tracked report ${RECORD_COUNT} (they passed under the old perfect-run rule).`,
+        description: `Best score this address has reached (${RECORD_THRESHOLD}..${RECORD_COUNT}). Entries created before scores were tracked report ${RECORD_COUNT} (stored under the old perfect-run rule).`,
       }),
   })
   .openapi('CompletedItem');
@@ -99,8 +98,8 @@ const getCompletedRoute = createRoute({
   method: 'get',
   path: '/api/completed',
   tags: ['Leaderboard'],
-  summary: 'List addresses that have completed the challenge',
-  description: `Paginated list of addresses that scored at least ${PASS_THRESHOLD}/${RECORD_COUNT}. Sorted newest first. Optionally filter by minimum score.`,
+  summary: 'List addresses that have submitted answers',
+  description: `Paginated list of addresses that have submitted answers (best score ${RECORD_THRESHOLD}..${RECORD_COUNT}). Sorted newest first. Requires a min_score filter.`,
   security: [{ ApiKeyAuth: [] }],
   request: { query: CompletedQuerySchema },
   responses: {
@@ -201,11 +200,11 @@ app.post('/api/submit', async (c) => {
 
   const expected = expectedVerdicts(getCorruptionMask(address));
   const score = scoreAnswers(expected, answers as AnswerVerdict[]);
-  const passed = score >= PASS_THRESHOLD;
 
-  if (passed) {
-    // `$max` ensures a repeated attempt only raises the stored score; an
-    // address that previously scored 5 can't be downgraded by later 3s.
+  if (score >= RECORD_THRESHOLD) {
+    // Record every result with at least one correct answer. `$max` ensures a
+    // repeated attempt only raises the stored score, so an address that
+    // already scored 5 can't be downgraded by a later, weaker run.
     await CompletedAddress.updateOne(
       { address },
       { $max: { score }, $setOnInsert: { address } },
@@ -213,13 +212,14 @@ app.post('/api/submit', async (c) => {
     );
   }
 
-  return c.json({ passed, score }, 200);
+  return c.json({ score }, 200);
 });
 
 app.openapi(getCompletedRoute, async (c) => {
   try {
     const { cursor, min_score: minScore } = c.req.valid('query');
     const cursorId = cursor ? new Types.ObjectId(cursor) : undefined;
+    // `minScore` is a required query param, so it's always defined here.
 
     // Documents written before the score field existed lack `score`; coerce
     // them to RECORD_COUNT (they passed under the old perfect-run rule) so
@@ -229,7 +229,7 @@ app.openapi(getCompletedRoute, async (c) => {
     const [result] = await CompletedAddress.aggregate([
       ...(cursorId ? [{ $match: { _id: { $lt: cursorId } } }] : []),
       { $addFields: { _score: scoreCoerced } },
-      ...(minScore !== undefined ? [{ $match: { _score: { $gte: minScore } } }] : []),
+      { $match: { _score: { $gte: minScore } } },
       { $sort: { _id: -1 as const } },
       { $limit: PAGE_SIZE + 1 },
       {

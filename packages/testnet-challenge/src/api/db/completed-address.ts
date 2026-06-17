@@ -1,6 +1,6 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
 
-import { PASS_THRESHOLD, RECORD_COUNT } from '../../types.js';
+import { RECORD_COUNT, RECORD_THRESHOLD } from '../../types.js';
 
 const completedAddressSchema = new Schema(
   {
@@ -11,14 +11,15 @@ const completedAddressSchema = new Schema(
       lowercase: true,
       match: /^0x[0-9a-f]{40}$/,
     },
-    // The user's best score on this address. We only persist passing scores
-    // (>= PASS_THRESHOLD), and update via $max so subsequent runs can raise
-    // but never lower it. Documents created before this field existed read
-    // back as undefined; the API surface coerces missing → RECORD_COUNT
-    // (those addresses passed when the threshold was a perfect run).
+    // The user's best score on this address. We persist any result with at
+    // least one correct answer (>= RECORD_THRESHOLD) and update via $max so
+    // subsequent runs can raise but never lower it. Documents created before
+    // this field existed read back as undefined; the API surface coerces
+    // missing → RECORD_COUNT (those addresses were stored under the old
+    // perfect-run rule).
     score: {
       type: Number,
-      min: PASS_THRESHOLD,
+      min: RECORD_THRESHOLD,
       max: RECORD_COUNT,
     },
   },

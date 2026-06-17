@@ -37,10 +37,11 @@ export const ANSWER_VERDICTS: readonly AnswerVerdict[] = Object.freeze([
 
 export const RECORD_COUNT = 5;
 
-// Minimum correct answers required to mark an address as completed. We
-// store the actual score in the DB too, so consumers can distinguish a
-// 3/5 finish from a perfect run.
-export const PASS_THRESHOLD = 3;
+// Minimum correct answers for a submission to be recorded — one is enough.
+// Knidos hasn't settled on a qualifying threshold yet, so we deliberately
+// avoid a "pass" bar here: we store every result with at least one correct
+// answer and leave any cut-off decision to whoever reads the leaderboard.
+export const RECORD_THRESHOLD = 1;
 
 // Wire types ----------------------------------------------------------------
 
@@ -51,7 +52,6 @@ export interface SubmitRequest {
 }
 
 export interface SubmitResponse {
-  passed: boolean;
   score: number;
 }
 

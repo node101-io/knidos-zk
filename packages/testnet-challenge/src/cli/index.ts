@@ -2,8 +2,8 @@
 
 import { confirm } from '@inquirer/prompts';
 
-import { expectedVerdicts, getCorruptionMask, scoreAnswers } from '../corruption.js';
-import { PASS_THRESHOLD, RECORD_COUNT, type AnswerVerdict, type PresentedRecord } from '../types.js';
+import { getCorruptionMask } from '../corruption.js';
+import { RECORD_COUNT, RECORD_THRESHOLD, type AnswerVerdict, type PresentedRecord } from '../types.js';
 import { applyCorruption } from './flow/apply-corruption.js';
 import { compileCircuit } from './flow/compile-circuit.js';
 import { connectWallet } from './flow/connect-wallet.js';
@@ -58,12 +58,6 @@ async function main(): Promise<void> {
 
   const mask = getCorruptionMask(credentials.address);
   const presented = applyCorruption(records, mask);
-  // The expected verdict for each record is fully determined by the user's
-  // address (deterministic mask). Grading locally skips a server round-trip
-  // on the common "first attempt is wrong" path — we only hit /api/submit
-  // once the answers actually pass, where the server is still the authority
-  // (it re-derives the same mask + verifies the SIWE signature).
-  const expected = expectedVerdicts(mask);
 
   let previousAnswers: AnswerVerdict[] | undefined;
 
@@ -78,47 +72,42 @@ async function main(): Promise<void> {
       setTimeout(resolve, CHECK_DELAY_BASE_MS + checkJitter),
     );
 
-    const localScore = scoreAnswers(expected, answers);
-
-    if (localScore < PASS_THRESHOLD) {
-      console.log('');
-      console.log(`  ${localScore}/${RECORD_COUNT} correct — need at least ${PASS_THRESHOLD} to pass`);
-      console.log('');
-      const retry = await confirm({
-        message: 'Try again with different answers?',
-        default: true,
-      });
-      if (!retry) {
-        console.log('');
-        console.log('  Bye. Run the container again whenever you want to try.');
-        console.log('');
-        return;
-      }
-      continue;
-    }
-
-    const result = await submitAnswers({
+    // The server re-derives the same deterministic mask, verifies the SIWE
+    // signature, and records the result — it's the authority on the score.
+    // Every attempt is submitted so each result gets recorded.
+    const { score } = await submitAnswers({
       message: credentials.message,
       signature: credentials.signature,
       answers,
     });
+    const perfect = score === RECORD_COUNT;
 
-    if (result.passed) {
-      console.log('');
-      console.log(`  🎉 ${result.score}/${RECORD_COUNT} — passed`);
-      console.log('');
-      console.log(`  Address ${credentials.address} is now marked as completed.`);
+    console.log('');
+    if (score >= RECORD_THRESHOLD) {
+      console.log(`  ${score}/${RECORD_COUNT} correct — your answers have been recorded.`);
+    } else {
+      console.log(`  ${score}/${RECORD_COUNT} correct.`);
+    }
+
+    // A perfect run is the only "you're done" state — no point asking to retry.
+    if (perfect) {
+      console.log('  🎉 A perfect run — every record correct.');
       console.log('');
       return;
     }
+    console.log('');
 
-    // Server disagreed with our local grading — very unlikely (mask is
-    // deterministic and shared between both sides). Surface and let the
-    // operator investigate.
-    console.log('');
-    console.log(`  Server reported ${result.score}/${RECORD_COUNT}. Re-run the CLI to try fresh.`);
-    console.log('');
-    return;
+    // No pass/fail framing — anyone can try again if they want.
+    const retry = await confirm({
+      message: 'Try again?',
+      default: true,
+    });
+    if (!retry) {
+      console.log('');
+      console.log('  Bye. Run the container again whenever you want to try.');
+      console.log('');
+      return;
+    }
   }
 
   console.log('');
