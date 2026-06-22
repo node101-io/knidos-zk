@@ -7,6 +7,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "postbuild": "cp src/agent-card.json dist/src/agent-card.json",
     "clean": "rm -rf dist",
     "prebuild": "rm -rf dist",
     "lint": "oxlint",

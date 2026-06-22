@@ -6,6 +6,7 @@ import { createMiddleware } from 'hono/factory';
 import mongoose from 'mongoose';
 import { Types } from 'mongoose';
 
+import agentCard from './agent-card.json' with { type: 'json' };
 import { RegisteredVk } from './db/registered-vk.js';
 import { VerificationRecord } from './db/verification-record.js';
 
@@ -301,6 +302,13 @@ app.openapi(getHealthRoute, async (c) => {
     return c.json({ error: 'Internal Server Error' }, 500);
   }
 });
+
+app.get('/.well-known/agent-card.json', (c) =>
+  c.json(agentCard, 200, {
+    'Cache-Control': 'public, max-age=300',
+    'CDN-Cache-Control': 'public, max-age=300',
+  }),
+);
 
 app.use('/status', basicAuth({ username: 'admin', password: env.STATUS_PASSWORD }));
 

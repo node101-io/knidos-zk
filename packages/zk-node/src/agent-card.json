@@ -1,0 +1,166 @@
+{
+  "name": "Knidos ZK Verified On-Chain AI Fund Manager",
+  "description": "Knidos is an on-chain AI fund manager with zk-verified execution. The agent is currently in testnet status. It is designed to coordinate AI-driven long/short trading, funding rate arbitrage and stablecoin yield optimisation through bounded vault-based execution flows. Mainnet vaults are not deployed yet. Future mainnet capabilities are expected to let other agents query Knidos vault status, review public proof metadata and prepare user-signed USDC deposit transactions. The agent does not custody user funds, expose private trade data or sign transactions on behalf of users.",
+  "url": "https://knidos.node101.io/.well-known/agent-card.json",
+  "provider": {
+    "organization": "Knidos Labs",
+    "url": "https://www.knidos.xyz"
+  },
+  "version": "0.1.0",
+  "documentationUrl": "https://www.knidos.xyz",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "stateTransitionHistory": false
+  },
+  "defaultInputModes": [
+    "application/json",
+    "text/plain"
+  ],
+  "defaultOutputModes": [
+    "application/json",
+    "text/plain"
+  ],
+  "skills": [
+    {
+      "id": "get_vault_status",
+      "name": "Get Vault Status",
+      "description": "Returns public status metadata for the Knidos vault system. Current status is testnet. Mainnet vault addresses will be added once deployed.",
+      "tags": [
+        "vault",
+        "erc4626",
+        "usdc",
+        "testnet"
+      ],
+      "examples": [
+        "Show the current Knidos vault status.",
+        "Is the Knidos mainnet vault live?"
+      ]
+    },
+    {
+      "id": "prepare_deposit_transaction",
+      "name": "Prepare Deposit Transaction",
+      "description": "Future mainnet capability. Prepares a user-signed USDC deposit transaction for the Knidos ERC-4626 vault. The agent does not custody funds or sign on behalf of the user.",
+      "tags": [
+        "deposit",
+        "usdc",
+        "erc4626",
+        "mainnet-planned"
+      ],
+      "examples": [
+        "Prepare a 1000 USDC deposit transaction for the Knidos vault.",
+        "Generate the approval and deposit calldata for the Knidos USDC vault."
+      ]
+    },
+    {
+      "id": "get_proof_status",
+      "name": "Get ZK Proof Status",
+      "description": "Returns public zk proof status metadata for Knidos agent execution proofs when available. Proofs are intended to verify bounded execution without revealing private trade data, wallets or strategy logic.",
+      "tags": [
+        "zk",
+        "zkverify",
+        "proofs",
+        "execution-verification"
+      ],
+      "examples": [
+        "Show the latest Knidos proof status.",
+        "Explain what the latest verified proof attests to."
+      ]
+    },
+    {
+      "id": "get_verifiable_pnl",
+      "name": "Get Verifiable PnL",
+      "description": "Returns proof-linked PnL metadata for strategy batches or vault epochs when available. This does not expose raw private trade data.",
+      "tags": [
+        "pnl",
+        "proof",
+        "vault-epoch",
+        "verification"
+      ],
+      "examples": [
+        "Show the latest verifiable PnL metadata.",
+        "Summarize the latest verified strategy batch."
+      ]
+    },
+    {
+      "id": "explain_strategy",
+      "name": "Explain Strategy",
+      "description": "Explains Knidos strategy categories including AI long/short trading, funding rate arbitrage and stablecoin yield optimisation.",
+      "tags": [
+        "long-short",
+        "funding-rate-arbitrage",
+        "yield-optimisation",
+        "ai-trading"
+      ],
+      "examples": [
+        "Explain the Knidos long/short strategy.",
+        "What does the funding rate arbitrage strategy do?",
+        "How does Knidos use idle stablecoin capital?"
+      ]
+    },
+    {
+      "id": "get_risk_controls",
+      "name": "Get Risk Controls",
+      "description": "Returns public information about Knidos risk boundaries, including whitelisted venues, supported assets, vault rules, execution constraints and proof-based verification scope when available.",
+      "tags": [
+        "risk-controls",
+        "whitelisted-venues",
+        "bounded-execution",
+        "vault-rules"
+      ],
+      "examples": [
+        "What risk controls does Knidos use?",
+        "Which constraints are expected to be verified by ZK proofs?"
+      ]
+    }
+  ],
+  "securitySchemes": {},
+  "security": [],
+  "metadata": {
+    "status": "testnet",
+    "a2aEndpointStatus": "not_live_yet",
+    "futureA2AEndpoint": "https://knidos.node101.io/a2a",
+    "mainnetVaults": {
+      "status": "not_deployed_yet",
+      "note": "Mainnet vault addresses will be linked once deployed."
+    },
+    "erc8004": {
+      "chain": "base",
+      "chainId": 8453,
+      "identityRegistry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+      "reputationRegistry": "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+      "agentId": "55985",
+      "agentUrl": "https://8004scan.io/agents/base/55985"
+    },
+    "proofSystem": {
+      "provider": "zkVerify",
+      "status": "integration_in_progress",
+      "proverHealth": "https://knidos.node101.io/api/health",
+      "proofPrivacy": "Proofs are intended to verify execution constraints without revealing private trades, wallets or strategy logic."
+    },
+    "supportedStrategies": [
+      "ai_long_short",
+      "funding_rate_arbitrage",
+      "stablecoin_yield_optimisation"
+    ],
+    "futureMainnetCapabilities": [
+      "query_vault_status",
+      "prepare_user_signed_deposit_transaction",
+      "return_approval_and_deposit_calldata",
+      "show_zk_proof_status",
+      "show_verifiable_pnl_metadata",
+      "explain_strategy_and_risk_controls"
+    ],
+    "x402": {
+      "status": "planned",
+      "note": "x402 may be used in the future for paid agent service access or deposit-intent workflows. Vault deposits will require user-signed ERC-4626 transactions unless a dedicated deposit router is deployed."
+    },
+    "privacy": {
+      "privateTradeDataExposed": false,
+      "walletActivityExposed": false,
+      "strategyLogicExposed": false,
+      "vaultAuthorityWalletExposed": false,
+      "note": "The agent card is for discovery and interoperability only. It does not expose vault authority, execution keys, private trading wallets or raw trade data."
+    }
+  }
+}
