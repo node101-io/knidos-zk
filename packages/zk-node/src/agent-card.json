@@ -8,6 +8,17 @@
   },
   "version": "0.1.0",
   "documentationUrl": "https://www.knidos.xyz",
+  "registrations": [
+    {
+      "agentRegistry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+      "agentId": "55985"
+    },
+    {
+      "chainId": 8453,
+      "agentRegistry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+      "agentId": "55985"
+    }
+  ],
   "capabilities": {
     "streaming": false,
     "pushNotifications": false,
@@ -134,7 +145,7 @@
     },
     "proofSystem": {
       "provider": "zkVerify",
-      "status": "integration_in_progress",
+      "status": "integrated",
       "proverHealth": "https://knidos.node101.io/api/health",
       "proofPrivacy": "Proofs are intended to verify execution constraints without revealing private trades, wallets or strategy logic."
     },
@@ -153,7 +164,7 @@
     ],
     "x402": {
       "status": "planned",
-      "note": "x402 may be used in the future for paid agent service access or deposit-intent workflows. Vault deposits will require user-signed ERC-4626 transactions unless a dedicated deposit router is deployed."
+      "note": "x402 will be used in the future for paid agent service access or deposit-intent workflows. Vault deposits will require user-signed ERC-4626 transactions unless a dedicated deposit router is deployed."
     },
     "privacy": {
       "privateTradeDataExposed": false,
