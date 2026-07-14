@@ -205,11 +205,25 @@ app.post('/api/submit', async (c) => {
     // Record every result with at least one correct answer. `$max` ensures a
     // repeated attempt only raises the stored score, so an address that
     // already scored 5 can't be downgraded by a later, weaker run.
-    await CompletedAddress.updateOne(
-      { address },
-      { $max: { score }, $setOnInsert: { address } },
-      { upsert: true },
-    );
+    try {
+      await CompletedAddress.updateOne(
+        { address },
+        { $max: { score }, $setOnInsert: { address } },
+        { upsert: true },
+      );
+    } catch (error) {
+      // Surface a retryable message instead of Hono's plain-text 500 — the
+      // CLI shows `error` verbatim. Score is computed but NOT recorded, so
+      // the user must re-submit.
+      console.error(`[http] POST /api/submit failed to record score for ${address}`, error);
+      return c.json(
+        {
+          error:
+            'We graded your answers but could not save your score due to a temporary server issue. Please re-run the CLI and submit again shortly.',
+        },
+        503,
+      );
+    }
   }
 
   return c.json({ score }, 200);
