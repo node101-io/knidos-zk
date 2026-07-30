@@ -99,7 +99,11 @@ The Noir proving worker count defaults to `1` and can be overridden with `NOIR_P
 
 ## Production deployment (Docker Compose)
 
-Production runs plain `docker compose` on a single host. The stack is three services — `node` (daemon), `server` (HTTP), and a local `redis`. MongoDB is external (Atlas). `nargo`, `bb`, Node, and pnpm are baked into the image; `docker` (with the compose plugin) is the only host prerequisite.
+Production runs plain `docker compose` on a single host. The application services are
+`node` (daemon), `server` (HTTP), and `success-monitor`; local Redis stores queues and
+Apprise delivers notifications. MongoDB is external (Atlas).
+`nargo`, `bb`, Node, and pnpm are baked into the application image; `docker` (with the
+compose plugin) is the only host prerequisite.
 
 A `server` restart during deploy causes a brief (~20s) `connection refused` window on port 3000 — acceptable because the HTTP surface is a read-only verification API and clients retry. The `node` daemon has a ~30–90s Noir warmup on restart, but it has no inbound traffic so clients don't see it.
 
@@ -112,10 +116,34 @@ git submodule update --init
 cp .env.example .env   # fill in Atlas MONGO_URI, Primus keys, etc.
 
 docker compose up -d --build                           # build image + start stack
-docker compose ps                                      # should show redis/node/server running
+docker compose ps                                      # should show redis/node/server/success-monitor running
 ```
 
 Make sure the server's public IP is whitelisted in Atlas Network Access.
+
+### Success notifications
+
+`success-monitor` checks the existing rolling one-hour pipeline success counts when it
+starts and once every 24 hours after that. If any pipeline is below the threshold, it
+sends one notification through Apprise. Healthy checks are only logged.
+
+The operational target is 60 successes per hour. The monitor alerts when a pipeline
+drops below 20 successes in the rolling one-hour window.
+
+The monitor uses the existing Apprise deployment. Configure its exact notify endpoint
+in the gitignored `.env`. If Apprise stores the mail destination under a key, include
+that key in the path:
+
+```bash
+APPRISE_NOTIFY_URL="https://your-apprise.example/notify/knidos-alerts"
+```
+
+Configure an Apprise `mailto://` or `mailtos://` URL to deliver the alert by email.
+After changing the endpoint, recreate the monitor:
+
+```bash
+docker compose up -d --force-recreate success-monitor
+```
 
 ### Updating after a code change
 
