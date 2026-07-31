@@ -35,6 +35,8 @@ services:
     restart: unless-stopped
     environment:
       APPRISE_NOTIFY_URL: '${APPRISE_NOTIFY_URL:?set APPRISE_NOTIFY_URL in .env}'
+      APPRISE_PASSWORD: '${APPRISE_PASSWORD:?set APPRISE_PASSWORD in .env}'
+      APPRISE_USERNAME: '${APPRISE_USERNAME:?set APPRISE_USERNAME in .env}'
       MONGO_URI: '${MONGO_URI}'
     command: ['node', 'packages/zk-node/dist/src/success-monitor.js']
 

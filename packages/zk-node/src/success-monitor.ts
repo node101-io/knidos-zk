@@ -28,16 +28,23 @@ async function checkSuccessCounts(): Promise<void> {
     return;
   }
 
-  await sendAppriseNotification(successMonitorEnv.APPRISE_NOTIFY_URL, {
-    title: 'Knidos pipeline alert',
-    body: [
-      `The following pipelines had fewer than ${MINIMUM_SUCCESS} successes in the last hour:`,
-      ...unhealthy.map((pipeline) => `- ${pipeline}: ${counts[pipeline]}`),
-      '',
-      `Checked at: ${new Date().toISOString()}`,
-    ].join('\n'),
-    type: 'failure',
-  });
+  await sendAppriseNotification(
+    successMonitorEnv.APPRISE_NOTIFY_URL,
+    {
+      title: 'Knidos pipeline alert',
+      body: [
+        `The following pipelines had fewer than ${MINIMUM_SUCCESS} successes in the last hour:`,
+        ...unhealthy.map((pipeline) => `- ${pipeline}: ${counts[pipeline]}`),
+        '',
+        `Checked at: ${new Date().toISOString()}`,
+      ].join('\n'),
+      type: 'failure',
+    },
+    {
+      username: successMonitorEnv.APPRISE_USERNAME,
+      password: successMonitorEnv.APPRISE_PASSWORD,
+    },
+  );
   logger.info({ counts, unhealthy }, '[success-monitor] daily alert sent');
 }
 

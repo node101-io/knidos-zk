@@ -136,10 +136,11 @@ that key in the path:
 
 ```bash
 APPRISE_NOTIFY_URL="https://your-apprise.example/notify/knidos-alerts"
+APPRISE_USERNAME="reverse-proxy-user"
+APPRISE_PASSWORD="reverse-proxy-password"
 ```
 
-Configure an Apprise `mailto://` or `mailtos://` URL to deliver the alert by email.
-After changing the endpoint, recreate the monitor:
+Configure the Telegram destination in Apprise, then recreate the monitor:
 
 ```bash
 docker compose up -d --force-recreate success-monitor
@@ -230,7 +231,6 @@ gh workflow run testnet-challenge-cli-image.yml
 (or via the GitHub UI: Actions → "testnet-challenge-cli image" → Run workflow.)
 
 amd64 and arm64 build in parallel on their own native runners (`ubuntu-latest` and `ubuntu-24.04-arm`) — no QEMU emulation. The `vk-warmup` stage runs `nargo compile` + `bb write_vk` once per arch (~3 min, ~6 GB peak RAM — needs the GHA runner's headroom, won't fit on a default Docker Desktop). Final image is ~140 MB. A `merge` job stitches both single-arch images into a multi-arch manifest list. Uses the built-in `GITHUB_TOKEN` — no PAT or local docker login needed.
-
 
 End-users only need Docker installed; no clone, no toolchain:
 
