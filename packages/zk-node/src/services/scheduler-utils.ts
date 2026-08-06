@@ -9,6 +9,23 @@ export interface WindowBounds {
   endTime: Date;
 }
 
+export function getSchedulerCronExpression(windowMinutes: number): string {
+  if (windowMinutes < 60) {
+    return `*/${windowMinutes} * * * *`;
+  }
+
+  if (windowMinutes === 60) {
+    return '0 * * * *';
+  }
+
+  if (windowMinutes === 24 * 60) {
+    return '0 0 * * *';
+  }
+
+  const windowHours = windowMinutes / 60;
+  return `0 */${windowHours} * * *`;
+}
+
 export function getWindowBoundsFromEnd(endTime: Date | number): WindowBounds {
   const normalizedEndTime = parseDateInput(endTime, 'endTime');
   return {

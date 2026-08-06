@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_BINANCE_SYMBOLS, binanceSymbolsSchema } from '../src/shared/binance-symbols.js';
 import {
   ZKTLS_WINDOW_MS,
-  getWindowBounds,
   getMissingSymbols,
+  getSchedulerCronExpression,
+  getWindowBounds,
   getWindowBoundsFromEnd,
   getWindowsToEnsure,
 } from '../src/services/scheduler-utils.js';
@@ -87,6 +88,16 @@ describe('scheduler-utils', () => {
 
     expect(windows).toHaveLength(1);
     expect(windows[0]?.endTime.getTime()).toBe(Date.UTC(2026, 3, 13, 11, 0, 0, 0));
+  });
+
+  it('builds minute-based cron expressions for sub-hour windows', () => {
+    expect(getSchedulerCronExpression(15)).toBe('*/15 * * * *');
+  });
+
+  it('builds hour-based cron expressions for multi-hour windows', () => {
+    expect(getSchedulerCronExpression(60)).toBe('0 * * * *');
+    expect(getSchedulerCronExpression(360)).toBe('0 */6 * * *');
+    expect(getSchedulerCronExpression(1440)).toBe('0 0 * * *');
   });
 
   it('returns the configured symbols that do not have tasks yet', () => {

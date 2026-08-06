@@ -62,8 +62,11 @@ export const env = createEnv({
       .number()
       .int()
       .positive()
-      .refine((n) => 60 % n === 0, 'ZKTLS_WINDOW_MINUTES must divide 60 evenly')
-      .default(15),
+      .refine(
+        (n) => (n < 60 ? 60 % n === 0 : n % 60 === 0 && (24 * 60) % n === 0),
+        'ZKTLS_WINDOW_MINUTES must evenly divide an hour, or be a whole-hour divisor of one day',
+      )
+      .default(60),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

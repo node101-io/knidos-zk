@@ -8,7 +8,12 @@ import { parseZkTLSJobInput } from '../pipelines/validation.js';
 import { PROOF_TYPE } from '../pipelines/types.js';
 import { normalizeDateInput } from '../shared/date-utils.js';
 import logger from '../shared/logger.js';
-import { getWindowBounds, getMissingSymbols, getWindowsToEnsure } from './scheduler-utils.js';
+import {
+  getMissingSymbols,
+  getSchedulerCronExpression,
+  getWindowBounds,
+  getWindowsToEnsure,
+} from './scheduler-utils.js';
 
 const DEFAULT_BASE_BALANCE = 100000000;
 const DEFAULT_THRESHOLD = 50000000;
@@ -127,9 +132,10 @@ async function catchUpMissedSlots(): Promise<void> {
 export async function startScheduler(): Promise<void> {
   await catchUpMissedSlots();
 
-  const cronExpr = `*/${env.ZKTLS_WINDOW_MINUTES} * * * *`;
+  const cronExpr = getSchedulerCronExpression(env.ZKTLS_WINDOW_MINUTES);
 
   const schedulerCron = new Cron(cronExpr, {
+    timezone: 'UTC',
     protect: () => {
       logger.warn('[scheduler] previous window ensure still running, skipping tick');
     },
@@ -146,6 +152,7 @@ export async function startScheduler(): Promise<void> {
   logger.info(
     {
       zkTLSCron: cronExpr,
+      timezone: 'UTC',
       windowMinutes: env.ZKTLS_WINDOW_MINUTES,
       proofType: PROOF_TYPE,
     },
