@@ -37,7 +37,9 @@ services:
       APPRISE_NOTIFY_URL: '${APPRISE_NOTIFY_URL:?set APPRISE_NOTIFY_URL in .env}'
       APPRISE_PASSWORD: '${APPRISE_PASSWORD:?set APPRISE_PASSWORD in .env}'
       APPRISE_USERNAME: '${APPRISE_USERNAME:?set APPRISE_USERNAME in .env}'
+      BINANCE_SYMBOLS: '${BINANCE_SYMBOLS:?set BINANCE_SYMBOLS in .env}'
       MONGO_URI: '${MONGO_URI}'
+      ZKTLS_WINDOW_MINUTES: '${ZKTLS_WINDOW_MINUTES:-60}'
     command: ['node', 'packages/zk-node/dist/src/success-monitor.js']
 
   server:

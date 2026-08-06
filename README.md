@@ -123,12 +123,15 @@ Make sure the server's public IP is whitelisted in Atlas Network Access.
 
 ### Success notifications
 
-`success-monitor` checks the existing rolling one-hour pipeline success counts when it
-starts and once every 24 hours after that. If any pipeline is below the threshold, it
-sends one notification through Apprise. Healthy checks are only logged.
+`success-monitor` checks pipeline success counts when it starts and once every 24 hours
+after that. Its policy follows the scheduler configuration: the lookback is twice
+`ZKTLS_WINDOW_MINUTES`, and the minimum success count for each pipeline is the number
+of configured `BINANCE_SYMBOLS`. If any pipeline is below the threshold, it sends one
+notification through Apprise. Healthy checks are only logged.
 
-The operational target is 60 successes per hour. The monitor alerts when a pipeline
-drops below 20 successes in the rolling one-hour window.
+With six symbols and a 360-minute window, this means at least 6 successes per pipeline
+in the rolling 12-hour window. Switching the scheduler window automatically updates
+the monitoring window on the next monitor restart.
 
 The monitor uses the existing Apprise deployment. Configure its exact notify endpoint
 in the gitignored `.env`. If Apprise stores the mail destination under a key, include

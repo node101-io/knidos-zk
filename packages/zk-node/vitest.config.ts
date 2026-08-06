@@ -37,6 +37,7 @@ export default defineConfig({
             'tests/error-utils.test.ts',
             'tests/apprise.test.ts',
             'tests/scheduler-utils.test.ts',
+            'tests/success-monitor-policy.test.ts',
             'tests/validation.test.ts',
             'tests/logger.test.ts',
             'tests/server.test.ts',

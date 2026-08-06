@@ -6,6 +6,7 @@ import { utils as ethersUtils } from 'ethers';
 import { z } from 'zod';
 
 import { DEFAULT_BINANCE_SYMBOLS, binanceSymbolsSchema } from './shared/binance-symbols.js';
+import { zkTLSWindowMinutesSchema } from './shared/scheduler-config.js';
 
 const DEFAULT_BINANCE_API_URL = 'https://fapi.binance.com';
 const DEFAULT_RPC_URL = 'https://sepolia.base.org';
@@ -58,15 +59,7 @@ export const env = createEnv({
     STATUS_PASSWORD: z.string().min(1, 'STATUS_PASSWORD cannot be empty'),
     BB_PATH: z.string().min(1).default(DEFAULT_BB_PATH),
     NOIR_PROVING_SLOT_COUNT: z.coerce.number().int().positive().default(1),
-    ZKTLS_WINDOW_MINUTES: z.coerce
-      .number()
-      .int()
-      .positive()
-      .refine(
-        (n) => (n < 60 ? 60 % n === 0 : n % 60 === 0 && (24 * 60) % n === 0),
-        'ZKTLS_WINDOW_MINUTES must evenly divide an hour, or be a whole-hour divisor of one day',
-      )
-      .default(60),
+    ZKTLS_WINDOW_MINUTES: zkTLSWindowMinutesSchema,
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

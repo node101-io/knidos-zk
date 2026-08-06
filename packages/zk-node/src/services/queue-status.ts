@@ -14,8 +14,10 @@ export interface DeferredTaskResult {
   deferUntil: Date | null;
 }
 
-export async function getQueueStatus(): Promise<QueueStatusResult> {
-  const since = new Date(Date.now() - SUCCESS_WINDOW_MS);
+export async function getQueueStatus(
+  successWindowMs = SUCCESS_WINDOW_MS,
+): Promise<QueueStatusResult> {
+  const since = new Date(Date.now() - successWindowMs);
 
   const [statusRows, successRows, settleRows] = await Promise.all([
     Task.aggregate([
