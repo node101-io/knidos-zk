@@ -26,7 +26,7 @@
     "@inquirer/prompts": "^8.0.5",
     "@noble/curves": "^1.6.0",
     "@noble/hashes": "^1.5.0",
-    "hono": "^4.12.12",
+    "hono": "^4.12.34",
     "mongoose": "^9.4.1",
     "zod": "^4.1.12"
   },
