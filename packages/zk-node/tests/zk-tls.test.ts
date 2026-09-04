@@ -166,6 +166,45 @@ describe('zk-tls processor', () => {
     expect(task.primus).toBeNull();
   });
 
+  it('fails permanently before Primus when the window has more fills than the circuit parses', async () => {
+    const fill = {
+      coin: 'XRP',
+      closedPnl: '0.0',
+      fee: '0.01',
+      feeToken: 'USDC',
+      time: 1769172980321,
+    };
+    mockFetchRawFillsByRequest.mockResolvedValue(
+      new Uint8Array(Buffer.from(JSON.stringify(Array(17).fill(fill)), 'utf8')),
+    );
+
+    const task = makeTask();
+    await expect(runZkTLSProcessor(task._id.toString(), input)).rejects.toThrow(
+      /17 fills .*\(max 16 fills/,
+    );
+    // No Primus task was bought for an unprovable window.
+    expect(mockSubmitWithCapacity).not.toHaveBeenCalled();
+  });
+
+  it('fails permanently before Primus when the body is wider than the circuit buffer', async () => {
+    const fill = {
+      coin: 'XRP',
+      closedPnl: '0.0',
+      fee: '0.01',
+      feeToken: 'USDC',
+      pad: 'x'.repeat(900),
+    };
+    mockFetchRawFillsByRequest.mockResolvedValue(
+      new Uint8Array(Buffer.from(JSON.stringify(Array(10).fill(fill)), 'utf8')),
+    );
+
+    const task = makeTask();
+    await expect(runZkTLSProcessor(task._id.toString(), input)).rejects.toThrow(
+      /bytes \(max 16 fills \/ 8192 bytes\)/,
+    );
+    expect(mockSubmitWithCapacity).not.toHaveBeenCalled();
+  });
+
   it('rejects an unsalted commitment over the same body', async () => {
     // Guards the salting itself: a plain sha256(body) must not be accepted.
     const unsalted = `0x${createHash('sha256').update('[]').digest('hex')}`;

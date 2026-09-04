@@ -8,6 +8,7 @@ import { Noir, type InputMap } from '@noir-lang/noir_js';
 
 import { env } from '../../env.js';
 import logger from '../../shared/logger.js';
+import { PermanentTaskError } from '../../utils/error.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -339,7 +340,13 @@ export async function runProofPipeline(
       { error, slotId, totalMs: Date.now() - startedAt, witnessMs: Date.now() - witnessStartedAt },
       '[noir runtime] witness generation failed',
     );
-    throw error;
+    // Witness generation is pure: the circuit rejected these inputs (a
+    // failed assert, or a body the JSON parser cannot tokenise) and will
+    // reject them identically on every retry.
+    throw new PermanentTaskError(
+      `[noir runtime] circuit rejected inputs: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
   }
 
   const witnessMs = Date.now() - witnessStartedAt;

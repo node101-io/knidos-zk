@@ -1,6 +1,10 @@
 use json_parser::JSON8kb;
 
-global MAX_FILLS: u32 = 32;
+// JSON8kb allows 1024 tokens and a Hyperliquid fill costs ~60, so the parser
+// tokenises at most 16 fills (measured: 16 parse, 17 fail). Iterating past
+// that only adds constraints for slots that can never be populated. Mirrored
+// in packages/zk-node/src/shared/circuit-limits.ts.
+global MAX_FILLS: u32 = 16;
 global MAX_STRING_LENGHT: u32 = 16;
 global DECIMAL_SCALE: i64 = 100000000;
 global MAX_FRACTION_DIGITS: u32 = 8;

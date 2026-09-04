@@ -9,6 +9,7 @@ import {
   type RawFills,
 } from '../../utils/fetch-raw-fills.js';
 import { bytes32ToField2DecStrings } from '../../utils/bytes32-to-field2-dec-strings.js';
+import { PermanentTaskError } from '../../utils/error.js';
 import { hexToFixedBytes } from '../../utils/hex-to-fixed-bytes.js';
 import { padRawFills } from '../../utils/pad-raw-fills.js';
 import {
@@ -28,6 +29,7 @@ import {
   isDeferredTaskDecision,
   type DeferredTaskDecision,
 } from '../../primus/errors.js';
+import { MAX_FILLS, MAX_RAW_FILLS_BYTES } from '../../shared/circuit-limits.js';
 import logger from '../../shared/logger.js';
 import { toTimestampMs } from '../../shared/date-utils.js';
 import type { NoirCircuitInput } from '../types.js';
@@ -65,6 +67,8 @@ export async function runZkTLSProcessor(
   const startTimeMs = toTimestampMs(input.startTime);
   const endTimeMs = toTimestampMs(input.endTime);
 
+  await rejectIfBeyondCircuitCapacity(startTimeMs, endTimeMs);
+
   // The scheduler stages tasks as DEFERRED until 5 minutes past endTime
   // (see services/scheduler.ts) so that by the time we get here, Hyperliquid's
   // read replicas have settled and both fetches below see the same body.
@@ -80,6 +84,30 @@ export async function runZkTLSProcessor(
     action: 'completed',
     input: buildNoirInput(commitments, attest, rawFills, startTimeMs, endTimeMs, input),
   };
+}
+
+// A window wider than the circuit can take is unprovable no matter what the
+// attestor says, so look at the body once, cheaply, before paying for a
+// Primus task on it. Only capacity is judged here; anything else about the
+// body is left to the attested fetch below.
+async function rejectIfBeyondCircuitCapacity(
+  startTimeMs: number,
+  endTimeMs: number,
+): Promise<void> {
+  const raw = await fetchRawFillsByRequest(buildUserFillsRequest(startTimeMs, endTimeMs));
+  let fills: unknown;
+  try {
+    fills = JSON.parse(Buffer.from(raw).toString('utf8')) as unknown;
+  } catch {
+    return;
+  }
+  if (!Array.isArray(fills)) return;
+
+  if (fills.length > MAX_FILLS || raw.length > MAX_RAW_FILLS_BYTES) {
+    throw new PermanentTaskError(
+      `window exceeds circuit capacity: ${fills.length} fills / ${raw.length} bytes (max ${MAX_FILLS} fills / ${MAX_RAW_FILLS_BYTES} bytes); shorten ZKTLS_WINDOW_MINUTES`,
+    );
+  }
 }
 
 interface PrimusFlowSuccess {

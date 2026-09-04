@@ -1,3 +1,13 @@
+// A failure that is deterministic for the task's inputs - the same window
+// would fail the same way on every retry - so the worker should mark the task
+// FAILED immediately instead of burning its retry budget.
+export class PermanentTaskError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'PermanentTaskError';
+  }
+}
+
 function normalizeText(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
 }

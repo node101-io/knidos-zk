@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { classifyError, decideZkTLSError } from '../src/primus/errors.js';
+import { PermanentTaskError } from '../src/utils/error.js';
 
 describe('decideZkTLSError', () => {
   it('classifies Primus attestor websocket transport failures separately from RPC failures', () => {
@@ -148,5 +149,15 @@ describe('decideZkTLSError', () => {
 
     expect(decideZkTLSError(error, { currentDeferCount: 999 })).toEqual({ action: 'fail' });
     expect(classifyError(error)).toBe('permanent');
+  });
+});
+
+describe('decideZkTLSError with PermanentTaskError', () => {
+  it('fails immediately instead of deferring', () => {
+    expect(
+      decideZkTLSError(new PermanentTaskError('window exceeds circuit capacity'), {
+        currentDeferCount: 0,
+      }),
+    ).toEqual({ action: 'fail' });
   });
 });

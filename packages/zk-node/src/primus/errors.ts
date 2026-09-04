@@ -1,4 +1,4 @@
-import { collectErrorStrings } from '../utils/error.js';
+import { PermanentTaskError, collectErrorStrings } from '../utils/error.js';
 
 // Two distinct rate-limit signals can reach us:
 //   1. Hyperliquid's "Operation too frequent" forwarded through the attestor.
@@ -189,6 +189,7 @@ export function isTransientPrimusRpc(error: unknown): boolean {
 }
 
 function isPermanentFailure(error: unknown): boolean {
+  if (error instanceof PermanentTaskError) return true;
   const text = normalizedErrorText(error);
   return PERMANENT_FAILURE_TOKENS.some((token) => text.includes(token));
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { MAX_RAW_FILLS_BYTES } from '../shared/circuit-limits.js';
 import { normalizeDateInput } from '../shared/date-utils.js';
 import { PROOF_TYPE } from './types.js';
 import type { NoirCircuitInput, NoirJobInput, ZkTLSJobInput, ZkVerifyJobInput } from './types.js';
@@ -7,7 +8,6 @@ import type { NoirCircuitInput, NoirJobInput, ZkTLSJobInput, ZkVerifyJobInput } 
 type PipelineTaskType = 'zkTLS' | 'noir' | 'zkVerify';
 type TaskInputRecord = Record<string, unknown>;
 
-const MAX_RAW_FILLS_LENGTH = 8192;
 const FIELD_PAIR_LENGTH = 2;
 const ADDRESS_STRING_LENGTH = 42;
 const SALT_LENGTH = 16;
@@ -51,8 +51,8 @@ export const noirCircuitInputSchema = z
     address: z.array(byteSchema).length(ADDRESS_STRING_LENGTH),
     addressSalt: z.array(byteSchema).length(SALT_LENGTH),
     fillsSalt: z.array(byteSchema).length(SALT_LENGTH),
-    rawFills: z.array(byteSchema).length(MAX_RAW_FILLS_LENGTH),
-    rawFillsLength: z.number().int().min(0).max(MAX_RAW_FILLS_LENGTH),
+    rawFills: z.array(byteSchema).length(MAX_RAW_FILLS_BYTES),
+    rawFillsLength: z.number().int().min(0).max(MAX_RAW_FILLS_BYTES),
     startTime: z.number().int(),
     endTime: z.number().int(),
     baseBalance: z.number().int(),

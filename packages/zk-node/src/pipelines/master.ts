@@ -1,11 +1,12 @@
-import { Job, Worker } from 'bullmq';
+import { Job, UnrecoverableError, Worker } from 'bullmq';
 import type { ConnectionOptions } from 'bullmq';
 
 import { updateTaskStatus } from '../db/task-helpers.js';
 import { classifyError } from '../primus/errors.js';
 import logger from '../shared/logger.js';
 import { createTaskEventCtx, type TaskEventCtx } from '../shared/task-event.js';
-import { serializeError } from '../utils/error.js';
+import { resolveFailedJobStatus } from './retry-policy.js';
+import { PermanentTaskError, serializeError } from '../utils/error.js';
 
 export interface MasterConfig<JobData extends { taskId: string }> {
   queueName: string;
@@ -52,6 +53,14 @@ export abstract class Master<JobData extends { taskId: string }> {
           await processJob(workerId, job, ctx);
         } catch (err) {
           caught = err;
+          // bullmq only skips the remaining attempts for its own
+          // UnrecoverableError, so translate our domain signal at the
+          // boundary and keep the original as the cause.
+          if (err instanceof PermanentTaskError) {
+            const unrecoverable = new UnrecoverableError(err.message);
+            unrecoverable.cause = err;
+            throw unrecoverable;
+          }
           throw err;
         } finally {
           stopTimer();
@@ -79,13 +88,10 @@ export abstract class Master<JobData extends { taskId: string }> {
     worker.on('failed', async (job, err) => {
       if (!job) return;
 
-      const attempts = typeof job.opts.attempts === 'number' ? Math.max(job.opts.attempts, 1) : 1;
-      const willRetry = job.attemptsMade < attempts;
-
       try {
         await updateTaskStatus({
           taskId: job.data.taskId,
-          status: willRetry ? 'QUEUED' : 'FAILED',
+          status: resolveFailedJobStatus(job, err),
           error: serializeError(err),
         });
       } catch (error: unknown) {
