@@ -45,6 +45,7 @@ export default defineConfig({
             'tests/zk-tls-master.test.ts',
             'tests/zk-tls-worker.test.ts',
             'tests/zk-verify-session.test.ts',
+            'tests/registered-vk-helpers.test.ts',
           ],
         },
       },
