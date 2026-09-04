@@ -2,6 +2,7 @@ import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 import { BigNumber, ethers } from 'ethers';
 
 import { env } from '../env.js';
+import type { UserFillsRequest } from '../utils/fetch-raw-fills.js';
 import {
   MAX_FEE_PER_GAS_WEI,
   MAX_PRIORITY_FEE_PER_GAS_WEI,
@@ -18,13 +19,33 @@ export interface PrimusSubmit {
 
 export interface PrimusAttest {
   reportTxHash: string;
-  // The exact Binance URL the attestor was asked to fetch + the wall-clock
-  // moment we built it. We later refetch this same URL ourselves so both
-  // sides see the same response body; `attestedAt` lets the caller decide
-  // whether the URL is still within Binance's 60s recvWindow.
-  url: string;
+  // The exact request the attestor was asked to make + the wall-clock moment
+  // we built it. We later replay this same request ourselves so both sides see
+  // the same response body.
+  request: UserFillsRequest;
   attestedAt: number;
+  // Salts behind the two SHA256_WITH_SALT commitments, read off the attesting
+  // SDK instance. They must be captured here because a later SDK instance
+  // cannot recover them.
+  fillsSalt: string;
+  addressSalt: string;
 }
+
+// Both commitments are salted. The address one keeps the account private; the
+// fills one has to be salted as well because Hyperliquid's response body is
+// publicly reproducible - an unsalted sha256(body) could be matched against
+// candidate addresses to work out whose proof this is.
+export interface PrimusCommitments {
+  // sha256(body || fillsSalt) over the raw response body.
+  fillsCommitment: string;
+  // sha256(user || addressSalt) over the request's `user` field.
+  addressCommitment: string;
+}
+
+// keyNames of the SHA256_WITH_SALT resolvers; Primus exposes each salt (and
+// the resulting commitment) under its keyName.
+const FILLS_COMMITMENT_KEY = 'fills_commitment';
+const ADDRESS_COMMITMENT_KEY = 'user_commitment';
 
 // What we persist in the task doc between worker runs. `attest` is
 // optional because the crash boundary might land between submit and
@@ -83,10 +104,23 @@ export async function submitPrimusTaskRaw(): Promise<PrimusSubmit> {
   };
 }
 
+// Reads the salt Primus generated for a SHA256_WITH_SALT resolver. It only
+// lives on the SDK instance that ran the attestation, so this must be called
+// before that instance is discarded.
+function readAttestSalt(primus: PrimusNetwork, taskId: string, keyName: string): string {
+  const salt: unknown = primus.getPrivateData(taskId, keyName);
+
+  if (typeof salt !== 'string' || salt.length === 0) {
+    throw new Error('attestation_salt_missing');
+  }
+
+  return salt;
+}
+
 export async function attestPrimusTask(
   primus: PrimusNetwork,
   submit: PrimusSubmit,
-  url: string,
+  request: UserFillsRequest,
 ): Promise<PrimusAttest> {
   const attestedAt = Date.now();
   const result = await primus.attest({
@@ -94,18 +128,31 @@ export async function attestPrimusTask(
     taskId: submit.taskId,
     taskTxHash: submit.taskTxHash,
     taskAttestors: submit.taskAttestors,
-    requests: [
-      {
-        url,
-        method: 'GET',
-        header: { 'X-MBX-APIKEY': env.BINANCE_API_KEY },
-        body: '',
-      },
-    ],
+    requests: [request],
     responseResolves: [
-      [{ keyName: 'fills_commitment', parseType: 'json', parsePath: '$', op: 'SHA256' }],
+      [
+        {
+          keyName: FILLS_COMMITMENT_KEY,
+          parseType: 'json',
+          parsePath: '$',
+          op: 'SHA256_WITH_SALT',
+        },
+        {
+          keyName: ADDRESS_COMMITMENT_KEY,
+          parseType: 'json',
+          parsePath: '^.user',
+          op: 'SHA256_WITH_SALT',
+        },
+      ],
     ],
     extendedParams: JSON.stringify({ attUrlOptimization: true }),
+    getAllJsonResponse: 'true',
+    // mpctls so the attestor never sees the request in the clear: the `user`
+    // field is the trading address, and the point of the salted commitments is
+    // that nobody but us learns it. proxytls would be cheaper but hands the
+    // attestor the plaintext. On chain the request is already stripped by
+    // attUrlOptimization (verified: url without query, empty header, empty
+    // body), so this only closes the attestor's view.
     attMode: { algorithmType: 'mpctls', resultType: 'cipher' },
   });
 
@@ -113,18 +160,25 @@ export async function attestPrimusTask(
   if (!reportTxHash) {
     throw new Error('attestation_report_missing');
   }
-  return { reportTxHash, url, attestedAt };
+
+  return {
+    reportTxHash,
+    request,
+    attestedAt,
+    fillsSalt: readAttestSalt(primus, submit.taskId, FILLS_COMMITMENT_KEY),
+    addressSalt: readAttestSalt(primus, submit.taskId, ADDRESS_COMMITMENT_KEY),
+  };
 }
 
-// Returns the on-chain-verified fillsCommitment (SHA256 of the Binance
-// response body). Everything else the attestor signs about the task is
-// already captured in the task contract's on-chain state; we only read
-// the one piece Noir needs.
+// Returns the on-chain-verified commitments the circuit consumes: the salted
+// hashes of the response body and of the request's `user` field.
+// Everything else the attestor signs about the task is already captured in
+// the task contract's on-chain state.
 export async function verifyPrimusTask(
   primus: PrimusNetwork,
   submit: PrimusSubmit,
   attest: PrimusAttest,
-): Promise<string> {
+): Promise<PrimusCommitments> {
   const raw = await primus.verifyAndPollTaskResult({
     taskId: submit.taskId,
     reportTxHash: attest.reportTxHash,
@@ -137,8 +191,10 @@ export async function verifyPrimusTask(
   if (typeof attestation.data !== 'string') throw new Error('invalid_attestation_payload');
 
   const attData = JSON.parse(attestation.data) as Record<string, unknown>;
-  const fillsCommitment = attData['SHA256($)'];
+  const fillsCommitment = attData[FILLS_COMMITMENT_KEY];
+  const addressCommitment = attData[ADDRESS_COMMITMENT_KEY];
   if (typeof fillsCommitment !== 'string') throw new Error('invalid_fills_commitment');
+  if (typeof addressCommitment !== 'string') throw new Error('invalid_address_commitment');
 
-  return fillsCommitment;
+  return { fillsCommitment, addressCommitment };
 }

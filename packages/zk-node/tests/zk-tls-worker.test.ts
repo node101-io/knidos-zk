@@ -68,8 +68,7 @@ function buildJob(taskId: string) {
       input: {
         startTime: new Date('2026-01-01T00:00:00.000Z'),
         endTime: new Date('2026-01-01T00:15:00.000Z'),
-        symbol: 'BTCUSDT',
-        proofType: 'binance-fills',
+        proofType: 'hyperliquid-fills',
         baseBalance: 100_000_000,
         threshold: 50_000_000,
       },

@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import { createTask } from '../db/task-helpers.js';
 import { env } from '../env.js';
 import { runZkTLSProcessor } from '../pipelines/zk-tls/processor.js';
-import type { NoirCircuitInput } from '../pipelines/types.js';
+import { PROOF_TYPE, type NoirCircuitInput } from '../pipelines/types.js';
 
 const FIXTURE_PATH = path.resolve('tests', 'fixtures', 'noir-circuit-input.json');
 
@@ -17,6 +17,10 @@ function toCompactFixture(input: NoirCircuitInput) {
   const rawFillsText = Buffer.from(input.rawFills.slice(0, input.rawFillsLength)).toString('utf8');
 
   return {
+    addressCommitment: input.addressCommitment,
+    address: input.address,
+    addressSalt: input.addressSalt,
+    fillsSalt: input.fillsSalt,
     fillsCommitment: input.fillsCommitment,
     rawFillsText,
     startTime: input.startTime,
@@ -33,8 +37,7 @@ const task = await createTask({
   input: {
     startTime: new Date(START_TIME),
     endTime: new Date(END_TIME),
-    symbol: 'BTCUSDT',
-    proofType: 'binance-fills',
+    proofType: PROOF_TYPE,
     baseBalance: 100000000,
     threshold: 50000000,
   },
@@ -43,7 +46,6 @@ const task = await createTask({
 const input = await runZkTLSProcessor(task._id.toString(), {
   startTime: new Date(START_TIME),
   endTime: new Date(END_TIME),
-  symbol: 'BTCUSDT',
   baseBalance: 100000000,
   threshold: 50000000,
 });

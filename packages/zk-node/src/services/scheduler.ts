@@ -1,7 +1,6 @@
 import { Cron } from 'croner';
 
 import { Task } from '../db/task.js';
-import { type SupportedBinanceSymbol } from '../shared/binance-symbols.js';
 
 import { env } from '../env.js';
 import { parseZkTLSJobInput } from '../pipelines/validation.js';
@@ -9,7 +8,6 @@ import { PROOF_TYPE } from '../pipelines/types.js';
 import { normalizeDateInput } from '../shared/date-utils.js';
 import logger from '../shared/logger.js';
 import {
-  getMissingSymbols,
   getSchedulerCronExpression,
   getWindowBounds,
   getWindowsToEnsure,
@@ -19,22 +17,20 @@ const DEFAULT_BASE_BALANCE = 100000000;
 const DEFAULT_THRESHOLD = 50000000;
 
 // Wait this long after the trading window closes before the master is
-// allowed to pick up the task. Binance's userTrades endpoint reads from
-// eventually-consistent replicas around the cutoff; without the settle
+// allowed to pick up the task. Hyperliquid's userFillsByTime endpoint reads
+// from eventually-consistent replicas around the cutoff; without the settle
 // window, the zk-node fetch and the Primus attestor fetch can land on
 // out-of-sync replicas and produce different response bodies — which
 // breaks the noir circuit's sha256(rawFills) == fillsCommitment check.
 const WINDOW_SETTLE_WAIT_MS = 5 * 60 * 1000;
 
-async function ensureZkTLSTask(
-  startTime: Date,
-  endTime: Date,
-  symbol: SupportedBinanceSymbol,
-): Promise<boolean> {
+// One task per window: userFillsByTime returns every coin the account traded
+// in the window in a single response, and the proof commits to that whole
+// body, so there is nothing to fan out over.
+async function ensureZkTLSTask(startTime: Date, endTime: Date): Promise<boolean> {
   const input = parseZkTLSJobInput({
     startTime,
     endTime,
-    symbol,
     proofType: PROOF_TYPE,
     baseBalance: DEFAULT_BASE_BALANCE,
     threshold: DEFAULT_THRESHOLD,
@@ -43,7 +39,6 @@ async function ensureZkTLSTask(
     type: 'zkTLS',
     'input.startTime': input.startTime,
     'input.endTime': input.endTime,
-    'input.symbol': input.symbol,
   } as const;
   const deferUntil = new Date(endTime.getTime() + WINDOW_SETTLE_WAIT_MS);
   const updateResult = await Task.updateOne(
@@ -71,35 +66,6 @@ async function ensureZkTLSTask(
   return false;
 }
 
-async function ensureWindowTasks(startTime: Date, endTime: Date): Promise<number> {
-  const existingTasks = await Task.find(
-    {
-      type: 'zkTLS',
-      'input.startTime': startTime,
-      'input.endTime': endTime,
-    },
-    {
-      input: 1,
-    },
-  ).lean();
-
-  const existingSymbols = existingTasks.flatMap((task) => {
-    const input = task.input as { symbol?: unknown };
-    return typeof input.symbol === 'string' ? [input.symbol] : [];
-  });
-  const missingSymbols = getMissingSymbols(existingSymbols, env.BINANCE_SYMBOLS);
-
-  let createdTasks = 0;
-
-  for (const symbol of missingSymbols) {
-    if (await ensureZkTLSTask(startTime, endTime, symbol)) {
-      createdTasks++;
-    }
-  }
-
-  return createdTasks;
-}
-
 async function catchUpMissedSlots(): Promise<void> {
   const { endTime: currentWindowEnd } = getWindowBounds(Date.now());
   const latestTask = await Task.findOne({ type: 'zkTLS' })
@@ -115,7 +81,9 @@ async function catchUpMissedSlots(): Promise<void> {
   let createdTasks = 0;
 
   for (const { startTime, endTime } of windowsToEnsure) {
-    createdTasks += await ensureWindowTasks(startTime, endTime);
+    if (await ensureZkTLSTask(startTime, endTime)) {
+      createdTasks++;
+    }
   }
 
   logger.info(

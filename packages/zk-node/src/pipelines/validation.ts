@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-import { SUPPORTED_BINANCE_SYMBOLS } from '../shared/binance-symbols.js';
 import { normalizeDateInput } from '../shared/date-utils.js';
 import { PROOF_TYPE } from './types.js';
 import type { NoirCircuitInput, NoirJobInput, ZkTLSJobInput, ZkVerifyJobInput } from './types.js';
@@ -10,10 +9,11 @@ type TaskInputRecord = Record<string, unknown>;
 
 const MAX_RAW_FILLS_LENGTH = 8192;
 const FIELD_PAIR_LENGTH = 2;
+const ADDRESS_STRING_LENGTH = 42;
+const SALT_LENGTH = 16;
 
 const byteSchema = z.number().int().min(0).max(255);
 const fieldStringSchema = z.string().min(1);
-const symbolSchema = z.enum(SUPPORTED_BINANCE_SYMBOLS);
 const dateInputSchema = z.preprocess((value) => normalizeDateInput(value) ?? value, z.date());
 
 function formatZodError(error: z.ZodError): string {
@@ -38,7 +38,6 @@ export const zkTLSJobInputSchema = z
   .object({
     startTime: dateInputSchema,
     endTime: dateInputSchema,
-    symbol: symbolSchema,
     proofType: z.literal(PROOF_TYPE).optional(),
     baseBalance: z.number().int(),
     threshold: z.number().int(),
@@ -47,7 +46,11 @@ export const zkTLSJobInputSchema = z
 
 export const noirCircuitInputSchema = z
   .object({
+    addressCommitment: z.array(fieldStringSchema).length(FIELD_PAIR_LENGTH),
     fillsCommitment: z.array(fieldStringSchema).length(FIELD_PAIR_LENGTH),
+    address: z.array(byteSchema).length(ADDRESS_STRING_LENGTH),
+    addressSalt: z.array(byteSchema).length(SALT_LENGTH),
+    fillsSalt: z.array(byteSchema).length(SALT_LENGTH),
     rawFills: z.array(byteSchema).length(MAX_RAW_FILLS_LENGTH),
     rawFillsLength: z.number().int().min(0).max(MAX_RAW_FILLS_LENGTH),
     startTime: z.number().int(),
@@ -60,7 +63,6 @@ export const noirCircuitInputSchema = z
 export const noirJobInputSchema = z
   .object({
     zkTLSTaskId: z.string().min(1),
-    symbol: symbolSchema,
     startTime: dateInputSchema,
     endTime: dateInputSchema,
     circuitInput: noirCircuitInputSchema,
@@ -70,7 +72,6 @@ export const noirJobInputSchema = z
 export const zkVerifyJobInputSchema = z
   .object({
     noirTaskId: z.string().min(1),
-    symbol: symbolSchema,
     startTime: dateInputSchema,
     endTime: dateInputSchema,
   })
@@ -83,7 +84,6 @@ export function parseZkTLSJobInput(input: unknown): ZkTLSJobInput {
     return {
       startTime: parsedInput.startTime,
       endTime: parsedInput.endTime,
-      symbol: parsedInput.symbol,
       baseBalance: parsedInput.baseBalance,
       threshold: parsedInput.threshold,
     };
@@ -92,7 +92,6 @@ export function parseZkTLSJobInput(input: unknown): ZkTLSJobInput {
   return {
     startTime: parsedInput.startTime,
     endTime: parsedInput.endTime,
-    symbol: parsedInput.symbol,
     proofType: parsedInput.proofType,
     baseBalance: parsedInput.baseBalance,
     threshold: parsedInput.threshold,

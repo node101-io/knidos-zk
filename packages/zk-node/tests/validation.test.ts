@@ -11,8 +11,7 @@ describe('pipeline validation', () => {
     const parsed = parseZkTLSJobInput({
       startTime: 1,
       endTime: 2,
-      symbol: 'BTCUSDT',
-      proofType: 'binance-fills',
+      proofType: 'hyperliquid-fills',
       baseBalance: 100,
       threshold: 50,
     });
@@ -26,10 +25,13 @@ describe('pipeline validation', () => {
   it('accepts noir job input with Date time values', () => {
     const parsed = parseNoirJobInput({
       zkTLSTaskId: 'task-1',
-      symbol: 'BTCUSDT',
       startTime: new Date(1),
       endTime: new Date(2),
       circuitInput: {
+        addressCommitment: ['3', '4'],
+        address: Array(42).fill(48),
+        addressSalt: Array(16).fill(0),
+        fillsSalt: Array(16).fill(1),
         fillsCommitment: ['1', '2'],
         rawFills: Array(8192).fill(0),
         rawFillsLength: 0,
@@ -39,8 +41,6 @@ describe('pipeline validation', () => {
         threshold: 50,
       },
     });
-
-    expect(parsed.symbol).toBe('BTCUSDT');
     expect(parsed.startTime).toBeInstanceOf(Date);
     expect(parsed.endTime).toBeInstanceOf(Date);
     expect(parsed.startTime.getTime()).toBe(1);
@@ -50,12 +50,9 @@ describe('pipeline validation', () => {
   it('accepts zkVerify job input with ISO string time values', () => {
     const parsed = parseZkVerifyJobInput({
       noirTaskId: 'task-2',
-      symbol: 'ETHUSDT',
       startTime: '1970-01-01T00:00:00.010Z',
       endTime: '1970-01-01T00:00:00.020Z',
     });
-
-    expect(parsed.symbol).toBe('ETHUSDT');
     expect(parsed.startTime).toBeInstanceOf(Date);
     expect(parsed.endTime).toBeInstanceOf(Date);
     expect(parsed.startTime.getTime()).toBe(10);
@@ -67,10 +64,13 @@ describe('pipeline validation', () => {
       parseNoirJobInput({
         zkTLSTaskId: 'task-1',
         batchId: 'legacy-batch',
-        symbol: 'BTCUSDT',
         startTime: 1,
         endTime: 2,
         circuitInput: {
+          addressCommitment: ['3', '4'],
+          address: Array(42).fill(48),
+          addressSalt: Array(16).fill(0),
+          fillsSalt: Array(16).fill(1),
           fillsCommitment: ['1', '2'],
           rawFills: Array(8192).fill(0),
           rawFillsLength: 0,
@@ -86,7 +86,6 @@ describe('pipeline validation', () => {
       parseZkVerifyJobInput({
         noirTaskId: 'task-2',
         batchId: 'legacy-batch',
-        symbol: 'ETHUSDT',
         startTime: 10,
         endTime: 20,
       }),

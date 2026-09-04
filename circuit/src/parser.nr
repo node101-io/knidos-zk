@@ -6,22 +6,37 @@ global DECIMAL_SCALE: i64 = 100000000;
 global MAX_FRACTION_DIGITS: u32 = 8;
 global MAX_INTEGER_DIGITS: u32 = 10;
 
-fn isAllowedSymbol(symbol: BoundedVec<u8, 16>) -> bool {
-  let btc = BoundedVec::from_array("BTCUSDT".as_bytes());
-  let eth = BoundedVec::from_array("ETHUSDT".as_bytes());
-  let sol = BoundedVec::from_array("SOLUSDT".as_bytes());
-  let xrp = BoundedVec::from_array("XRPUSDT".as_bytes());
-  let bnb = BoundedVec::from_array("BNBUSDT".as_bytes());
-  let link = BoundedVec::from_array("LINKUSDT".as_bytes());
+fn isAllowedCoin(coin: BoundedVec<u8, 16>) -> bool {
+  let btc = BoundedVec::from_array("BTC".as_bytes());
+  let eth = BoundedVec::from_array("ETH".as_bytes());
+  let sol = BoundedVec::from_array("SOL".as_bytes());
+  let xrp = BoundedVec::from_array("XRP".as_bytes());
+  let bnb = BoundedVec::from_array("BNB".as_bytes());
+  let link = BoundedVec::from_array("LINK".as_bytes());
 
-  let is_btc: bool = symbol == btc;
-  let is_eth: bool = symbol == eth;
-  let is_sol: bool = symbol == sol;
-  let is_xrp: bool = symbol == xrp;
-  let is_bnb: bool = symbol == bnb;
-  let is_link: bool = symbol == link;
+  let is_btc: bool = coin == btc;
+  let is_eth: bool = coin == eth;
+  let is_sol: bool = coin == sol;
+  let is_xrp: bool = coin == xrp;
+  let is_bnb: bool = coin == bnb;
+  let is_link: bool = coin == link;
 
   is_btc | is_eth | is_sol | is_xrp | is_bnb | is_link
+}
+
+// `closedPnl` is always quoted in USDC, but `fee` is charged in whatever
+// `feeToken` names -- measured on mainnet as USDC 99.6% / USDE 0.4% for perps,
+// and in the traded asset (e.g. HYPE) for spot. Subtracting a fee denominated
+// in anything but a dollar-pegged token would mix units, so the fill is only
+// treated as valid when feeToken is one we know sits at $1.
+fn isDollarPeggedFeeToken(feeToken: BoundedVec<u8, 16>) -> bool {
+  let usdc = BoundedVec::from_array("USDC".as_bytes());
+  let usde = BoundedVec::from_array("USDE".as_bytes());
+
+  let is_usdc: bool = feeToken == usdc;
+  let is_usde: bool = feeToken == usde;
+
+  is_usdc | is_usde
 }
 
 fn isValidTime(time: u64, min_time: u64, max_time: u64) -> bool {
@@ -133,16 +148,21 @@ pub fn stringToSignedInteger1e8(string: BoundedVec<u8, 16>) -> (i64, bool) {
   (totalNumber, valid)
 }
 
-pub fn calculateChecksum(fill: JSON8kb) -> (i64, bool){
-  let realizedPnlString: Option<BoundedVec<u8, 16>> = fill.get_string("realizedPnl".as_bytes());
-  let commissionString: Option<BoundedVec<u8, 16>> = fill.get_string("commission".as_bytes());
-  let hasRealizedPnl = realizedPnlString.is_some();
-  let hasCommission = commissionString.is_some();
+pub fn calculateChecksum(fill: JSON8kb) -> (i64, bool) {
+  let closedPnlString: Option<BoundedVec<u8, 16>> = fill.get_string("closedPnl".as_bytes());
+  let feeString: Option<BoundedVec<u8, 16>> = fill.get_string("fee".as_bytes());
+  let feeTokenString: Option<BoundedVec<u8, 16>> = fill.get_string("feeToken".as_bytes());
+  let hasClosedPnl = closedPnlString.is_some();
+  let hasFee = feeString.is_some();
+  let hasFeeToken = feeTokenString.is_some();
 
-  let (realizedPnlNumber, realizedPnlValid) = stringToSignedInteger1e8(realizedPnlString.unwrap_unchecked());
-  let (commissionNumber, commissionValid) = stringToSignedInteger1e8(commissionString.unwrap_unchecked());
-  let profit = realizedPnlNumber - commissionNumber;
-  let valid = hasRealizedPnl & hasCommission & realizedPnlValid & commissionValid;
+  let (closedPnlNumber, closedPnlValid) = stringToSignedInteger1e8(closedPnlString.unwrap_unchecked());
+  let (feeNumber, feeValid) = stringToSignedInteger1e8(feeString.unwrap_unchecked());
+  let feeTokenAllowed = isDollarPeggedFeeToken(feeTokenString.unwrap_unchecked());
+
+  let profit = closedPnlNumber - feeNumber;
+  let valid =
+    hasClosedPnl & hasFee & hasFeeToken & closedPnlValid & feeValid & feeTokenAllowed;
   (profit, valid)
 }
 
@@ -151,18 +171,18 @@ pub fn validateChecksum (baseBalance:i64, totalProfit: i64, threshold: i64) {
   assert(finalBalance > threshold);
 }
 
-pub fn validateTimeAndSymbolOneFill (fill: JSON8kb, min_time: u64, max_time: u64) -> bool {
-  let symbol: Option<BoundedVec<u8, 16>> = fill.get_string("symbol".as_bytes());
+pub fn validateTimeAndCoinOneFill(fill: JSON8kb, min_time: u64, max_time: u64) -> bool {
+  let coin: Option<BoundedVec<u8, 16>> = fill.get_string("coin".as_bytes());
   let time: Option<u64> = fill.get_number("time".as_bytes());
 
-  let hasSymbol = symbol.is_some();
+  let hasCoin = coin.is_some();
   let hasTime = time.is_some();
-  let symbolValue = symbol.unwrap_unchecked();
+  let coinValue = coin.unwrap_unchecked();
   let timeValue = time.unwrap_unchecked();
-  let symbolAllowed = isAllowedSymbol(symbolValue);
+  let coinAllowed = isAllowedCoin(coinValue);
   let timeValid = isValidTime(timeValue, min_time, max_time);
 
-  hasSymbol & hasTime & symbolAllowed & timeValid
+  hasCoin & hasTime & coinAllowed & timeValid
 }
 
 pub fn validateFills(
@@ -186,9 +206,9 @@ pub fn validateFills(
     let maybe_fill = json.get_object_from_array(i as Field);
     assert(maybe_fill.is_some() == slot_active);
     let fill = maybe_fill.unwrap_unchecked();
-    let timeAndSymbolValid = validateTimeAndSymbolOneFill(fill, min_time, max_time);
+    let timeAndCoinValid = validateTimeAndCoinOneFill(fill, min_time, max_time);
     let (oneFillChecksum, checksumValid) = calculateChecksum(fill);
-    let slotValid = timeAndSymbolValid & checksumValid;
+    let slotValid = timeAndCoinValid & checksumValid;
 
     assert((!slot_active) | slotValid);
     totalProfit += oneFillChecksum * (slot_active as u32 as i64);

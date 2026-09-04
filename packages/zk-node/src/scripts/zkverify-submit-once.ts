@@ -50,6 +50,10 @@ function normalizeFixture(rawFixture: unknown): unknown {
     typeof (rawFixture as { rawFillsText: unknown }).rawFillsText === 'string'
   ) {
     const fixture = rawFixture as {
+      addressCommitment: unknown;
+      address: unknown;
+      addressSalt: unknown;
+      fillsSalt: unknown;
       fillsCommitment: unknown;
       rawFillsText: string;
       startTime: unknown;
@@ -60,6 +64,10 @@ function normalizeFixture(rawFixture: unknown): unknown {
     const rawFills = Array.from(Buffer.from(fixture.rawFillsText, 'utf8'));
     const paddedRawFills = rawFills.concat(Array(8192 - rawFills.length).fill(0));
     return {
+      addressCommitment: fixture.addressCommitment,
+      address: fixture.address,
+      addressSalt: fixture.addressSalt,
+      fillsSalt: fixture.fillsSalt,
       fillsCommitment: fixture.fillsCommitment,
       rawFills: paddedRawFills,
       rawFillsLength: rawFills.length,
@@ -81,7 +89,6 @@ console.log(`[submit-once] network=${env.ZKVERIFY_NETWORK}`);
 console.log('[submit-once] generating proof via noir pipeline...');
 const noir = await runNoirProcessor(0, {
   zkTLSTaskId: 'submit-once',
-  symbol: 'BTCUSDT',
   startTime: new Date(fixture.startTime),
   endTime: new Date(fixture.endTime),
   circuitInput: fixture,
@@ -109,7 +116,10 @@ try {
   // non-printable bytes and truncate so the real reason stays readable.
   const message = error instanceof Error ? error.message : String(error);
   // eslint-disable-next-line no-control-regex
-  const clean = message.replace(/[^\x20-\x7E\n]/g, '').replace(/\s+/g, ' ').slice(0, 600);
+  const clean = message
+    .replace(/[^\x20-\x7E\n]/g, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, 600);
   console.error('[submit-once] FAILED:', clean);
 } finally {
   await mongoose.disconnect();

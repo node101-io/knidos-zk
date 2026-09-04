@@ -74,7 +74,6 @@ export async function processZkTLSJob(
 
   const parsedInput = parseZkTLSJobInput(input);
   ctx.set({
-    symbol: parsedInput.symbol,
     windowStart: parsedInput.startTime,
     windowEnd: parsedInput.endTime,
   });
@@ -125,7 +124,6 @@ export async function processZkTLSJob(
           type: 'noir',
           input: {
             zkTLSTaskId: taskId,
-            symbol: parsedInput.symbol,
             startTime: parsedInput.startTime,
             endTime: parsedInput.endTime,
             circuitInput: result.input,

@@ -1,6 +1,6 @@
 # knidos-zk
 
-Zero-knowledge proof pipeline for verifying Binance Futures trading data. Combines zkTLS attestation, Noir circuit proving, and on-chain verification via zkVerify.
+Zero-knowledge proof pipeline for verifying Hyperliquid perpetuals trading data. Combines zkTLS attestation, Noir circuit proving, and on-chain verification via zkVerify.
 
 ## Prerequisites
 
@@ -47,7 +47,13 @@ Copy the environment template and fill in the required values:
 cp .env.example .env
 ```
 
-The runtime expects Binance Futures API credentials and a `BINANCE_SYMBOLS` CSV list in `.env`. The scheduler runs on a configurable interval (default every 60 minutes via `ZKTLS_WINDOW_MINUTES`), always proofs the previous full window, and fans out one independent proof pipeline per configured symbol. Windows must divide one day evenly, so both hourly (`60`) and six-hour (`360`) schedules are supported. The internal proof type for that flow is `binance-fills`.
+The runtime expects `HYPERLIQUID_USER_ADDRESS` in `.env`; Hyperliquid's `POST /info` endpoint is public, so there is no API key or secret. The scheduler runs on a configurable interval (default every 60 minutes via `ZKTLS_WINDOW_MINUTES`) and always proofs the previous full window. `userFillsByTime` returns every coin the account traded in the window in a single response, and the proof commits to that whole body, so each window is exactly one task and one proof. Windows must divide one day evenly, so both hourly (`60`) and six-hour (`360`) schedules are supported. The internal proof type for that flow is `hyperliquid-fills`.
+
+Because the account is named by its address in the request body rather than by an API key, both commitments the circuit checks are salted, using `SHA256_WITH_SALT` on the Primus attestor side: `sha256(address || addressSalt)` ties the proof to the account without publishing the address, and `sha256(body || fillsSalt)` commits to the response. The fills commitment has to be salted too — Hyperliquid's data is public, so an unsalted `sha256(body)` could be matched against candidate addresses by replaying the same `userFillsByTime` request, which would reveal whose proof it is. The salts live only on the SDK instance that ran the attestation and are checkpointed on the task; the address itself never leaves the circuit's private inputs.
+
+Who can see the trading address: nobody but this node. The attestation runs in `mpctls` mode, so the Primus attestor never sees the request in the clear; on chain the Primus task record stores the request with an empty body and header (`attUrlOptimization`), and the only values it carries are the two salted commitments; the zkVerify proof exposes those same commitments plus the window bounds. Keep `PRIMUS_USER_ADDRESS` (the wallet that pays for attestations, public on chain as the task submitter) separate from `HYPERLIQUID_USER_ADDRESS`, or the two are trivially linked.
+
+Capacity note: the whole-window response has to fit the circuit's 8 KB buffer, which is roughly 22 fills per window at the ~368-byte perp fill size measured on mainnet. A window whose response exceeds the buffer fails rather than being silently truncated; shortening `ZKTLS_WINDOW_MINUTES` is the lever if that happens.
 
 `zkTLS` uses Primus-aware backpressure. The runtime defers tasks when Primus capacity is constrained and reclaims fees from timed-out tasks only when the backlog justifies the settlement gas.
 
@@ -125,13 +131,13 @@ Make sure the server's public IP is whitelisted in Atlas Network Access.
 
 `success-monitor` checks pipeline success counts when it starts and once every 24 hours
 after that. Its policy follows the scheduler configuration: the lookback is twice
-`ZKTLS_WINDOW_MINUTES`, and the minimum success count for each pipeline is the number
-of configured `BINANCE_SYMBOLS`. If any pipeline is below the threshold, it sends one
+`ZKTLS_WINDOW_MINUTES`, and the minimum success count for each pipeline is one, since a
+window is a single proof. If any pipeline is below the threshold, it sends one
 notification through Apprise. Healthy checks are only logged.
 
-With six symbols and a 360-minute window, this means at least 6 successes per pipeline
-in the rolling 12-hour window. Switching the scheduler window automatically updates
-the monitoring window on the next monitor restart.
+With a 360-minute window, this means at least 1 success per pipeline in the rolling
+12-hour window. Switching the scheduler window automatically updates the monitoring
+window on the next monitor restart.
 
 The monitor uses the existing Apprise deployment. Configure its exact notify endpoint
 in the gitignored `.env`. If Apprise stores the mail destination under a key, include
@@ -277,7 +283,7 @@ pnpm build       # type-checks the package via tsc
 pnpm test
 ```
 
-`pnpm test` runs circuit compilation, proof generation and local verification. It uses the same runtime env contract, so the required Binance and zkVerify variables must be present before running it.
+`pnpm test` runs circuit compilation, proof generation and local verification. It uses the same runtime env contract, so the required Hyperliquid, Primus and zkVerify variables must be present before running it.
 
 ## Scripts
 

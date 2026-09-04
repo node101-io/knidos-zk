@@ -48,21 +48,19 @@ export function renderNodeStatus(
           <tr>
             <th>taskId</th>
             <th>pipeline</th>
-            <th>symbol</th>
             <th>endTime</th>
             <th>deferReason</th>
             <th>deferUntil</th>
           </tr>
           {deferredTasks.length === 0 ? (
             <tr>
-              <td colspan={6}>none</td>
+              <td colspan={5}>none</td>
             </tr>
           ) : (
             deferredTasks.map((task) => (
               <tr>
                 <td>{task.taskId}</td>
                 <td>{task.type}</td>
-                <td>{task.symbol ?? '-'}</td>
                 <td>{task.endTime?.toISOString() ?? '-'}</td>
                 <td>{task.deferReason ?? '-'}</td>
                 <td>{task.deferUntil?.toISOString() ?? '-'}</td>

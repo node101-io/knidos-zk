@@ -1,11 +1,8 @@
 import mongoose, { Schema, type Types } from 'mongoose';
 
-import { SUPPORTED_BINANCE_SYMBOLS, type SupportedBinanceSymbol } from '../shared/binance-symbols.js';
-
 export interface VerificationRecordInterface {
   zkVerifyTaskId: Types.ObjectId;
   noirTaskId: Types.ObjectId;
-  symbol: SupportedBinanceSymbol;
   startTime: Date;
   endTime: Date;
 
@@ -30,12 +27,6 @@ const VerificationRecordSchema = new Schema<VerificationRecordInterface>(
     noirTaskId: {
       type: Schema.Types.ObjectId,
       required: true,
-      index: true,
-    },
-    symbol: {
-      type: String,
-      required: true,
-      enum: SUPPORTED_BINANCE_SYMBOLS,
       index: true,
     },
     startTime: {

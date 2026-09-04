@@ -5,10 +5,9 @@ import { createEnv } from '@t3-oss/env-core';
 import { utils as ethersUtils } from 'ethers';
 import { z } from 'zod';
 
-import { DEFAULT_BINANCE_SYMBOLS, binanceSymbolsSchema } from './shared/binance-symbols.js';
 import { zkTLSWindowMinutesSchema } from './shared/scheduler-config.js';
 
-const DEFAULT_BINANCE_API_URL = 'https://fapi.binance.com';
+const DEFAULT_HYPERLIQUID_API_URL = 'https://api.hyperliquid.xyz/info';
 const DEFAULT_RPC_URL = 'https://sepolia.base.org';
 const DEFAULT_MONGO_URI = 'mongodb://127.0.0.1:27017/node101-knidos-zk-trade';
 const DEFAULT_REDIS_HOST = '127.0.0.1';
@@ -34,10 +33,11 @@ export const env = createEnv({
     PRIMUS_USER_ADDRESS: z
       .string()
       .refine(ethersUtils.isAddress, 'PRIMUS_USER_ADDRESS must be a valid EVM address'),
-    BINANCE_API_URL: z.url().default(DEFAULT_BINANCE_API_URL),
-    BINANCE_API_KEY: z.string().min(1, 'BINANCE_API_KEY cannot be empty'),
-    BINANCE_API_SECRET: z.string().min(1, 'BINANCE_API_SECRET cannot be empty'),
-    BINANCE_SYMBOLS: binanceSymbolsSchema.default(DEFAULT_BINANCE_SYMBOLS),
+    // /info is public: no key or secret, the account is named by its address.
+    HYPERLIQUID_API_URL: z.url().default(DEFAULT_HYPERLIQUID_API_URL),
+    HYPERLIQUID_USER_ADDRESS: z
+      .string()
+      .refine(ethersUtils.isAddress, 'HYPERLIQUID_USER_ADDRESS must be a valid EVM address'),
     ZKVERIFY_SEED_PHRASE: z.string().min(1, 'ZKVERIFY_SEED_PHRASE cannot be empty'),
     ZKVERIFY_NETWORK: z.enum(['volta', 'mainnet']).default('volta'),
     ZKVERIFY_DOMAIN_ID: z.coerce.number().int().nonnegative().optional(),

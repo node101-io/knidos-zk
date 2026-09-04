@@ -1,7 +1,7 @@
 import { collectErrorStrings } from '../utils/error.js';
 
 // Two distinct rate-limit signals can reach us:
-//   1. Binance's "Operation too frequent" forwarded through the attestor.
+//   1. Hyperliquid's "Operation too frequent" forwarded through the attestor.
 //   2. The Primus gateway's own "Too many requests..." response (returned
 //      with code "00000" — the SDK's generic failure code, so we have to
 //      key off the message text rather than the code).
@@ -39,7 +39,7 @@ const RPC_TRANSIENT_TOKENS = [
   'bad response',
   'timeout',
   'timed out',
-  'aborted', // AbortController timeout, e.g. Binance fetch hitting our 30s ceiling
+  'aborted', // AbortController timeout, e.g. Hyperliquid fetch hitting our 30s ceiling
   'econnreset',
   'econnrefused',
   'enotfound',
@@ -82,7 +82,7 @@ export type ZkTLSDeferReason =
   | 'primus_rate_limited'
   | 'primus_attestor_transient'
   | 'primus_rpc_transient'
-  | 'binance_response_invalid'
+  | 'hyperliquid_response_invalid'
   | 'primus_commitment_mismatch';
 
 export type ZkTLSErrorDecision = DeferredTaskDecision<ZkTLSDeferReason> | { action: 'fail' };

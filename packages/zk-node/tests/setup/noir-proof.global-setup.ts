@@ -30,6 +30,10 @@ function normalizeFixture(rawFixture: unknown): unknown {
     typeof (rawFixture as { rawFillsText: unknown }).rawFillsText === 'string'
   ) {
     const fixture = rawFixture as {
+      addressCommitment: unknown;
+      address: unknown;
+      addressSalt: unknown;
+      fillsSalt: unknown;
       fillsCommitment: unknown;
       rawFillsText: string;
       startTime: unknown;
@@ -41,6 +45,10 @@ function normalizeFixture(rawFixture: unknown): unknown {
     const paddedRawFills = rawFills.concat(Array(8192 - rawFills.length).fill(0));
 
     return {
+      addressCommitment: fixture.addressCommitment,
+      address: fixture.address,
+      addressSalt: fixture.addressSalt,
+      fillsSalt: fixture.fillsSalt,
       fillsCommitment: fixture.fillsCommitment,
       rawFills: paddedRawFills,
       rawFillsLength: rawFills.length,
@@ -70,7 +78,6 @@ export default async function setup(project: TestProject): Promise<void> {
 
   const result = await runNoirProcessor(0, {
     zkTLSTaskId: 'test',
-    symbol: 'BTCUSDT',
     startTime: new Date(fixture.startTime),
     endTime: new Date(fixture.endTime),
     circuitInput: fixture,

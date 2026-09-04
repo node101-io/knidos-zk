@@ -43,7 +43,6 @@ export async function processZkVerifyJob(
 
   const parsedInput = parseZkVerifyJobInput(input);
   ctx.set({
-    symbol: parsedInput.symbol,
     noirTaskId: parsedInput.noirTaskId,
     windowStart: parsedInput.startTime,
     windowEnd: parsedInput.endTime,
@@ -111,7 +110,6 @@ export async function processZkVerifyJob(
           {
             zkVerifyTaskId: task._id,
             noirTaskId: new mongoose.Types.ObjectId(parsedInput.noirTaskId),
-            symbol: parsedInput.symbol,
             startTime: parsedInput.startTime,
             endTime: parsedInput.endTime,
 

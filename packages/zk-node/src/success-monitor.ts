@@ -8,10 +8,7 @@ import { successMonitorEnv } from './success-monitor-env.js';
 
 const PIPELINES = ['zkTLS', 'noir', 'zkVerify'] as const;
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const policy = getSuccessMonitorPolicy(
-  successMonitorEnv.ZKTLS_WINDOW_MINUTES,
-  successMonitorEnv.BINANCE_SYMBOLS.length,
-);
+const policy = getSuccessMonitorPolicy(successMonitorEnv.ZKTLS_WINDOW_MINUTES);
 
 const logger = pino({
   base: { service: 'knidos-success-monitor', env: successMonitorEnv.NODE_ENV },
@@ -75,7 +72,6 @@ try {
       checkIntervalHours: 24,
       successLookbackMinutes: policy.lookbackMinutes,
       minimumSuccess: policy.minimumSuccess,
-      symbolCount: successMonitorEnv.BINANCE_SYMBOLS.length,
       windowMinutes: successMonitorEnv.ZKTLS_WINDOW_MINUTES,
     },
     '[success-monitor] started',

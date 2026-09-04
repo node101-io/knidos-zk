@@ -1,36 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_BINANCE_SYMBOLS, binanceSymbolsSchema } from '../src/shared/binance-symbols.js';
 import {
   ZKTLS_WINDOW_MS,
-  getMissingSymbols,
   getSchedulerCronExpression,
   getWindowBounds,
   getWindowBoundsFromEnd,
   getWindowsToEnsure,
 } from '../src/services/scheduler-utils.js';
-
-describe('binanceSymbolsSchema', () => {
-  it('parses a CSV symbol list', () => {
-    expect(binanceSymbolsSchema.parse('BTCUSDT,ETHUSDT,SOLUSDT')).toEqual([
-      'BTCUSDT',
-      'ETHUSDT',
-      'SOLUSDT',
-    ]);
-  });
-
-  it('rejects an empty symbol list', () => {
-    expect(() => binanceSymbolsSchema.parse('')).toThrow(/BINANCE_SYMBOLS cannot be empty/);
-  });
-
-  it('rejects duplicate symbols', () => {
-    expect(() => binanceSymbolsSchema.parse('BTCUSDT,BTCUSDT')).toThrow(/duplicates/);
-  });
-
-  it('rejects unsupported symbols', () => {
-    expect(() => binanceSymbolsSchema.parse('BTCUSDT,DOGEUSDT')).toThrow(/unsupported/);
-  });
-});
 
 describe('scheduler-utils', () => {
   it('computes the previous aligned window from wall-clock time', () => {
@@ -98,14 +74,5 @@ describe('scheduler-utils', () => {
     expect(getSchedulerCronExpression(60)).toBe('0 * * * *');
     expect(getSchedulerCronExpression(360)).toBe('0 */6 * * *');
     expect(getSchedulerCronExpression(1440)).toBe('0 0 * * *');
-  });
-
-  it('returns the configured symbols that do not have tasks yet', () => {
-    expect(getMissingSymbols(['BTCUSDT', 'XRPUSDT'], DEFAULT_BINANCE_SYMBOLS)).toEqual([
-      'ETHUSDT',
-      'SOLUSDT',
-      'BNBUSDT',
-      'LINKUSDT',
-    ]);
   });
 });

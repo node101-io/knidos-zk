@@ -1,13 +1,11 @@
 import { createHash } from 'crypto';
 
 import { Task } from '../../db/task.js';
-import { type SupportedBinanceSymbol } from '../../shared/binance-symbols.js';
 
 import { clearPrimusCheckpoint, setPrimusCheckpoint } from '../../db/task-helpers.js';
-import { env } from '../../env.js';
 import {
-  buildUserTradesUrl,
-  fetchRawFillsByUrl,
+  buildUserFillsRequest,
+  fetchRawFillsByRequest,
   type RawFills,
 } from '../../utils/fetch-raw-fills.js';
 import { bytes32ToField2DecStrings } from '../../utils/bytes32-to-field2-dec-strings.js';
@@ -16,7 +14,9 @@ import { padRawFills } from '../../utils/pad-raw-fills.js';
 import {
   attestPrimusTask,
   verifyPrimusTask,
+  type PrimusAttest,
   type PrimusCheckpoint,
+  type PrimusCommitments,
   type PrimusSubmit,
 } from '../../primus/task.js';
 import { primusClient } from '../../primus/client.js';
@@ -35,7 +35,6 @@ import type { NoirCircuitInput } from '../types.js';
 export interface ZkTLSProcessorInput {
   startTime: Date;
   endTime: Date;
-  symbol: SupportedBinanceSymbol;
   baseBalance: number;
   threshold: number;
 }
@@ -52,14 +51,12 @@ export type ZkTLSProcessorResult =
 // timeout is ~12s).
 const ATTEST_MAX_ATTEMPTS = 3;
 
-// A Primus attestation's URL embeds the Binance `timestamp`, and Binance
-// rejects requests where `timestamp` is more than `recvWindow` ms behind
-// server time (we use 60s). We re-attest if a cached attest result is older
-// than this cutoff so the refetch never runs into `-1021`.
-const ATTESTED_URL_MAX_AGE_MS = 50_000;
+// The circuit hashes a fixed 42-byte address string plus a 16-byte salt.
+const ADDRESS_STRING_LENGTH = 42;
+const SALT_LENGTH = 16;
 const BODY_PREVIEW_LENGTH = 512;
 
-type ZkTLSGuardDeferReason = 'binance_response_invalid' | 'primus_commitment_mismatch';
+type ZkTLSGuardDeferReason = 'hyperliquid_response_invalid' | 'primus_commitment_mismatch';
 
 export async function runZkTLSProcessor(
   taskId: string,
@@ -69,30 +66,29 @@ export async function runZkTLSProcessor(
   const endTimeMs = toTimestampMs(input.endTime);
 
   // The scheduler stages tasks as DEFERRED until 5 minutes past endTime
-  // (see services/scheduler.ts) so that by the time we get here, Binance's
+  // (see services/scheduler.ts) so that by the time we get here, Hyperliquid's
   // read replicas have settled and both fetches below see the same body.
-  const primusResult = await resumePrimusFlow(taskId, input.symbol, startTimeMs, endTimeMs);
+  const primusResult = await resumePrimusFlow(taskId, startTimeMs, endTimeMs);
   if (isDeferredTaskDecision(primusResult)) return primusResult;
 
-  const { fillsCommitment, url } = primusResult;
-  const rawFills = await fetchRawFillsByUrl(url, env.BINANCE_API_KEY);
-  const guardResult = await validateAttestedFills(taskId, rawFills, fillsCommitment);
+  const { commitments, attest } = primusResult;
+  const rawFills = await fetchRawFillsByRequest(attest.request);
+  const guardResult = await validateAttestedFills(taskId, rawFills, commitments, attest);
   if (guardResult !== true) return guardResult;
 
   return {
     action: 'completed',
-    input: buildNoirInput(fillsCommitment, rawFills, startTimeMs, endTimeMs, input),
+    input: buildNoirInput(commitments, attest, rawFills, startTimeMs, endTimeMs, input),
   };
 }
 
 interface PrimusFlowSuccess {
-  fillsCommitment: string;
-  url: string;
+  commitments: PrimusCommitments;
+  attest: PrimusAttest;
 }
 
 async function resumePrimusFlow(
   taskId: string,
-  symbol: SupportedBinanceSymbol,
   startTimeMs: number,
   endTimeMs: number,
 ): Promise<PrimusFlowSuccess | DeferredTaskDecision> {
@@ -115,28 +111,21 @@ async function resumePrimusFlow(
       await setPrimusCheckpoint(taskId, { submit });
     }
 
-    // A cached attest pins the URL we'll refetch from. If the URL's Binance
-    // `timestamp` is already older than the cutoff, the refetch would hit
-    // `-1021 Timestamp outside of recvWindow`; re-attest with a fresh URL.
+    // `primus` is a Mixed field, so a checkpoint from an older build may lack
+    // the request or a salt; anything incomplete is re-attested.
     let attest = submitFresh?.attest;
-    if (attest && Date.now() - attest.attestedAt > ATTESTED_URL_MAX_AGE_MS) {
+    if (!attest?.request || !attest.fillsSalt || !attest.addressSalt) {
       attest = undefined;
     }
 
     if (!attest) {
-      const url = buildUserTradesUrl(
-        env.BINANCE_API_URL,
-        env.BINANCE_API_SECRET,
-        symbol,
-        startTimeMs,
-        endTimeMs,
-      );
+      const request = buildUserFillsRequest(startTimeMs, endTimeMs);
       // A fresh SDK each attempt forces findFastestWs to re-run, so a
       // retry that targets a different attestor doesn't carry over any
       // cached pick from the previous one.
       const primus = await primusClient.sdk();
       try {
-        attest = await attestPrimusTask(primus, submit, url);
+        attest = await attestPrimusTask(primus, submit, request);
       } catch (err) {
         lastAttestError = err;
         if (attempt < ATTEST_MAX_ATTEMPTS && isAttestorTransport(err)) {
@@ -157,8 +146,8 @@ async function resumePrimusFlow(
     }
 
     const primus = await primusClient.sdk();
-    const fillsCommitment = await verifyPrimusTask(primus, submit, attest);
-    return { fillsCommitment, url: attest.url };
+    const commitments = await verifyPrimusTask(primus, submit, attest);
+    return { commitments, attest };
   }
 
   throw lastAttestError ?? new Error('attestation_retry_exhausted');
@@ -167,7 +156,8 @@ async function resumePrimusFlow(
 async function validateAttestedFills(
   taskId: string,
   rawFills: RawFills,
-  fillsCommitment: string,
+  commitments: PrimusCommitments,
+  attest: PrimusAttest,
 ): Promise<true | DeferredTaskDecision<ZkTLSGuardDeferReason>> {
   const rawBuffer = Buffer.from(rawFills);
   const bodyText = rawBuffer.toString('utf8');
@@ -179,8 +169,8 @@ async function validateAttestedFills(
   } catch {
     return deferAfterGuardFailure(
       taskId,
-      'binance_response_invalid',
-      guardError('binance_response_invalid', 'Binance userTrades response is not JSON', {
+      'hyperliquid_response_invalid',
+      guardError('hyperliquid_response_invalid', 'Hyperliquid userFills response is not JSON', {
         bodyPreview,
       }),
     );
@@ -189,22 +179,30 @@ async function validateAttestedFills(
   if (!Array.isArray(parsed)) {
     return deferAfterGuardFailure(
       taskId,
-      'binance_response_invalid',
-      guardError('binance_response_invalid', 'Binance userTrades response is not a JSON array', {
-        bodyPreview,
-      }),
+      'hyperliquid_response_invalid',
+      guardError(
+        'hyperliquid_response_invalid',
+        'Hyperliquid userFills response is not a JSON array',
+        { bodyPreview },
+      ),
     );
   }
 
-  const expectedCommitment = Buffer.from(hexToFixedBytes(fillsCommitment, 32)).toString('hex');
-  const actualCommitment = createHash('sha256').update(rawBuffer).digest('hex');
+  const expectedCommitment = Buffer.from(hexToFixedBytes(commitments.fillsCommitment, 32)).toString(
+    'hex',
+  );
+  // Mirror the attestor's SHA256_WITH_SALT: sha256(body || salt).
+  const actualCommitment = createHash('sha256')
+    .update(rawBuffer)
+    .update(hexToFixedBytes(attest.fillsSalt, SALT_LENGTH))
+    .digest('hex');
   if (actualCommitment !== expectedCommitment) {
     return deferAfterGuardFailure(
       taskId,
       'primus_commitment_mismatch',
       guardError(
         'primus_commitment_mismatch',
-        'Primus fills commitment does not match the fetched Binance response',
+        'Primus fills commitment does not match the fetched Hyperliquid response',
         { expectedCommitment, actualCommitment, rawFillsLength: rawFills.length, bodyPreview },
       ),
     );
@@ -235,16 +233,32 @@ function guardError(
 }
 
 function buildNoirInput(
-  fillsCommitment: string,
+  commitments: PrimusCommitments,
+  attest: PrimusAttest,
   rawFillsResponse: RawFills,
   startTimeMs: number,
   endTimeMs: number,
   input: ZkTLSProcessorInput,
 ): NoirCircuitInput {
-  const fillsCommitmentBytes = hexToFixedBytes(fillsCommitment, 32);
+  // Read the address back out of the attested request: this is the exact
+  // string the attestor hashed for addressCommitment, so it stays correct
+  // even if HYPERLIQUID_USER_ADDRESS changed since the attestation.
+  const addressBytes = Buffer.from(attest.request.body.user, 'utf8');
+  if (addressBytes.length !== ADDRESS_STRING_LENGTH) {
+    throw new Error(
+      `[zkTLS processor] expected a ${ADDRESS_STRING_LENGTH}-byte address string, got ${addressBytes.length}`,
+    );
+  }
+
   const padded = padRawFills(rawFillsResponse);
   return {
-    fillsCommitment: bytes32ToField2DecStrings(fillsCommitmentBytes),
+    addressCommitment: bytes32ToField2DecStrings(
+      hexToFixedBytes(commitments.addressCommitment, 32),
+    ),
+    fillsCommitment: bytes32ToField2DecStrings(hexToFixedBytes(commitments.fillsCommitment, 32)),
+    address: Array.from(addressBytes),
+    addressSalt: Array.from(hexToFixedBytes(attest.addressSalt, SALT_LENGTH)),
+    fillsSalt: Array.from(hexToFixedBytes(attest.fillsSalt, SALT_LENGTH)),
     rawFills: padded.padded,
     rawFillsLength: padded.length,
     startTime: startTimeMs,

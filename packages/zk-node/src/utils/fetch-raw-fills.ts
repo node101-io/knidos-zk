@@ -1,48 +1,57 @@
-import { createHmac } from 'crypto';
+import { env } from '../env.js';
 
 export type RawFills = Uint8Array;
 
 const TIMEOUT = 30_000;
 
-// Build the exact userTrades URL we want both Binance fetchers (zk-node and
-// the Primus attestor) to hit. Returning a plain string lets us share the
-// same `timestamp+signature` between both sides so they hit Binance with the
-// same auth context — and, in practice, hit the same read replica.
-export function buildUserTradesUrl(
-  apiUrl: string,
-  apiSecret: string,
-  symbol: string,
-  startTime: number,
-  endTime: number,
-): string {
-  const timestamp = Date.now();
-  const queryString = new URLSearchParams({
-    symbol,
-    startTime: String(startTime),
-    endTime: String(endTime),
-    recvWindow: '60000',
-    timestamp: String(timestamp),
-  }).toString();
-  const signature = createHmac('sha256', apiSecret).update(queryString).digest('hex');
-  return `${apiUrl}/fapi/v1/userTrades?${queryString}&signature=${signature}`;
+// The exact HTTP call the Primus attestor is asked to make and that we later
+// replay ourselves. Both sides must observe the same response body, since the
+// proof commits to sha256 of it. Kept as a plain object so the very same value
+// can be handed to the SDK and persisted in the task checkpoint.
+export interface UserFillsRequest {
+  url: string;
+  method: 'POST';
+  header: Record<string, string>;
+  body: {
+    type: 'userFillsByTime';
+    user: string;
+    startTime: number;
+    endTime: number;
+  };
 }
 
-// Issue the actual HTTP GET against a pre-built URL. Separated from URL
-// construction so we can hand the same URL to the Primus attestor and then
-// refetch it ourselves a beat later.
-export async function fetchRawFillsByUrl(url: string, apiKey: string): Promise<RawFills> {
+// The request carries no timestamp or signature, so once attested it never
+// goes stale and can be replayed whenever the worker resumes.
+export function buildUserFillsRequest(startTime: number, endTime: number): UserFillsRequest {
+  return {
+    url: env.HYPERLIQUID_API_URL,
+    method: 'POST',
+    header: { 'Content-Type': 'application/json' },
+    // The attestor hashes this exact `user` string for the address
+    // commitment, so the circuit must be handed the same casing.
+    body: {
+      type: 'userFillsByTime',
+      user: env.HYPERLIQUID_USER_ADDRESS,
+      startTime,
+      endTime,
+    },
+  };
+}
+
+export async function fetchRawFillsByRequest(request: UserFillsRequest): Promise<RawFills> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
   }, TIMEOUT);
 
   try {
-    const response = await fetch(url, {
-      method: 'GET',
+    const response = await fetch(request.url, {
+      method: request.method,
       headers: {
-        'X-MBX-APIKEY': apiKey,
         Accept: 'application/json',
+        ...request.header,
       },
+      body: JSON.stringify(request.body),
       signal: controller.signal,
     });
 
@@ -50,18 +59,4 @@ export async function fetchRawFillsByUrl(url: string, apiKey: string): Promise<R
   } finally {
     clearTimeout(timeoutId);
   }
-}
-
-// Backwards-compatible composition kept for callers that don't need to share
-// the URL with anyone else.
-export async function fetchRawFills(
-  apiUrl: string,
-  apiKey: string,
-  apiSecret: string,
-  symbol: string,
-  startTime: number,
-  endTime: number,
-): Promise<RawFills> {
-  const url = buildUserTradesUrl(apiUrl, apiSecret, symbol, startTime, endTime);
-  return fetchRawFillsByUrl(url, apiKey);
 }

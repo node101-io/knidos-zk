@@ -33,7 +33,6 @@ export async function processNoirJob(
 
   const parsedInput = parseNoirJobInput(input);
   ctx.set({
-    symbol: parsedInput.symbol,
     windowStart: parsedInput.startTime,
     windowEnd: parsedInput.endTime,
     zkTLSTaskId: parsedInput.zkTLSTaskId,
@@ -70,7 +69,6 @@ export async function processNoirJob(
           type: 'zkVerify',
           input: {
             noirTaskId: taskId,
-            symbol: parsedInput.symbol,
             startTime: parsedInput.startTime,
             endTime: parsedInput.endTime,
           },

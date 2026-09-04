@@ -1,5 +1,4 @@
 import { env } from '../env.js';
-import type { SupportedBinanceSymbol } from '../shared/binance-symbols.js';
 import { parseDateInput, toTimestampMs } from '../shared/date-utils.js';
 
 export const ZKTLS_WINDOW_MS = env.ZKTLS_WINDOW_MINUTES * 60 * 1000;
@@ -61,12 +60,4 @@ export function getWindowsToEnsure(
   }
 
   return windows;
-}
-
-export function getMissingSymbols(
-  existingSymbols: Iterable<string>,
-  configuredSymbols: readonly SupportedBinanceSymbol[],
-): SupportedBinanceSymbol[] {
-  const existingSymbolSet = new Set(existingSymbols);
-  return configuredSymbols.filter((symbol) => !existingSymbolSet.has(symbol));
 }

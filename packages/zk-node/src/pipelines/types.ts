@@ -1,6 +1,4 @@
-import type { SupportedBinanceSymbol } from '../shared/binance-symbols.js';
-
-export const PROOF_TYPE = 'binance-fills';
+export const PROOF_TYPE = 'hyperliquid-fills';
 
 export type ProofType = typeof PROOF_TYPE;
 
@@ -16,10 +14,12 @@ export type ZkTlsJobName = 'zktls-process';
 export type NoirJobName = 'noir-process';
 export type ZkVerifyJobName = 'zkverify-process';
 
+// Hyperliquid's userFillsByTime returns every coin the account traded in the
+// window in one response, and the proof commits to that whole body - so a
+// window is exactly one task and there is no per-symbol fan-out.
 export interface ZkTLSJobInput {
   startTime: Date;
   endTime: Date;
-  symbol: SupportedBinanceSymbol;
   proofType?: ProofType;
   baseBalance: number;
   threshold: number;
@@ -29,8 +29,15 @@ export interface ZkTLSJobData {
   input: ZkTLSJobInput;
 }
 
+// Both commitments are salted (see primus/task.ts): the address one keeps the
+// account private, and the fills one keeps a publicly reproducible response
+// body from being matched back to the address.
 export interface NoirCircuitInput {
+  addressCommitment: string[];
   fillsCommitment: string[];
+  address: number[];
+  addressSalt: number[];
+  fillsSalt: number[];
   rawFills: number[];
   rawFillsLength: number;
   startTime: number;
@@ -41,7 +48,6 @@ export interface NoirCircuitInput {
 
 export interface NoirJobInput {
   zkTLSTaskId: string;
-  symbol: SupportedBinanceSymbol;
   startTime: Date;
   endTime: Date;
   circuitInput: NoirCircuitInput;
@@ -54,7 +60,6 @@ export interface NoirJobData {
 
 export interface ZkVerifyJobInput {
   noirTaskId: string;
-  symbol: SupportedBinanceSymbol;
   startTime: Date;
   endTime: Date;
 }

@@ -1,4 +1,3 @@
-
 import { PrimusNetwork } from '@primuslabs/network-core-sdk';
 import { BigNumber } from 'ethers';
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
@@ -22,6 +21,7 @@ vi.mock('../src/primus/client.js', () => ({
 type PrimusMock = {
   attest: MockInstance;
   verifyAndPollTaskResult: MockInstance;
+  getPrivateData: MockInstance;
 };
 
 function buildPrimusMock(overrides: Partial<PrimusMock> = {}): PrimusMock & PrimusNetwork {
@@ -32,10 +32,11 @@ function buildPrimusMock(overrides: Partial<PrimusMock> = {}): PrimusMock & Prim
         attestor: '0xwinning-attestor',
         attestation: {
           recipient: '0xrecipient',
-          data: JSON.stringify({ 'SHA256($)': '0xdeadbeef' }),
+          data: JSON.stringify({ fills_commitment: '0xdeadbeef', user_commitment: '0xaddr' }),
         },
       },
     ]),
+    getPrivateData: vi.fn((_taskId: string, key: string) => `0xsalt-${key}`),
     ...overrides,
   };
   return base as PrimusMock & PrimusNetwork;
@@ -48,10 +49,24 @@ const submit = {
   submittedAt: 1,
 };
 
+const request = {
+  url: env.HYPERLIQUID_API_URL,
+  method: 'POST' as const,
+  header: { 'Content-Type': 'application/json' },
+  body: {
+    type: 'userFillsByTime' as const,
+    user: env.HYPERLIQUID_USER_ADDRESS,
+    startTime: 1,
+    endTime: 2,
+  },
+};
+
 const attest = {
   reportTxHash: '0xreport-tx',
-  url: 'https://test.binance/fapi/v1/userTrades?stub',
+  request,
   attestedAt: 1,
+  fillsSalt: '0xsalt-fills_commitment',
+  addressSalt: '0xsalt-user_commitment',
 };
 
 beforeEach(() => {
@@ -129,45 +144,52 @@ describe('submitPrimusTaskRaw', () => {
 });
 
 describe('attestPrimusTask', () => {
-  it('passes the supplied url through to the Primus SDK and echoes it back', async () => {
+  it('passes the request through to the Primus SDK and captures the salt', async () => {
     const primus = buildPrimusMock();
     vi.useFakeTimers();
     vi.setSystemTime(new Date(3_000));
     try {
       const { attestPrimusTask } = await import('../src/primus/task.js');
-      const url = `${env.BINANCE_API_URL}/fapi/v1/userTrades?symbol=BTCUSDT&signature=stub`;
-      const result = await attestPrimusTask(primus, submit, url);
+      const result = await attestPrimusTask(primus, submit, request);
 
       expect(primus.attest).toHaveBeenCalledTimes(1);
       const call = primus.attest.mock.calls[0]?.[0] as {
         taskId: string;
         taskTxHash: string;
         taskAttestors: string[];
-        requests: Array<{
-          url: string;
-          header: Record<string, string>;
-          method: string;
-          body: string;
-        }>;
-        responseResolves: unknown;
+        requests: unknown[];
+        responseResolves: Array<Array<{ keyName: string; parsePath: string; op?: string }>>;
         extendedParams?: string;
+        getAllJsonResponse?: string;
         attMode?: { algorithmType: string; resultType: string };
       };
       expect(call.taskId).toBe(submit.taskId);
       expect(call.taskTxHash).toBe(submit.taskTxHash);
       expect(call.taskAttestors).toEqual(submit.taskAttestors);
 
-      expect(call.requests[0]!.url).toBe(url);
-      expect(call.requests[0]!.method).toBe('GET');
-      expect(call.requests[0]!.header).toEqual({ 'X-MBX-APIKEY': env.BINANCE_API_KEY });
-      expect(call.requests[0]!.body).toBe('');
-      expect(call.responseResolves).toEqual([
-        [{ keyName: 'fills_commitment', parseType: 'json', parsePath: '$', op: 'SHA256' }],
+      expect(call.requests).toEqual([request]);
+      // Both resolvers are salted; the body one must be, since the body is
+      // publicly reproducible.
+      expect(call.responseResolves[0]?.map((resolve) => [resolve.parsePath, resolve.op])).toEqual([
+        ['$', 'SHA256_WITH_SALT'],
+        ['^.user', 'SHA256_WITH_SALT'],
       ]);
       expect(call.extendedParams).toBe(JSON.stringify({ attUrlOptimization: true }));
-      expect(call).not.toHaveProperty('getAllJsonResponse');
+      expect(call.getAllJsonResponse).toBe('true');
+      // mpctls keeps the request (and with it the trading address) hidden
+      // from the attestor.
       expect(call.attMode).toEqual({ algorithmType: 'mpctls', resultType: 'cipher' });
-      expect(result).toEqual({ reportTxHash: '0xreport-tx', url, attestedAt: 3_000 });
+      // The salts only exist on the attesting SDK instance, so they must be
+      // captured here rather than looked up later.
+      expect(primus.getPrivateData).toHaveBeenCalledWith(submit.taskId, 'fills_commitment');
+      expect(primus.getPrivateData).toHaveBeenCalledWith(submit.taskId, 'user_commitment');
+      expect(result).toEqual({
+        reportTxHash: '0xreport-tx',
+        request,
+        attestedAt: 3_000,
+        fillsSalt: '0xsalt-fills_commitment',
+        addressSalt: '0xsalt-user_commitment',
+      });
     } finally {
       vi.useRealTimers();
     }
@@ -177,14 +199,23 @@ describe('attestPrimusTask', () => {
     const primus = buildPrimusMock({ attest: vi.fn().mockResolvedValue([{}]) });
     const { attestPrimusTask } = await import('../src/primus/task.js');
 
-    await expect(attestPrimusTask(primus, submit, 'https://stub')).rejects.toThrow(
+    await expect(attestPrimusTask(primus, submit, request)).rejects.toThrow(
       'attestation_report_missing',
+    );
+  });
+
+  it('throws when the SDK exposes no salt for the address commitment', async () => {
+    const primus = buildPrimusMock({ getPrivateData: vi.fn().mockReturnValue(undefined) });
+    const { attestPrimusTask } = await import('../src/primus/task.js');
+
+    await expect(attestPrimusTask(primus, submit, request)).rejects.toThrow(
+      'attestation_salt_missing',
     );
   });
 });
 
 describe('verifyPrimusTask', () => {
-  it('polls with persisted ids and returns the fills commitment', async () => {
+  it('polls with persisted ids and returns both commitments', async () => {
     const primus = buildPrimusMock();
     const { verifyPrimusTask } = await import('../src/primus/task.js');
 
@@ -197,7 +228,7 @@ describe('verifyPrimusTask', () => {
     };
     expect(call.taskId).toBe(submit.taskId);
     expect(call.reportTxHash).toBe(attest.reportTxHash);
-    expect(result).toBe('0xdeadbeef');
+    expect(result).toEqual({ fillsCommitment: '0xdeadbeef', addressCommitment: '0xaddr' });
   });
 
   it('throws when the poll returns an empty list', async () => {

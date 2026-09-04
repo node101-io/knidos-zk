@@ -64,7 +64,7 @@ const TaskSchema = new Schema<TaskInterface>({
 });
 
 TaskSchema.index(
-  { type: 1, 'input.startTime': 1, 'input.endTime': 1, 'input.symbol': 1 },
+  { type: 1, 'input.startTime': 1, 'input.endTime': 1 },
   {
     unique: true,
     partialFilterExpression: {

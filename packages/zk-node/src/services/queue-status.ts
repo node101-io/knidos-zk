@@ -8,7 +8,6 @@ export type QueueStatusResult = Record<string, Record<string, number>>;
 export interface DeferredTaskResult {
   taskId: string;
   type: string;
-  symbol: string | null;
   endTime: Date | null;
   deferReason: string | null;
   deferUntil: Date | null;
@@ -89,7 +88,6 @@ export async function getDeferredTasks(limit = 20): Promise<DeferredTaskResult[]
       type: 1,
       deferReason: 1,
       deferUntil: 1,
-      'input.symbol': 1,
       'input.endTime': 1,
     },
   )
@@ -98,11 +96,10 @@ export async function getDeferredTasks(limit = 20): Promise<DeferredTaskResult[]
     .lean();
 
   return tasks.map((task) => {
-    const input = task.input as { symbol?: unknown; endTime?: unknown };
+    const input = task.input as { endTime?: unknown };
     return {
       taskId: task._id.toString(),
       type: task.type,
-      symbol: typeof input.symbol === 'string' ? input.symbol : null,
       endTime: input.endTime instanceof Date ? input.endTime : null,
       deferReason: typeof task.deferReason === 'string' ? task.deferReason : null,
       deferUntil: task.deferUntil instanceof Date ? task.deferUntil : null,
