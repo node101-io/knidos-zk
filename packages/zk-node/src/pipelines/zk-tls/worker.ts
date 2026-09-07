@@ -17,13 +17,19 @@ export const zkTLSQueue = new Queue('zkTLS-queue', { connection: redis });
 type TaskRecord = { _id: { toString(): string }; deferCount?: number | null };
 
 type Outcome =
-  | { kind: 'defer'; reason: string; deferUntil: Date; error: unknown }
+  | {
+      kind: 'defer';
+      reason: string;
+      deferUntil: Date;
+      error: unknown;
+      consumesDeferBudget: boolean;
+    }
   | { kind: 'fail'; error: unknown };
 
 async function recordOutcome(task: TaskRecord, outcome: Outcome, ctx: TaskEventCtx): Promise<void> {
   const taskId = task._id.toString();
   if (outcome.kind === 'defer') {
-    const deferCount = (task.deferCount ?? 0) + 1;
+    const deferCount = (task.deferCount ?? 0) + (outcome.consumesDeferBudget ? 1 : 0);
     await updateTaskStatus({
       taskId,
       status: 'DEFERRED',
@@ -93,6 +99,7 @@ export async function processZkTLSJob(
             reason: decision.reason,
             deferUntil: decision.deferUntil,
             error: decision.sourceError ?? error,
+            consumesDeferBudget: decision.consumesDeferBudget,
           }
         : { kind: 'fail', error },
       ctx,
@@ -108,6 +115,7 @@ export async function processZkTLSJob(
         reason: result.reason,
         deferUntil: result.deferUntil,
         error: result.sourceError ?? result,
+        consumesDeferBudget: result.consumesDeferBudget,
       },
       ctx,
     );

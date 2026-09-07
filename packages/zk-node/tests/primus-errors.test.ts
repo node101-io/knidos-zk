@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { classifyError, decideZkTLSError } from '../src/primus/errors.js';
+import { AttestationChildError, classifyError, decideZkTLSError } from '../src/primus/errors.js';
 import { PermanentTaskError } from '../src/utils/error.js';
 
 describe('decideZkTLSError', () => {
@@ -26,6 +26,7 @@ describe('decideZkTLSError', () => {
       reason: 'primus_attestor_transient',
       deferUntil: new Date('2026-04-23T00:01:00.000Z'),
       sourceError: error,
+      consumesDeferBudget: true,
     });
   });
 
@@ -50,6 +51,7 @@ describe('decideZkTLSError', () => {
       reason: 'primus_rpc_transient',
       deferUntil: new Date('2026-04-23T00:01:00.000Z'),
       sourceError: error,
+      consumesDeferBudget: true,
     });
   });
 
@@ -80,10 +82,14 @@ describe('decideZkTLSError', () => {
       reason: 'primus_rpc_transient',
       deferUntil: new Date('2026-04-23T00:01:00.000Z'),
       sourceError: error,
+      consumesDeferBudget: true,
     });
   });
 
-  it('classifies the Primus gateway "Too many requests" response as rate-limited', () => {
+  it('treats the SDK\'s code 00000 as "attestation could not start", not as rate limiting', () => {
+    // ZkAttestationError('00000'): the native addon's getAttestation()
+    // returned a non-zero retcode. The SDK labels it with a rate-limit
+    // message it did not observe, so backoff would be the wrong response.
     const error = {
       code: '00000',
       message: 'Too many requests. Please try again later.',
@@ -91,17 +97,54 @@ describe('decideZkTLSError', () => {
     };
 
     const decision = decideZkTLSError(error, {
-      currentDeferCount: 0,
+      currentDeferCount: 3,
+      now: () => Date.parse('2026-04-23T00:00:00.000Z'),
+    });
+
+    expect(classifyError(error)).toBe('primus_attest_start_failed');
+    expect(decision).toEqual({
+      action: 'defer',
+      reason: 'primus_attest_start_failed',
+      deferUntil: new Date('2026-04-23T00:01:00.000Z'),
+      sourceError: error,
+      consumesDeferBudget: true,
+    });
+  });
+
+  it('still backs off on a genuine upstream rate limit', () => {
+    const error = { status: 429, message: 'Too many requests' };
+
+    const decision = decideZkTLSError(error, {
+      currentDeferCount: 1,
       now: () => Date.parse('2026-04-23T00:00:00.000Z'),
     });
 
     expect(classifyError(error)).toBe('primus_rate_limited');
-    expect(decision).toEqual({
-      action: 'defer',
+    expect(decision).toMatchObject({
       reason: 'primus_rate_limited',
-      deferUntil: new Date('2026-04-23T00:00:30.000Z'),
-      sourceError: error,
+      deferUntil: new Date('2026-04-23T00:01:00.000Z'),
     });
+  });
+
+  it('waits on a killed or crashed attestation child without spending defer budget', () => {
+    for (const kind of ['timeout', 'crash'] as const) {
+      const error = new AttestationChildError(kind, `child ${kind}`);
+
+      expect(classifyError(error)).toBe('primus_attestor_unresponsive');
+      // Exempt from the defer cap: an attestor outage can outlast it.
+      expect(
+        decideZkTLSError(error, {
+          currentDeferCount: 50,
+          now: () => Date.parse('2026-04-23T00:00:00.000Z'),
+        }),
+      ).toEqual({
+        action: 'defer',
+        reason: 'primus_attestor_unresponsive',
+        deferUntil: new Date('2026-04-23T00:05:00.000Z'),
+        sourceError: error,
+        consumesDeferBudget: false,
+      });
+    }
   });
 
   it('keeps insufficient-funds failures terminal', () => {

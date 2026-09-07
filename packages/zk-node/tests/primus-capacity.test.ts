@@ -163,6 +163,7 @@ describe('submitWithCapacity — capacity decisions', () => {
       reason: 'primus_capacity_full_wait',
       deferUntil: new Date(1_776_538_412_000 + 900_000 + 15_000),
       sourceError: undefined,
+      consumesDeferBudget: true,
     });
   });
 
@@ -230,6 +231,7 @@ describe('submitWithCapacity — capacity decisions', () => {
       reason: 'primus_capacity_full_wait',
       deferUntil: new Date(1_776_538_412_000 + 900_000 + 15_000),
       sourceError: exhaustError,
+      consumesDeferBudget: true,
     });
   });
 

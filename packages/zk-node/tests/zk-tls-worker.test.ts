@@ -87,8 +87,9 @@ describe('processZkTLSJob', () => {
   it('marks rate-limited tasks as DEFERRED instead of FAILED', async () => {
     const task = buildTask();
     mockFindById.mockResolvedValue(task);
+    // Hyperliquid's throttle message, forwarded through the attestor.
     mockRunZkTLSProcessor.mockRejectedValue({
-      code: '00000',
+      code: '10001',
       message: 'Operation too frequent. Please try again later.',
     });
 
@@ -134,6 +135,48 @@ describe('processZkTLSJob', () => {
     );
   });
 
+  it('defers on the SDK\'s "attestation could not start" code without backoff', async () => {
+    const task = buildTask({ deferCount: 4 });
+    mockFindById.mockResolvedValue(task);
+    mockRunZkTLSProcessor.mockRejectedValue({
+      code: '00000',
+      message: 'Too many requests. Please try again later.',
+    });
+
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never, buildCtx());
+
+    expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        status: 'DEFERRED',
+        deferReason: 'primus_attest_start_failed',
+        deferCount: 5,
+      }),
+    );
+  });
+
+  it('does not spend defer budget on a wait the task is not responsible for', async () => {
+    const task = buildTask({ deferCount: 2 });
+    mockFindById.mockResolvedValue(task);
+    mockRunZkTLSProcessor.mockResolvedValue({
+      action: 'defer',
+      reason: 'primus_attestor_unresponsive',
+      deferUntil: new Date('2026-01-01T00:20:00.000Z'),
+      consumesDeferBudget: false,
+    });
+
+    await processZkTLSJob(0, buildJob(task._id.toString()) as never, buildCtx());
+
+    expect(mockUpdateTaskStatus).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        status: 'DEFERRED',
+        deferReason: 'primus_attestor_unresponsive',
+        deferCount: 2,
+      }),
+    );
+  });
+
   it('preserves explicit defer decisions from the capacity manager', async () => {
     const task = buildTask({ deferCount: 2 });
     mockFindById.mockResolvedValue(task);
@@ -141,6 +184,7 @@ describe('processZkTLSJob', () => {
       action: 'defer',
       reason: 'primus_capacity_full_wait',
       deferUntil: new Date('2026-01-01T00:20:00.000Z'),
+      consumesDeferBudget: true,
     });
 
     await processZkTLSJob(0, buildJob(task._id.toString()) as never, buildCtx());

@@ -57,6 +57,8 @@ Capacity note: a window can hold at most **16 fills**. The binding limit is the 
 
 `zkTLS` uses Primus-aware backpressure. The runtime defers tasks when Primus capacity is constrained and reclaims fees from timed-out tasks only when the backlog justifies the settlement gas.
 
+The attestation itself runs in a child process (`primus/attest-child.ts`) with a hard timeout. A hung MPC session or a native addon that exits the process therefore costs one attempt, not the daemon: the task is deferred as `primus_attestor_unresponsive` for 5 minutes, keeps its on-chain submit checkpoint so the retry costs no gas, and that wait does not count toward the defer cap. The SDK's `00000` error ("Too many requests", really "the addon could not start an attestation") is deferred on a flat delay rather than treated as rate limiting.
+
 For Base Sepolia reliability, keep `RPC_URL` as the primary endpoint and optionally set `RPC_FALLBACK_URLS` to a comma-separated list of secondary RPCs. Read-only JSON-RPC calls will fail over across that list on transient 429/5xx or transport errors; `eth_sendRawTransaction` stays pinned to the primary endpoint.
 
 Production logs go to `stdout` as JSON (one object per line) so they stay `jq`-filterable:

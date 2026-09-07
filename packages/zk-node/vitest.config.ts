@@ -34,6 +34,7 @@ export default defineConfig({
             'tests/primus-capacity.test.ts',
             'tests/primus-client.test.ts',
             'tests/primus-errors.test.ts',
+            'tests/attest-runner.test.ts',
             'tests/error-utils.test.ts',
             'tests/apprise.test.ts',
             'tests/scheduler-utils.test.ts',

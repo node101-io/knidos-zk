@@ -13,13 +13,13 @@ import { PermanentTaskError } from '../../utils/error.js';
 import { hexToFixedBytes } from '../../utils/hex-to-fixed-bytes.js';
 import { padRawFills } from '../../utils/pad-raw-fills.js';
 import {
-  attestPrimusTask,
   verifyPrimusTask,
   type PrimusAttest,
   type PrimusCheckpoint,
   type PrimusCommitments,
   type PrimusSubmit,
 } from '../../primus/task.js';
+import { runAttestationInChild } from '../../primus/attest-runner.js';
 import { primusClient } from '../../primus/client.js';
 import { submitWithCapacity } from '../../primus/capacity.js';
 import {
@@ -48,9 +48,10 @@ export type ZkTLSProcessorResult =
 // Per-worker-invocation budget for re-submitting on attestor transport
 // failures. Each retry burns one more on-chain submitTask gas (~13µETH
 // at our pinned fees) but forces the contract to pick a new attestor —
-// the only escape when the SDK's chosen attestor websocket is dead. 3
-// fits inside our 2-min worker lockDuration with margin (each attest
-// timeout is ~12s).
+// the only escape when the SDK's chosen attestor websocket is dead. The
+// attestation runs in a child process (see primus/attest-runner.ts) so
+// the daemon's event loop stays free and bullmq keeps renewing the job
+// lock; the worker's lockDuration does not bound these attempts.
 const ATTEST_MAX_ATTEMPTS = 3;
 
 // The circuit hashes a fixed 42-byte address string plus a 16-byte salt.
@@ -148,12 +149,8 @@ async function resumePrimusFlow(
 
     if (!attest) {
       const request = buildUserFillsRequest(startTimeMs, endTimeMs);
-      // A fresh SDK each attempt forces findFastestWs to re-run, so a
-      // retry that targets a different attestor doesn't carry over any
-      // cached pick from the previous one.
-      const primus = await primusClient.sdk();
       try {
-        attest = await attestPrimusTask(primus, submit, request);
+        attest = await runAttestationInChild({ submit, request });
       } catch (err) {
         lastAttestError = err;
         if (attempt < ATTEST_MAX_ATTEMPTS && isAttestorTransport(err)) {

@@ -2,11 +2,23 @@ import { PermanentTaskError, collectErrorStrings } from '../utils/error.js';
 
 // Two distinct rate-limit signals can reach us:
 //   1. Hyperliquid's "Operation too frequent" forwarded through the attestor.
-//   2. The Primus gateway's own "Too many requests..." response (returned
-//      with code "00000" — the SDK's generic failure code, so we have to
-//      key off the message text rather than the code).
+//   2. A genuine "Too many requests" from an upstream HTTP layer.
 // Both are transient and should defer with backoff, not fail.
+//
+// Not a rate limit, despite its message: the SDK's ZkAttestationError
+// code "00000". The SDK raises it whenever the native addon's
+// getAttestation() returns any retcode other than 0/2 and labels it with
+// ErrorCodeMAP["00000"] = "Too many requests. Please try again later.".
+// On 2026-09-05 that text was the only symptom of a wedged addon for 27h
+// and read as Primus throttling us. It is checked by code, before the
+// text tokens below, and deferred on a flat delay with no backoff.
 const RATE_LIMIT_TOKENS = ['operation too frequent', 'too many requests'] as const;
+const ATTEST_START_FAILED_CODE = '00000';
+// How long a task waits after its attestation child was killed or died.
+// The assigned attestor is not answering; the on-chain submit stays
+// checkpointed so a retry within taskTimeout costs no gas. Outages have
+// lasted hours, so this wait is exempt from MAX_DEFERS.
+const ATTESTOR_UNRESPONSIVE_DELAY_MS = 5 * 60_000;
 const RATE_LIMIT_DELAY_SECONDS = 30;
 const RATE_LIMIT_MAX_DELAY_SECONDS = 300;
 const TRANSIENT_RPC_DELAY_MS = 60_000;
@@ -71,15 +83,40 @@ const PERMANENT_FAILURE_TOKENS = [
   'replacement fee too low',
 ];
 
+// Raised by attest-runner.ts when the attestation child never reported:
+//   timeout — killed for exceeding its wall-clock budget
+//   crash   — exited (or never started) on its own; the native addon
+//             exits the process on some socket errors
+// Either way the attestor is not answering right now. (An SDK error
+// inside the child is rethrown as-is and classified as before.)
+export type AttestationChildFailure = 'timeout' | 'crash';
+
+export class AttestationChildError extends Error {
+  readonly kind: AttestationChildFailure;
+
+  constructor(kind: AttestationChildFailure, message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'AttestationChildError';
+    this.kind = kind;
+  }
+}
+
 export interface DeferredTaskDecision<Reason extends string = string> {
   action: 'defer';
   reason: Reason;
   deferUntil: Date;
   sourceError?: unknown;
+  // Whether this defer counts toward MAX_DEFERS. Error-driven defers do:
+  // a task that keeps erroring is stuck and should surface. A wait on an
+  // attestor that is not answering does not, or a long upstream outage
+  // would fail every queued window.
+  consumesDeferBudget: boolean;
 }
 
 export type ZkTLSDeferReason =
   | 'primus_rate_limited'
+  | 'primus_attest_start_failed'
+  | 'primus_attestor_unresponsive'
   | 'primus_attestor_transient'
   | 'primus_rpc_transient'
   | 'hyperliquid_response_invalid'
@@ -89,12 +126,16 @@ export type ZkTLSErrorDecision = DeferredTaskDecision<ZkTLSDeferReason> | { acti
 
 export type ErrorClass =
   | 'primus_rate_limited'
+  | 'primus_attest_start_failed'
+  | 'primus_attestor_unresponsive'
   | 'primus_attestor_transient'
   | 'primus_rpc_transient'
   | 'permanent'
   | 'unknown';
 
 export function classifyError(err: unknown): ErrorClass {
+  if (err instanceof AttestationChildError) return 'primus_attestor_unresponsive';
+  if (isPrimusAttestStartFailure(err)) return 'primus_attest_start_failed';
   if (isPrimusRateLimited(err)) return 'primus_rate_limited';
   if (isPermanentFailure(err)) return 'permanent';
   if (isAttestorTransport(err)) return 'primus_attestor_transient';
@@ -106,12 +147,14 @@ export function deferTaskDecision<Reason extends string>(args: {
   reason: Reason;
   deferUntil: Date;
   sourceError?: unknown;
+  consumesDeferBudget?: boolean;
 }): DeferredTaskDecision<Reason> {
   return {
     action: 'defer',
     reason: args.reason,
     deferUntil: args.deferUntil,
     sourceError: args.sourceError,
+    consumesDeferBudget: args.consumesDeferBudget ?? true,
   };
 }
 
@@ -131,15 +174,48 @@ function normalizedErrorText(error: unknown): string {
 }
 
 function isPrimusRateLimited(error: unknown): boolean {
+  if (isPrimusAttestStartFailure(error)) return false;
   const text = normalizedErrorText(error);
   return RATE_LIMIT_TOKENS.some((token) => text.includes(token));
 }
 
-export function collectErrorStatusCodes(err: unknown): number[] {
+function isPrimusAttestStartFailure(error: unknown): boolean {
+  return collectErrorFieldValues(error, new Set(['code'])).some(
+    (value) => value === ATTEST_START_FAILED_CODE,
+  );
+}
+
+// Every value stored under one of `keys` anywhere in the error graph,
+// depth-first. Errors are walked by own-property name so non-enumerable
+// fields (`cause`, ethers' `code`) are seen; plain objects by key.
+function collectErrorFieldValues(err: unknown, keys: ReadonlySet<string>): unknown[] {
   const seen = new Set<unknown>();
+  const values: unknown[] = [];
+
+  function visit(value: unknown): void {
+    if (value == null || seen.has(value) || typeof value !== 'object') return;
+
+    seen.add(value);
+    const names = value instanceof Error ? Object.getOwnPropertyNames(value) : Object.keys(value);
+    for (const key of names) {
+      const entry = (value as Record<string, unknown>)[key];
+      if (keys.has(key.toLowerCase())) {
+        values.push(entry);
+      }
+      visit(entry);
+    }
+  }
+
+  visit(err);
+  return values;
+}
+
+const STATUS_CODE_KEYS = new Set(['status', 'statuscode']);
+
+export function collectErrorStatusCodes(err: unknown): number[] {
   const values: number[] = [];
 
-  function add(value: unknown): void {
+  for (const value of collectErrorFieldValues(err, STATUS_CODE_KEYS)) {
     const parsed =
       typeof value === 'number'
         ? value
@@ -152,20 +228,6 @@ export function collectErrorStatusCodes(err: unknown): number[] {
     }
   }
 
-  function visit(value: unknown): void {
-    if (value == null || seen.has(value) || typeof value !== 'object') return;
-
-    seen.add(value);
-    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-      const normalizedKey = key.toLowerCase();
-      if (normalizedKey === 'status' || normalizedKey === 'statuscode') {
-        add(entry);
-      }
-      visit(entry);
-    }
-  }
-
-  visit(err);
   return values;
 }
 
@@ -223,12 +285,29 @@ export function decideZkTLSError(
     return { action: 'fail' };
   }
 
+  if (error instanceof AttestationChildError) {
+    return deferTaskDecision({
+      reason: 'primus_attestor_unresponsive',
+      deferUntil: new Date(now() + ATTESTOR_UNRESPONSIVE_DELAY_MS),
+      sourceError: error,
+      consumesDeferBudget: false,
+    });
+  }
+
   // Cap unbounded defer cycles. Tasks that have rotated through this
   // many error-driven defers are effectively stuck; failing them
   // bounds the queue and surfaces the issue. Capacity defers go
   // through a separate path and are not capped here.
   if (args.currentDeferCount >= MAX_DEFERS) {
     return { action: 'fail' };
+  }
+
+  if (isPrimusAttestStartFailure(error)) {
+    return deferTaskDecision({
+      reason: 'primus_attest_start_failed',
+      deferUntil: new Date(now() + getTransientRpcDelayMs()),
+      sourceError: error,
+    });
   }
 
   if (isPrimusRateLimited(error)) {
