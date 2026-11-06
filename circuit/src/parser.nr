@@ -10,22 +10,33 @@ global DECIMAL_SCALE: i64 = 100000000;
 global MAX_FRACTION_DIGITS: u32 = 8;
 global MAX_INTEGER_DIGITS: u32 = 10;
 
+// Hyperliquid perp names, matched byte for byte (so the `k` prefix of the
+// 1000x-denominated perps like kLUNC is significant). Beyond the majors, the
+// list covers every coin the proven account has traded on mainnet; a window
+// holding any other coin fails the proof.
 fn isAllowedCoin(coin: BoundedVec<u8, 16>) -> bool {
-  let btc = BoundedVec::from_array("BTC".as_bytes());
-  let eth = BoundedVec::from_array("ETH".as_bytes());
-  let sol = BoundedVec::from_array("SOL".as_bytes());
-  let xrp = BoundedVec::from_array("XRP".as_bytes());
-  let bnb = BoundedVec::from_array("BNB".as_bytes());
-  let link = BoundedVec::from_array("LINK".as_bytes());
-
-  let is_btc: bool = coin == btc;
-  let is_eth: bool = coin == eth;
-  let is_sol: bool = coin == sol;
-  let is_xrp: bool = coin == xrp;
-  let is_bnb: bool = coin == bnb;
-  let is_link: bool = coin == link;
-
-  is_btc | is_eth | is_sol | is_xrp | is_bnb | is_link
+  (coin == BoundedVec::from_array("BTC".as_bytes()))
+    | (coin == BoundedVec::from_array("ETH".as_bytes()))
+    | (coin == BoundedVec::from_array("SOL".as_bytes()))
+    | (coin == BoundedVec::from_array("XRP".as_bytes()))
+    | (coin == BoundedVec::from_array("BNB".as_bytes()))
+    | (coin == BoundedVec::from_array("LINK".as_bytes()))
+    | (coin == BoundedVec::from_array("ADA".as_bytes()))
+    | (coin == BoundedVec::from_array("AIXBT".as_bytes()))
+    | (coin == BoundedVec::from_array("ASTER".as_bytes()))
+    | (coin == BoundedVec::from_array("BANANA".as_bytes()))
+    | (coin == BoundedVec::from_array("DOGE".as_bytes()))
+    | (coin == BoundedVec::from_array("FET".as_bytes()))
+    | (coin == BoundedVec::from_array("kLUNC".as_bytes()))
+    | (coin == BoundedVec::from_array("kNEIRO".as_bytes()))
+    | (coin == BoundedVec::from_array("LIT".as_bytes()))
+    | (coin == BoundedVec::from_array("LTC".as_bytes()))
+    | (coin == BoundedVec::from_array("NOT".as_bytes()))
+    | (coin == BoundedVec::from_array("POPCAT".as_bytes()))
+    | (coin == BoundedVec::from_array("SKR".as_bytes()))
+    | (coin == BoundedVec::from_array("STABLE".as_bytes()))
+    | (coin == BoundedVec::from_array("STBL".as_bytes()))
+    | (coin == BoundedVec::from_array("ZORA".as_bytes()))
 }
 
 // `closedPnl` is always quoted in USDC, but `fee` is charged in whatever
